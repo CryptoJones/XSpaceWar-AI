@@ -326,9 +326,12 @@ func _apply(ship: SimShip, dt: float) -> void:
 			ship.in_fire = true
 
 	# Defensive mining: brawlers and opportunists drop one when an enemy is
-	# hot on their tail.
+	# hot on their tail — and timid pilots (low aggression) mine their escape
+	# route eagerly: chasing a coward through their breadcrumbs should hurt.
+	var timid := aggression <= 35
 	if ship.mines > 0 and ship.mine_cooldown <= 0.0 \
-			and (personality == Personality.BRAWLER or personality == Personality.OPPORTUNIST):
+			and (timid or personality == Personality.BRAWLER
+				or personality == Personality.OPPORTUNIST):
 		for other in world.ships:
 			if other.id == ship.id or not other.alive:
 				continue
@@ -336,7 +339,7 @@ func _apply(ship: SimShip, dt: float) -> void:
 				continue
 			var rel := other.pos - ship.pos
 			if rel.length() < 380.0 and rel.dot(ship.facing()) < -0.3 * rel.length():
-				if _rng.randf() < 0.04:
+				if _rng.randf() < (0.09 if timid else 0.04):
 					ship.in_mine = true
 				break
 

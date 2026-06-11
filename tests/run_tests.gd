@@ -30,6 +30,7 @@ func _initialize() -> void:
 	_test_pick_duel()
 	_test_bot_character()
 	_test_ai_temperament()
+	_test_timid_mining()
 	_test_mines()
 	_test_pickups()
 	_test_match_stats()
@@ -513,6 +514,29 @@ func _test_ai_temperament() -> void:
 	var want := Vector2(cos(timid._want_angle), sin(timid._want_angle))
 	_check("ai: aggression 1 flees from nearby ships", want.dot(away) > 0.4,
 		"dot=%.2f" % want.dot(away))
+
+func _test_timid_mining() -> void:
+	# A timid pilot (aggression 1) of a personality OUTSIDE the old
+	# brawler/opportunist gate mines its escape route when chased.
+	var w := SimWorld.new(SimConfig.from_seed(31337))
+	var runner := w.add_ship()
+	var chaser := w.add_ship()
+	runner.pos = Vector2(4000, 0)
+	runner.mines = 3
+	runner.spawn_grace = 0.0
+	chaser.spawn_grace = 0.0
+	var bot := BotController.new(w, runner.id, BotController.Difficulty.ACE,
+		BotController.Personality.SNIPER, 50, 1)
+	var dt := 1.0 / 60.0
+	for _i in range(600):
+		chaser.pos = runner.pos - runner.facing() * 200.0  # glued to the tail
+		chaser.vel = runner.vel
+		bot.update(dt)
+		w.step(dt)
+		if not w.mines.is_empty():
+			break
+	_check("ai: timid pilots mine their escape route", not w.mines.is_empty(),
+		"mines=%d after chase" % w.mines.size())
 
 func _test_mines() -> void:
 	var cfg := SimConfig.from_seed(11)
