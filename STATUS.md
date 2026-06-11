@@ -57,7 +57,12 @@ networked *Spacewar!* / `xspacewar`. Godot 4.6, Apache 2.0. Plan file:
   - `tests/scene_smoke.gd` — headless smoke test, boots main.tscn 300 frames: **PASSES**.
     All 14 sim tests still pass.
 - **GitHub**: repo created + pushed → https://github.com/CryptoJones/XSpaceWar-AI
-  (public, account CryptoJones, auth via `pass` entry `GH-YOLO/api-key`).
+  (public, account CryptoJones, auth via `pass` entry `GH-YOLO/api-key`;
+  `gh auth setup-git` done, so plain `git push` works).
+- **Nebraska tagline**: canonical line (`Proudly Made in Nebraska. Go Big Red! 🌽
+  https://xkcd.com/2347/`) is the README's literal last line + in the GitHub repo
+  description. It must NEVER appear inside the game/runtime UI (user corrected
+  this hard; OMI note `feedback-nebraska-footer` updated accordingly).
 
 ## KNOWN GAPS / NOTES
 - Visual run still unverified: X sockets :1024/:1025 exist but refuse connections; no
