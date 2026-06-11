@@ -73,8 +73,8 @@ godot --headless --path . --script res://tests/run_tests.gd
 
 ## Dedication
 
-Thank You to "JVL / Boxest" for all the nights we stayed up playing this game
-in Dickinson, Texas. HTMFPWOCBNOTDOD
+Thank You to "JVL / Boxest" for all the nights we stayed up playing Ron Fredrick's game
+in 90s-era Dickinson, Texas. HTMFPWOCBNOTDOD!
 
 ## License
 
