@@ -2,6 +2,23 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [1.5.0] — 2026-06-11
+
+### Added
+- **Solo practice flights**: Ships = 1 gives you the whole system alone —
+  learn the handling, gravity, mines, and boundary modes in peace.
+- **Boundary proximity warning**: in lethal-edge matches a pulsing red
+  "⚠ BOUNDARY" distance readout appears when the wall is within 2500u.
+- **Wrap slingshot feedback**: crossing the seam now plays a rising
+  doppler zip and a cyan speed-streak burst.
+- Replay browser entries show mode · pilots · duration.
+
+### Fixed
+- **Weak-GPU guard**: bottom-tier adapters (Intel UHD GT1-class,
+  software rasterizers) auto-disable HDR glow, which could stall the
+  driver and freeze the window; README documents the
+  `--rendering-method gl_compatibility` fallback.
+
 ## [1.4.0] — 2026-06-11
 
 ### Fixed
