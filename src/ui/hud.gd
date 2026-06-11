@@ -15,6 +15,7 @@ var _radar: Control
 var _arrows: Control
 var _respawn_label: Label
 var _final_board: Label
+var _debug_label: Label
 var _feed: Array[Dictionary] = []   ## {"t": text, "ttl": seconds}
 var _seen_tick := -1
 var _seen_gen := -1
@@ -61,6 +62,17 @@ func _ready() -> void:
 	_feed_label.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	_feed_label.position = Vector2(16, 14)
 	add_child(_feed_label)
+
+	_debug_label = _make_label(14, Color(0.5, 1.0, 0.6, 0.9))
+	_debug_label.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	_debug_label.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_debug_label.position = Vector2(16, -150)
+	_debug_label.visible = false
+	add_child(_debug_label)
+
+func set_debug(text: String) -> void:
+	_debug_label.visible = text != ""
+	_debug_label.text = text
 
 	_arrows = Control.new()
 	_arrows.set_anchors_preset(Control.PRESET_FULL_RECT)

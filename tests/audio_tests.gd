@@ -26,6 +26,11 @@ func _initialize() -> void:
 	_check("thrust loops cleanly", thrust.loop_mode == AudioStreamWAV.LOOP_FORWARD
 		and thrust.loop_end == thrust.data.size() / 2)
 
+	var ambient := SoundForge.ambient_loop()
+	_check("ambient: 16s looping drone synthesized",
+		ambient.data.size() == int(16.0 * SoundForge.RATE) * 2
+		and ambient.loop_mode == AudioStreamWAV.LOOP_FORWARD)
+
 	# Not silence and not clipping garbage: peak in a sane range.
 	var peak := 0
 	for i in range(0, boom.data.size(), 2):

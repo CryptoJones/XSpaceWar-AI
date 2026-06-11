@@ -43,6 +43,8 @@ var _credits_from_boot := false
 var _replays_panel: CanvasLayer
 var _replays_list: ItemList
 var _spec_check: CheckButton
+var _music_check: CheckButton
+var _debug_overlay := false
 var _keys_panel: CanvasLayer
 var _keybind_value_labels := {}    ## action -> Label showing the bound key
 var _keys_status: Label
@@ -194,6 +196,8 @@ func _process(dt: float) -> void:
 			_server_repr = "force"  # rebuild the merged list
 	if _menu.visible:
 		_refresh_server_list(dt)
+	if _debug_overlay:
+		hud.set_debug(_debug_text())
 
 # --------------------------------------------------------------------------
 # Menu
@@ -352,6 +356,11 @@ func _build_menu() -> void:
 	_fullscreen_check.text = "Fullscreen"
 	_fullscreen_check.toggled.connect(_on_fullscreen_toggled)
 	settings_row.add_child(_fullscreen_check)
+	_music_check = CheckButton.new()
+	_music_check.text = "Music"
+	_music_check.set_pressed_no_signal(true)
+	_music_check.toggled.connect(func(on: bool): view.set_music_enabled(on); _save_settings())
+	settings_row.add_child(_music_check)
 	var keys_btn := Button.new()
 	keys_btn.text = "KEYS…"
 	keys_btn.pressed.connect(_on_keys_pressed)
@@ -688,7 +697,11 @@ func _unhandled_input(event: InputEvent) -> void:
 			_replays_panel.visible = false
 			set_menu_visible(true)
 		return
-	if key_pressed and event.physical_keycode == KEY_ESCAPE:
+	if key_pressed and event.physical_keycode == KEY_F3:
+		_debug_overlay = not _debug_overlay
+		if not _debug_overlay:
+			hud.set_debug("")
+	elif key_pressed and event.physical_keycode == KEY_ESCAPE:
 		set_menu_visible(not _menu.visible)
 	elif pad_pressed and event.button_index == JOY_BUTTON_START:
 		set_menu_visible(not _menu.visible)
@@ -904,6 +917,7 @@ func _load_settings() -> void:
 		_stars_slider.set_value_no_signal(float(cfg.get_value("display", "stars", 50.0)))
 		_far_check.set_pressed_no_signal(bool(cfg.get_value("display", "far_stars", false)))
 		_record_check.set_pressed_no_signal(bool(cfg.get_value("replay", "record", false)))
+		_music_check.set_pressed_no_signal(bool(cfg.get_value("audio", "music", true)))
 		var binds_changed := false
 		for pair in BINDABLE:
 			var action := String(pair[0])
@@ -919,6 +933,7 @@ func _load_settings() -> void:
 	if _fullscreen_check.button_pressed and DisplayServer.get_name() != "headless":
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
 	_apply_sky()
+	view.set_music_enabled(_music_check.button_pressed)
 
 func _save_settings() -> void:
 	var cfg := ConfigFile.new()
@@ -929,9 +944,40 @@ func _save_settings() -> void:
 	cfg.set_value("display", "stars", _stars_slider.value)
 	cfg.set_value("display", "far_stars", _far_check.button_pressed)
 	cfg.set_value("replay", "record", _record_check.button_pressed)
+	cfg.set_value("audio", "music", _music_check.button_pressed)
 	for pair in BINDABLE:
 		cfg.set_value("keys", String(pair[0]), int(view.key_binds[String(pair[0])]))
 	cfg.save(SETTINGS_PATH)
+
+## F3 diagnostics: everything needed to pin down a bug report in one glance.
+func _debug_text() -> String:
+	var s := view.session
+	var lines: Array[String] = ["fps %d" % Engine.get_frames_per_second()]
+	if s.world != null:
+		var alive := 0
+		for sh in s.world.ships:
+			if sh.alive:
+				alive += 1
+		lines.append("tick %d  gen %d  alive %d/%d  torps %d  mines %d" % [s.world.tick,
+			s.generation, alive, s.world.ships.size(), s.world.torpedoes.size(),
+			s.world.mines.size()])
+		var human := s.human_ship()
+		if human != null:
+			lines.append("ship (%.0f, %.0f)  v %.0f u/s  alive=%s" % [human.pos.x,
+				human.pos.y, human.vel.length(), str(human.alive)])
+	lines.append(view.debug_summary())
+	var role := "solo"
+	if net_host != null:
+		role = "host: %d players%s" % [net_host.player_count(),
+			"" if net_host.room_code() == "" else "  room " + net_host.room_code()]
+	elif net_client != null:
+		role = "client: state %d%s" % [net_client.state,
+			"  (spectator)" if net_client.spectate else ""]
+	elif replay_player != null:
+		role = "replay: tick %d / %d  speed %.0fx" % [replay_player.session.world.tick,
+			replay_player.replay.final_tick, replay_player.speed]
+	lines.append(role + ("  paused" if view.sim_paused else ""))
+	return "\n".join(lines)
 
 func _teardown_net() -> void:
 	if net_host != null:

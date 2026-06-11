@@ -159,6 +159,15 @@ func _on_new_generation() -> void:
 	_bg_mat.set_shader_parameter("tint_a", Color.from_hsv(h1, 0.65, 0.35))
 	_bg_mat.set_shader_parameter("tint_b", Color.from_hsv(h2, 0.55, 0.30))
 
+func set_music_enabled(on: bool) -> void:
+	if _audio != null:
+		_audio.set_music_enabled(on)
+
+## One-line diagnostic snapshot for the F3 overlay.
+func debug_summary() -> String:
+	return "cam (%.0f, %.0f)  zoom %.2f  shake %.1f  vis x%.1f" \
+		% [_camera.position.x, _camera.position.y, _cam_zoom, _shake, _ship_vis_scale]
+
 ## Player display preferences (Settings menu): nebula 0..1, stars 0..1.5,
 ## far star layer on/off. Defaults match the shader's (black + near stars).
 func set_background_prefs(nebula: float, stars: float, far: bool) -> void:

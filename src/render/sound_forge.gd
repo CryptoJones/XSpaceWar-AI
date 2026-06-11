@@ -86,6 +86,37 @@ static func thrust_loop() -> AudioStreamWAV:
 		s[i] = s[i] / peak * 0.7
 	return _to_wav(s, true)
 
+## Ambient space drone: detuned low sines beating slowly against each other,
+## a drifting fifth, and a filtered-noise air swell — 16 seconds, seam-
+## crossfaded to loop forever. Played quietly under everything.
+static func ambient_loop() -> AudioStreamWAV:
+	var n := int(16.0 * RATE)
+	var s := PackedFloat32Array()
+	s.resize(n)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 909
+	var lp := 0.0
+	var a_noise := 1.0 - exp(-TAU * 240.0 / RATE)
+	for i in range(n):
+		var t := float(i) / RATE
+		var v := 0.30 * sin(TAU * 55.0 * t)
+		v += 0.22 * sin(TAU * 55.17 * t)                       # beats vs the root
+		v += 0.16 * sin(TAU * 82.41 * t + 0.4 * sin(TAU * 0.07 * t))
+		v += 0.12 * sin(TAU * 110.0 * t) * (0.6 + 0.4 * sin(TAU * 0.05 * t))
+		lp += ((rng.randf() * 2.0 - 1.0) - lp) * a_noise
+		v += lp * 0.10 * (0.5 + 0.5 * sin(TAU * 0.09 * t + 2.0))
+		s[i] = v * 0.6
+	var fade := int(1.0 * RATE)
+	for j in range(fade):
+		var w := float(j) / float(fade)
+		s[n - fade + j] = s[n - fade + j] * (1.0 - w) + s[j] * w
+	var peak := 0.0001
+	for i in range(n):
+		peak = maxf(peak, absf(s[i]))
+	for i in range(n):
+		s[i] = s[i] / peak * 0.55
+	return _to_wav(s, true)
+
 ## Match-won fanfare: a quick rising four-note arpeggio with a soft tail.
 static func fanfare() -> AudioStreamWAV:
 	var notes := [392.0, 523.25, 659.25, 783.99]  # G4 C5 E5 G5

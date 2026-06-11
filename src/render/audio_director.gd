@@ -14,6 +14,7 @@ var _hyper_s: AudioStreamWAV
 var _thrust_s: AudioStreamWAV
 var _fanfare_s: AudioStreamWAV
 var _ui_player: AudioStreamPlayer    ## non-positional (fanfare, future UI)
+var _music_player: AudioStreamPlayer ## looping ambient drone
 
 var _pool: Array[AudioStreamPlayer2D] = []
 var _pool_next := 0
@@ -28,6 +29,11 @@ func _ready() -> void:
 	_fanfare_s = SoundForge.fanfare()
 	_ui_player = AudioStreamPlayer.new()
 	add_child(_ui_player)
+	_music_player = AudioStreamPlayer.new()
+	_music_player.stream = SoundForge.ambient_loop()
+	_music_player.volume_db = -16.0
+	add_child(_music_player)
+	_music_player.play()
 	_rng.randomize()
 	for _i in range(POOL_SIZE):
 		var p := AudioStreamPlayer2D.new()
@@ -67,6 +73,12 @@ func update(dt: float, world: SimWorld) -> void:
 			var s := world.ship_by_id(int(sid))
 			if s != null:
 				p.position = s.pos + s.render_pos_offset
+
+func set_music_enabled(on: bool) -> void:
+	if on and not _music_player.playing:
+		_music_player.play()
+	elif not on and _music_player.playing:
+		_music_player.stop()
 
 ## Match-won jingle (non-positional).
 func play_fanfare() -> void:
