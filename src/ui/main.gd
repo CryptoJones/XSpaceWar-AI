@@ -141,11 +141,6 @@ func _build_menu() -> void:
 	_limit_spin.tooltip_text = "First to this score wins (0 = endless)"
 	box.add_child(_labelled("Score limit", _limit_spin))
 
-	var play := Button.new()
-	play.text = "PLAY — Skirmish vs AI"
-	play.pressed.connect(_on_play_pressed)
-	box.add_child(play)
-
 	var movie := Button.new()
 	movie.text = "WATCH — Movie Mode"
 	movie.pressed.connect(_on_movie_pressed)
@@ -263,10 +258,20 @@ func _build_menu() -> void:
 	sky_row.add_child(_far_check)
 	box.add_child(sky_row)
 
+	# Bottom row: QUIT on the left, PLAY (the primary action) on the right.
+	var bottom_row := HBoxContainer.new()
 	var quit := Button.new()
 	quit.text = "QUIT"
 	quit.pressed.connect(_on_quit_pressed)
-	box.add_child(quit)
+	bottom_row.add_child(quit)
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bottom_row.add_child(spacer)
+	var play := Button.new()
+	play.text = "PLAY — Skirmish vs AI"
+	play.pressed.connect(_on_play_pressed)
+	bottom_row.add_child(play)
+	box.add_child(bottom_row)
 
 	add_child(_menu)
 
