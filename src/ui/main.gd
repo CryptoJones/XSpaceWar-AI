@@ -28,6 +28,9 @@ var _relay_rooms: Array = []
 var _shown_room_code := ""
 var _vol_slider: HSlider
 var _fullscreen_check: CheckButton
+var _nebula_slider: HSlider
+var _stars_slider: HSlider
+var _far_check: CheckButton
 
 const SETTINGS_PATH := "user://settings.cfg"
 
@@ -228,6 +231,37 @@ func _build_menu() -> void:
 	_fullscreen_check.toggled.connect(_on_fullscreen_toggled)
 	settings_row.add_child(_fullscreen_check)
 	box.add_child(settings_row)
+
+	# Sky preferences — every backdrop layer is the player's call.
+	var sky_row := HBoxContainer.new()
+	var neb_label := Label.new()
+	neb_label.text = "Nebula"
+	sky_row.add_child(neb_label)
+	_nebula_slider = HSlider.new()
+	_nebula_slider.min_value = 0
+	_nebula_slider.max_value = 100
+	_nebula_slider.value = 0
+	_nebula_slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_nebula_slider.tooltip_text = "Colored nebula wisps (0 = pure black space)"
+	_nebula_slider.value_changed.connect(func(_v: float): _apply_sky(); _save_settings())
+	sky_row.add_child(_nebula_slider)
+	var stars_label := Label.new()
+	stars_label.text = "Stars"
+	sky_row.add_child(stars_label)
+	_stars_slider = HSlider.new()
+	_stars_slider.min_value = 0
+	_stars_slider.max_value = 100
+	_stars_slider.value = 50
+	_stars_slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_stars_slider.tooltip_text = "Background star brightness"
+	_stars_slider.value_changed.connect(func(_v: float): _apply_sky(); _save_settings())
+	sky_row.add_child(_stars_slider)
+	_far_check = CheckButton.new()
+	_far_check.text = "Far stars"
+	_far_check.tooltip_text = "Extra layer of large, slow distant stars"
+	_far_check.toggled.connect(func(_on: bool): _apply_sky(); _save_settings())
+	sky_row.add_child(_far_check)
+	box.add_child(sky_row)
 
 	var quit := Button.new()
 	quit.text = "QUIT"
@@ -461,23 +495,34 @@ func _on_fullscreen_toggled(on: bool) -> void:
 		DisplayServer.WINDOW_MODE_FULLSCREEN if on else DisplayServer.WINDOW_MODE_WINDOWED)
 	_save_settings()
 
+func _apply_sky() -> void:
+	view.set_background_prefs(_nebula_slider.value / 100.0,
+		_stars_slider.value / 100.0 * 1.5, _far_check.button_pressed)
+
 func _load_settings() -> void:
 	var cfg := ConfigFile.new()
 	if cfg.load(SETTINGS_PATH) == OK:
 		_vol_slider.set_value_no_signal(float(cfg.get_value("audio", "volume", 80.0)))
 		_fullscreen_check.set_pressed_no_signal(bool(cfg.get_value("video", "fullscreen", false)))
 		_relay_edit.text = String(cfg.get_value("net", "relay", _relay_edit.text))
+		_nebula_slider.set_value_no_signal(float(cfg.get_value("display", "nebula", 0.0)))
+		_stars_slider.set_value_no_signal(float(cfg.get_value("display", "stars", 50.0)))
+		_far_check.set_pressed_no_signal(bool(cfg.get_value("display", "far_stars", false)))
 	# Apply whatever we ended up with (defaults or loaded).
 	var v := _vol_slider.value
 	AudioServer.set_bus_volume_db(0, linear_to_db(maxf(0.0001, v / 100.0)) if v > 0.0 else -80.0)
 	if _fullscreen_check.button_pressed and DisplayServer.get_name() != "headless":
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
+	_apply_sky()
 
 func _save_settings() -> void:
 	var cfg := ConfigFile.new()
 	cfg.set_value("audio", "volume", _vol_slider.value)
 	cfg.set_value("video", "fullscreen", _fullscreen_check.button_pressed)
 	cfg.set_value("net", "relay", _relay_edit.text.strip_edges())
+	cfg.set_value("display", "nebula", _nebula_slider.value)
+	cfg.set_value("display", "stars", _stars_slider.value)
+	cfg.set_value("display", "far_stars", _far_check.button_pressed)
 	cfg.save(SETTINGS_PATH)
 
 func _teardown_net() -> void:

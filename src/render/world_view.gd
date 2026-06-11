@@ -123,9 +123,21 @@ func _on_new_generation() -> void:
 	_focus_timer = 0.0
 	if _audio != null:
 		_audio.reset()
-	# Re-seed the starfield per-arena so every match's sky is distinct.
+	# Re-seed the starfield per-arena so every match's sky is distinct, and
+	# pick per-arena nebula tints (only visible if the player enables nebula).
 	var s := session.world.config.seed
 	_bg_mat.set_shader_parameter("seed", float(absi(s) % 100000) * 0.001)
+	var h1 := float(absi(s) % 997) / 997.0
+	var h2 := wrapf(h1 + 0.35, 0.0, 1.0)
+	_bg_mat.set_shader_parameter("tint_a", Color.from_hsv(h1, 0.65, 0.35))
+	_bg_mat.set_shader_parameter("tint_b", Color.from_hsv(h2, 0.55, 0.30))
+
+## Player display preferences (Settings menu): nebula 0..1, stars 0..1.5,
+## far star layer on/off. Defaults match the shader's (black + near stars).
+func set_background_prefs(nebula: float, stars: float, far: bool) -> void:
+	_bg_mat.set_shader_parameter("nebula_intensity", clampf(nebula, 0.0, 1.0))
+	_bg_mat.set_shader_parameter("star_brightness", clampf(stars, 0.0, 1.5))
+	_bg_mat.set_shader_parameter("far_stars", far)
 
 # --------------------------------------------------------------------------
 # Input
