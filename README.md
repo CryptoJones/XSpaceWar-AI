@@ -59,7 +59,8 @@ networked Spacewar is this game's direct ancestor.
 
   Players put `that-box:24645` in the relay field (or set `XSW_RELAY`), the
   host clicks *HOST ONLINE* and shares the 4-letter room code, friends use
-  *JOIN CODE* or *BROWSE*.
+  *JOIN CODE* or *BROWSE* (tick *Spectate* to watch without taking a ship).
+  Full deployment guide (firewall, systemd): [`server/README.md`](server/README.md).
 
 ## Project layout
 

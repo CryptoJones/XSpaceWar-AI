@@ -18,6 +18,7 @@ func _initialize() -> void:
 	_test_protocol_roundtrip()
 	_test_host_join_sync()
 	_test_prediction()
+	_test_spectator()
 	_test_discovery_loopback()
 	print("=== %d passed, %d failed ===" % [_passed, _failed])
 	quit(1 if _failed > 0 else 0)
@@ -171,6 +172,37 @@ func _test_host_join_sync() -> void:
 			break
 		OS.delay_msec(1)
 	_check("net: leaver's ship handed back to a bot", hsession.bots.has(sid))
+	host.close()
+
+func _test_spectator() -> void:
+	var hsession := GameSession.new()
+	hsession.start_skirmish(3, GameSession.Mode.FFA, BotController.Difficulty.ROOKIE)
+	var bots_before := hsession.bots.size()
+	var host := NetHost.new(hsession)
+	var err := host.open(TEST_PORT + 11, false, "spec-test", "127.0.0.1")
+	_check("spectator: host binds", err == OK, "err=%d" % err)
+	if err != OK:
+		return
+	var spec := NetClient.new()
+	spec.open("127.0.0.1", TEST_PORT + 11, "WATCHER", true)
+	for i in range(1200):
+		host.update(DT, {})
+		spec.update(DT, {})
+		if spec.state == NetClient.State.READY and spec.session.world != null \
+				and spec.session.world.tick > 0:
+			break
+		OS.delay_msec(1)
+	_check("spectator: reaches READY with no ship",
+		spec.state == NetClient.State.READY and spec.session.human_ship_id == -1,
+		"state=%d sid=%d" % [spec.state, spec.session.human_ship_id])
+	_check("spectator: consumes no bot ship", hsession.bots.size() == bots_before,
+		"bots %d -> %d" % [bots_before, hsession.bots.size()])
+	_check("spectator: receives the world via snapshots",
+		spec.session.world != null
+		and spec.session.world.ships.size() == hsession.world.ships.size()
+		and spec.session.world.tick > 0)
+	_check("spectator: not counted as a player", host.player_count() == 1)
+	spec.close()
 	host.close()
 
 func _test_prediction() -> void:

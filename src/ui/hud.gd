@@ -281,7 +281,8 @@ func _update_banner() -> void:
 			% [session.generation, int(t) / 60, int(t) % 60]
 	else:
 		# (The respawn countdown gets its own big center overlay.)
-		_banner.text = "TEAM BATTLE" if session.mode == GameSession.Mode.TEAM else "FREE-FOR-ALL"
+		var mode_name := "TEAM BATTLE" if session.mode == GameSession.Mode.TEAM else "FREE-FOR-ALL"
+		_banner.text = mode_name if session.human_ship_id >= 0 else "SPECTATING — " + mode_name
 
 func _update_scoreboard() -> void:
 	var lines: Array[String] = ["  SCORE  K  D"]

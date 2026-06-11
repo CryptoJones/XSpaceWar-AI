@@ -42,6 +42,7 @@ var _credits_y := 0.0
 var _credits_from_boot := false
 var _replays_panel: CanvasLayer
 var _replays_list: ItemList
+var _spec_check: CheckButton
 var _keys_panel: CanvasLayer
 var _keybind_value_labels := {}    ## action -> Label showing the bound key
 var _keys_status: Label
@@ -284,6 +285,10 @@ func _build_menu() -> void:
 	join_btn.text = "JOIN IP"
 	join_btn.pressed.connect(_on_join_ip_pressed)
 	join_row.add_child(join_btn)
+	_spec_check = CheckButton.new()
+	_spec_check.text = "Spectate"
+	_spec_check.tooltip_text = "Join without taking a ship — the action camera directs"
+	join_row.add_child(_spec_check)
 	box.add_child(join_row)
 
 	var online_row := HBoxContainer.new()
@@ -469,13 +474,13 @@ func _build_splash() -> void:
 	var title := Label.new()
 	title.text = "XSpaceWar-AI"
 	title.add_theme_font_override("font", _get_title_font())
-	title.add_theme_font_size_override("font_size", 46)
+	title.add_theme_font_size_override("font_size", 138)
 	title.add_theme_color_override("font_color", Color(0.6, 0.9, 1.0))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(title)
 	var subtitle := Label.new()
 	subtitle.text = "a networked space-fighter, est. 1962"
-	subtitle.add_theme_font_size_override("font_size", 14)
+	subtitle.add_theme_font_size_override("font_size", 42)
 	subtitle.add_theme_color_override("font_color", Color(0.6, 0.7, 0.85, 0.7))
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(subtitle)
@@ -484,7 +489,7 @@ func _build_splash() -> void:
 	v.add_child(HSeparator.new())
 	_splash_prompt = Label.new()
 	_splash_prompt.text = "PRESS SPACE BAR TO CONTINUE"
-	_splash_prompt.add_theme_font_size_override("font_size", 22)
+	_splash_prompt.add_theme_font_size_override("font_size", 66)
 	_splash_prompt.add_theme_color_override("font_color", Color(1.0, 0.9, 0.4))
 	_splash_prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(_splash_prompt)
@@ -518,25 +523,25 @@ func _key_name(action: String) -> String:
 
 func _controls_column(header: String, rows: Array) -> VBoxContainer:
 	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 4)
+	v.add_theme_constant_override("separation", 12)
 	var h := Label.new()
 	h.text = header
-	h.add_theme_font_size_override("font_size", 16)
+	h.add_theme_font_size_override("font_size", 48)
 	h.add_theme_color_override("font_color", Color(0.55, 0.95, 1.0))
 	v.add_child(h)
 	var grid := GridContainer.new()
 	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", 18)
-	grid.add_theme_constant_override("v_separation", 3)
+	grid.add_theme_constant_override("h_separation", 54)
+	grid.add_theme_constant_override("v_separation", 9)
 	for r in rows:
 		var key := Label.new()
 		key.text = String(r[0])
-		key.add_theme_font_size_override("font_size", 15)
+		key.add_theme_font_size_override("font_size", 45)
 		key.add_theme_color_override("font_color", Color(0.85, 0.95, 1.0))
 		grid.add_child(key)
 		var what := Label.new()
 		what.text = String(r[1])
-		what.add_theme_font_size_override("font_size", 15)
+		what.add_theme_font_size_override("font_size", 45)
 		what.add_theme_color_override("font_color", Color(0.65, 0.7, 0.8, 0.9))
 		grid.add_child(what)
 	v.add_child(grid)
@@ -749,7 +754,7 @@ func _on_server_activated(index: int) -> void:
 func _join(ip: String, port: int) -> void:
 	_teardown_net()
 	net_client = NetClient.new()
-	var err := net_client.open(ip, port, _player_name)
+	var err := net_client.open(ip, port, _player_name, _spec_check.button_pressed)
 	if err != OK:
 		_net_status.text = "Join failed (error %d)." % err
 		net_client = null
@@ -856,7 +861,7 @@ func _join_relay(code: String) -> void:
 	_teardown_net()
 	net_client = NetClient.new()
 	var err: Error = net_client.open_relay(String(addr["ip"]), int(addr["port"]),
-		code, _player_name)
+		code, _player_name, _spec_check.button_pressed)
 	if err != OK:
 		_net_status.text = "Relay join failed (error %d)." % err
 		net_client = null

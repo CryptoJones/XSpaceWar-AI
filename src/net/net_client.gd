@@ -23,6 +23,7 @@ var session := GameSession.new()   ## world is null until MSG_WELCOME arrives
 var state := State.CONNECTING
 var error_msg := ""
 var player_name := "PILOT"
+var spectate := false              ## join without taking a ship
 
 var _t = null                      ## duck-typed client transport (direct or relay)
 var _open := false
@@ -33,16 +34,18 @@ var _input_seq := 0                ## sequence number of the last input sent
 var _pending_inputs: Array = []    ## sent-but-unacked inputs, for replay
 
 ## Join a LAN / direct-IP game.
-func open(ip: String, port := 24642, p_name := "PILOT") -> Error:
-	return _open_with(DirectClientTransport.new(), {"ip": ip, "port": port}, p_name)
+func open(ip: String, port := 24642, p_name := "PILOT", p_spectate := false) -> Error:
+	return _open_with(DirectClientTransport.new(), {"ip": ip, "port": port}, p_name, p_spectate)
 
 ## Join an internet game through a relay server by room code.
-func open_relay(relay_ip: String, relay_port: int, code: String, p_name := "PILOT") -> Error:
+func open_relay(relay_ip: String, relay_port: int, code: String, p_name := "PILOT",
+		p_spectate := false) -> Error:
 	return _open_with(RelayClientTransport.new(),
-		{"ip": relay_ip, "port": relay_port, "code": code}, p_name)
+		{"ip": relay_ip, "port": relay_port, "code": code}, p_name, p_spectate)
 
-func _open_with(transport, cfg: Dictionary, p_name: String) -> Error:
+func _open_with(transport, cfg: Dictionary, p_name: String, p_spectate := false) -> Error:
 	player_name = p_name
+	spectate = p_spectate
 	session.movie_mode = false
 	session.human_ship_id = -1
 	var err: Error = transport.open(cfg)
@@ -69,14 +72,16 @@ func update(dt: float, local_input: Dictionary) -> void:
 	var own := world.ship_by_id(session.human_ship_id)
 
 	# Sequence, buffer, and send this tick's input (even neutral input — the
-	# sequence stream is what reconciliation replays against).
-	_input_seq += 1
+	# sequence stream is what reconciliation replays against). Spectators
+	# have no ship and send nothing.
 	var inp := local_input.duplicate()
-	inp["q"] = _input_seq
-	_pending_inputs.append(inp)
-	while _pending_inputs.size() > MAX_PENDING_INPUTS:
-		_pending_inputs.pop_front()
-	_t.send(NetProtocol.pack(NetProtocol.MSG_INPUT, inp), false, NetProtocol.CH_STATE)
+	if not spectate:
+		_input_seq += 1
+		inp["q"] = _input_seq
+		_pending_inputs.append(inp)
+		while _pending_inputs.size() > MAX_PENDING_INPUTS:
+			_pending_inputs.pop_front()
+		_t.send(NetProtocol.pack(NetProtocol.MSG_INPUT, inp), false, NetProtocol.CH_STATE)
 
 	# Surface queued one-shot events + thrust flames to the renderer. Remote
 	# flames come from the snapshot; our own comes from the live input.
@@ -165,7 +170,7 @@ func _pump() -> void:
 		match String(ev["t"]):
 			"connect":
 				_t.send(NetProtocol.pack(NetProtocol.MSG_HELLO,
-					{"v": NetProtocol.VERSION, "name": player_name}),
+					{"v": NetProtocol.VERSION, "name": player_name, "spec": spectate}),
 					true, NetProtocol.CH_CONTROL)
 			"disconnect":
 				_fail(String(ev.get("why", "host closed the connection")))

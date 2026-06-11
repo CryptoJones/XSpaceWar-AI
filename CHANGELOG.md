@@ -2,6 +2,40 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [0.7.0] — 2026-06-11
+
+### Added
+- **Boot experience**: flat cinema-scale opening credits (original
+  developers first, skippable with SPACE, replayable via the CREDITS
+  button), then a controls splash — keyboard + gamepad reference at 3×
+  scale with a blinking PRESS SPACE BAR TO CONTINUE.
+- **Titles set in Orbitron** (SIL OFL 1.1, bundled with license + NOTICE
+  attribution).
+- **Key rebinding** (KEYS… in settings): rebind the six flight actions,
+  persisted per player; the splash reference shows live binds.
+- **Replay browser**: list every recording with duration and pilot count;
+  watch, delete. **Replay scrubbing**: ◄/► seek ±10s — backward seeks
+  re-simulate deterministically and stay bit-exact.
+- **Spectator joins**: tick *Spectate* to watch an online match without
+  taking a ship; the action camera directs.
+- **End-of-match scoreboard**: final standings (and team totals) under the
+  winner banner.
+- **Game-feel pass**: screen shake on nearby blasts, floating "+1" kill
+  popups, low-fuel/no-ammo warning flashes, big respawn countdown.
+- **Relay deployment guide** (`server/README.md`): firewall, systemd unit,
+  player setup.
+- **Codeberg mirror**, auto-synced on every push.
+
+### Changed
+- Opening the menu pauses SOLO skirmishes (the Movie Mode attract keeps
+  playing behind it).
+- Menu bottom row: QUIT / CREDITS / PLAY with bordered buttons — PLAY
+  thickest and brightest.
+
+### Fixed
+- Title font silently falling back when the import cache was stale, and
+  the bold weight variation using the wrong dictionary key form.
+
 ## [0.6.0] — 2026-06-11
 
 ### Added
