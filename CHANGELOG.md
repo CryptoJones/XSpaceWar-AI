@@ -2,6 +2,19 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [1.3.0] — 2026-06-11
+
+### Added
+- **Lethal map edges** (MATCH → Boundary): the border becomes a thick
+  pulsing red wall of death instead of wrapping — ships crossing it are
+  destroyed; bots steer back from it. Honored by net clients and replays.
+- **Killcam**: while waiting to respawn, the camera rides your killer.
+- **Ping readout**: net clients show their measured round-trip in the HUD
+  banner ("· 23 ms") and the F3 overlay.
+- **Follow-cam cycling**: TAB while spectating or in a replay locks the
+  camera to each pilot in turn; the banner names who you're following.
+- README Thanks section for the play testers.
+
 ## [1.2.0] — 2026-06-11
 
 ### Added

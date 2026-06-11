@@ -76,6 +76,7 @@ var _follow_pos := Vector2.ZERO
 var _focus_a := -1                  ## movie-mode action camera: current duel
 var _focus_b := -1
 var _focus_timer := 0.0
+var _killcam_id := -1               ## while dead: ride along with your killer
 var _match_over_seen := false
 var _shake := 0.0                   ## camera shake energy (decays)
 var _popups: Array[Dictionary] = [] ## floating kill texts: pos/vel/text/ttl/color
@@ -161,6 +162,8 @@ func _physics_process(dt: float) -> void:
 						Color(0.5, 1.6, 0.7))
 			"kill":
 				_add_kill_popup(int(ev["killer"]), int(ev["victim"]))
+				if int(ev["victim"]) == session.human_ship_id:
+					_killcam_id = int(ev["killer"])
 	_audio.update(dt, session.world)
 	_step_popups(dt)
 
@@ -178,6 +181,7 @@ func _on_new_generation() -> void:
 	_focus_a = -1
 	_focus_b = -1
 	_focus_timer = 0.0
+	_killcam_id = -1
 	if _audio != null:
 		_audio.reset()
 	# Re-seed the starfield per-arena so every match's sky is distinct, and
@@ -261,7 +265,20 @@ func _update_camera(dt: float) -> void:
 	var target_zoom := _cam_zoom
 	var human := session.human_ship()
 
+	if human != null and not human.alive and _killcam_id >= 0:
+		# Killcam: ride with whoever got you until you respawn.
+		var killer := session.world.ship_by_id(_killcam_id)
+		if killer != null and killer.alive:
+			target_pos = killer.pos + killer.render_pos_offset
+			target_zoom = 1.0
+			var k2 := 1.0 - exp(-2.5 * dt)
+			_camera.position = _camera.position.lerp(target_pos, k2)
+			_cam_zoom = lerpf(_cam_zoom, target_zoom, k2)
+			_camera.zoom = Vector2(_cam_zoom, _cam_zoom)
+			return
 	if human != null:
+		if human.alive:
+			_killcam_id = -1
 		# When the followed ship wraps the toroidal edge (or hyperspaces), jump
 		# the camera by the same leap instead of lerping across the whole map.
 		if _follow_id == human.id:
