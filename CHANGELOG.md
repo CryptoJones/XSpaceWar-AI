@@ -2,6 +2,21 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [1.0.1] — 2026-06-11
+
+### Fixed
+- **The minimap, off-screen arrows, respawn countdown, and final
+  scoreboard were invisible in 1.0.0** — a code-structure bug truncated
+  the HUD's setup, so they were never created. All restored, and CI now
+  fails on any runtime script error so this class of bug can't hide.
+
+### Changed
+- Gauges (fuel/ammo/mines) moved top-center under the banner; the
+  bottom-right key-hint text removed (the KEYS panel and splash own it).
+- Menu subtitle shows the running version.
+- Credits roller font sizes reduced by 1 across the board.
+- Respawn cooldown is now 6 seconds.
+
 ## [1.0.0] — 2026-06-11
 
 **1.0.** The original vision, complete: a modern AI-driven networked
