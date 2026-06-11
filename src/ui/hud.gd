@@ -12,6 +12,7 @@ var _hint: Label
 var _bars: Control
 var _feed_label: Label
 var _radar: Control
+var _arrows: Control
 var _feed: Array[Dictionary] = []   ## {"t": text, "ttl": seconds}
 var _seen_tick := -1
 var _seen_gen := -1
@@ -59,6 +60,12 @@ func _ready() -> void:
 	_feed_label.position = Vector2(16, 14)
 	add_child(_feed_label)
 
+	_arrows = Control.new()
+	_arrows.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_arrows.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_arrows.draw.connect(_draw_arrows)
+	add_child(_arrows)
+
 	_radar = Control.new()
 	_radar.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
 	_radar.grow_horizontal = Control.GROW_DIRECTION_BEGIN
@@ -87,6 +94,7 @@ func _process(dt: float) -> void:
 	_update_scoreboard()
 	_update_feed(dt)
 	_radar.queue_redraw()
+	_arrows.queue_redraw()
 	var human := session.human_ship()
 	_bars.visible = human != null
 	_hint.visible = human != null
@@ -170,6 +178,41 @@ func _draw_radar() -> void:
 		else:
 			var c := WorldView.ship_color(s)
 			_radar.draw_circle(mp, 2.2, Color(c.r, c.g, c.b, 0.5 if off_view else 1.0))
+
+## Edge arrows pointing at off-screen ships (skirmish only): the 10x arena
+## means fights can be anywhere — these keep them findable without staring
+## at the radar. Enemies draw bright with a distance tag, teammates dim.
+func _draw_arrows() -> void:
+	var world := session.world if session != null else null
+	if world == null or session.human_ship_id < 0:
+		return
+	var human := session.human_ship()
+	if human == null:
+		return
+	var xform := _arrows.get_viewport().get_canvas_transform()
+	var size := _arrows.size
+	var margin := 46.0
+	for s in world.ships:
+		if not s.alive or s.id == session.human_ship_id:
+			continue
+		var sp := xform * s.pos
+		if sp.x >= 0.0 and sp.y >= 0.0 and sp.x <= size.x and sp.y <= size.y:
+			continue  # on screen already
+		var clamped := sp.clamp(Vector2(margin, margin), size - Vector2(margin, margin))
+		var dir := (sp - clamped).normalized()
+		var teammate := s.team != -1 and s.team == human.team
+		var c := WorldView.ship_color(s)
+		if teammate:
+			c.a = 0.35
+		var tip := clamped + dir * 12.0
+		var perp := Vector2(-dir.y, dir.x) * 7.0
+		_arrows.draw_colored_polygon(
+			PackedVector2Array([tip, clamped - dir * 4.0 + perp, clamped - dir * 4.0 - perp]), c)
+		if not teammate:
+			var dist := human.pos.distance_to(s.pos)
+			_arrows.draw_string(ThemeDB.fallback_font, clamped - dir * 16.0 + Vector2(-18, 5),
+				"%.1fk" % (dist / 1000.0), HORIZONTAL_ALIGNMENT_CENTER, 38, 12,
+				Color(c.r, c.g, c.b, 0.8))
 
 func _radar_map(p: Vector2, center: Vector2, size: Vector2) -> Vector2:
 	return ((p - center) / RADAR_WORLD_SPAN + Vector2(0.5, 0.5)) * size
