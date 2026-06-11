@@ -47,6 +47,14 @@ var mine_arm_time: float = 0.7          ## proximity fuse inert before this age
 var mine_trigger_radius: float = 55.0
 var mine_blast_radius: float = 95.0
 
+# --- Pickups (dropped by shot asteroids) ---
+var pickup_chance: float = 0.35         ## chance a destroyed rock drops cargo
+var pickup_ttl: float = 20.0
+var pickup_radius: float = 10.0
+var pickup_fuel_amount: float = 50.0
+var pickup_ammo_amount: int = 8
+var pickup_mines_amount: int = 2
+
 # --- Hyperspace ---
 var hyperspace_cooldown: float = 4.0
 var hyperspace_base_risk: float = 0.08  ## self-destruct chance, grows per use

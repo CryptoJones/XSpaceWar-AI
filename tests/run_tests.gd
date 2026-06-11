@@ -23,6 +23,7 @@ func _initialize() -> void:
 	_test_pick_duel()
 	_test_bot_character()
 	_test_mines()
+	_test_pickups()
 	_test_replay()
 	print("=== %d passed, %d failed ===" % [_passed, _failed])
 	quit(1 if _failed > 0 else 0)
@@ -182,8 +183,12 @@ func _test_ai_combat() -> void:
 	var w := _make_world(2024)
 	var a := w.add_ship()
 	var b := w.add_ship()
-	var ba := BotController.new(w, a.id, BotController.Difficulty.ACE)
-	var bb := BotController.new(w, b.id, BotController.Difficulty.ACE)
+	# Pin both to BRAWLER so the assertion tests combat, not the luck of
+	# which personalities the seed deals (sniper-vs-sniper can stalemate).
+	var ba := BotController.new(w, a.id, BotController.Difficulty.ACE,
+		BotController.Personality.BRAWLER)
+	var bb := BotController.new(w, b.id, BotController.Difficulty.ACE,
+		BotController.Personality.BRAWLER)
 	var dt := w.config.fixed_dt
 	var torpedoes_fired := 0
 	for i in range(5400):  # ~90 simulated seconds
@@ -354,6 +359,58 @@ func _test_mines() -> void:
 			break
 	_check("mine: torpedo detonates it (counterplay)",
 		w.mines.is_empty() and w.torpedoes.is_empty())
+
+func _test_pickups() -> void:
+	var cfg := SimConfig.from_seed(21)
+	cfg.wrap_edges = false
+	cfg.pickup_chance = 1.0  # force the drop for determinism
+	var w := SimWorld.new(cfg)
+	var rock := SimBody.new()
+	rock.kind = SimBody.Kind.ASTEROID
+	rock.pos = Vector2(300, 0)
+	rock.mass = 0.0
+	rock.gravity = false
+	rock.lethal = true
+	rock.radius = 12.0
+	w.add_body(rock)
+	var ship := SimShip.new()
+	ship.id = w.alloc_id()
+	ship.radius = cfg.ship_radius
+	ship.fuel = cfg.max_fuel
+	ship.ammo = cfg.max_ammo
+	ship.spawn_grace = 0.0
+	w.ships.append(ship)
+
+	ship.in_fire = true
+	w.step()
+	for _i in range(90):
+		w.step()
+		if w.bodies.is_empty():
+			break
+	_check("pickup: torpedo shatters the asteroid",
+		w.bodies.is_empty() and w.removed_body_ids.has(rock.id))
+	_check("pickup: shattered rock dropped cargo (chance forced)",
+		w.pickups.size() == 1, "pickups=%d" % w.pickups.size())
+	if w.pickups.is_empty():
+		return
+
+	var p := w.pickups[0]
+	ship.fuel = 10.0
+	ship.ammo = 0
+	ship.mines = 0
+	ship.pos = p.pos
+	ship.vel = p.vel
+	w.step()
+	var granted := false
+	match p.kind:
+		SimPickup.Kind.FUEL:
+			granted = ship.fuel > 10.0
+		SimPickup.Kind.AMMO:
+			granted = ship.ammo > 0
+		SimPickup.Kind.MINES:
+			granted = ship.mines > 0
+	_check("pickup: touching it grants the cargo and consumes it",
+		granted and w.pickups.is_empty())
 
 func _test_replay() -> void:
 	# Record a real match (ACE bots + scripted human), then play the tape into

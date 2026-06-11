@@ -131,6 +131,10 @@ func _extrapolate(world: SimWorld, dt: float, skip: SimShip) -> void:
 		m.vel += world.gravity_accel(m.pos) * dt
 		m.pos += m.vel * dt
 		m.age += dt
+	for p in world.pickups:
+		p.vel += world.gravity_accel(p.pos) * dt
+		p.pos += p.vel * dt
+		p.age += dt
 
 ## Convert each ship's snapshot correction into a decaying render offset so
 ## the drawn position glides to the authoritative one instead of snapping.

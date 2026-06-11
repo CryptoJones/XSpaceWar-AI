@@ -52,7 +52,8 @@ var _want_angle: float = 0.0
 var _want_thrust: bool = false
 var _aim_noise: float = 0.0
 
-func _init(p_world: SimWorld, p_ship_id: int, p_difficulty: int = Difficulty.VETERAN) -> void:
+func _init(p_world: SimWorld, p_ship_id: int, p_difficulty: int = Difficulty.VETERAN,
+		p_personality := -1) -> void:
 	world = p_world
 	ship_id = p_ship_id
 	difficulty = p_difficulty
@@ -60,7 +61,7 @@ func _init(p_world: SimWorld, p_ship_id: int, p_difficulty: int = Difficulty.VET
 
 	var ship := world.ship_by_id(ship_id)
 	var pseed := ship.hull_seed if ship != null else p_ship_id
-	personality = personality_for(pseed)
+	personality = personality_for(pseed) if p_personality < 0 else p_personality
 	var pp: Dictionary = PERSONALITIES[personality]
 	_p = (PRESETS[difficulty] as Dictionary).duplicate()
 	_p["aggression"] = clampf(float(_p["aggression"]) * float(pp["aggr"]), 0.0, 1.0)
@@ -165,6 +166,27 @@ func _imminent_mine(ship: SimShip) -> SimMine:
 				return m
 	return null
 
+## A nearby pickup worth detouring for (only when actually short on it).
+func _wanted_pickup(ship: SimShip) -> SimPickup:
+	var best: SimPickup = null
+	var best_d := 900.0 * 900.0
+	for p in world.pickups:
+		var useful := false
+		match p.kind:
+			SimPickup.Kind.FUEL:
+				useful = ship.fuel < world.config.max_fuel * 0.35
+			SimPickup.Kind.AMMO:
+				useful = ship.ammo <= 3
+			SimPickup.Kind.MINES:
+				useful = ship.mines == 0 and personality != Personality.SNIPER
+		if not useful:
+			continue
+		var d := ship.pos.distance_squared_to(p.pos)
+		if d < best_d:
+			best_d = d
+			best = p
+	return best
+
 func _decide(ship: SimShip) -> void:
 	var primary := world.primary_body()
 	var star_pos := primary.pos if primary != null else Vector2.ZERO
@@ -197,6 +219,17 @@ func _decide(ship: SimShip) -> void:
 		_want_angle = (ship.pos - star_pos).angle()
 		_want_thrust = true
 		return
+
+	# 1.5) Logistics: detour to a nearby supply drop when we're short — but
+	# never abandon an enemy already inside firing range. Fighting > shopping.
+	var tgt_now := world.ship_by_id(_target_id)
+	if tgt_now == null or ship.pos.distance_to(tgt_now.pos) > _fire_range:
+		var want_pickup := _wanted_pickup(ship)
+		if want_pickup != null:
+			var lead := want_pickup.pos + want_pickup.vel * 0.4 - ship.pos
+			_want_angle = lead.angle()
+			_want_thrust = true
+			return
 
 	var target := world.ship_by_id(_target_id)
 	if target == null:

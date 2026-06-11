@@ -21,6 +21,10 @@ var bodies: Array[SimBody] = []
 var ships: Array[SimShip] = []
 var torpedoes: Array[SimTorpedo] = []
 var mines: Array[SimMine] = []
+var pickups: Array[SimPickup] = []
+## Ids of bodies destroyed mid-match (shot asteroids) — replicated to net
+## clients so their locally-generated arenas lose the same rocks.
+var removed_body_ids: Array[int] = []
 
 var time: float = 0.0
 var tick: int = 0
@@ -131,6 +135,7 @@ func step(dt: float = -1.0) -> void:
 	_integrate_ships(dt)
 	_step_torpedoes(dt)
 	_step_mines(dt)
+	_step_pickups(dt)
 	_resolve_collisions()
 
 	if config.wrap_edges:
@@ -264,6 +269,54 @@ func _step_torpedoes(dt: float) -> void:
 		survivors.append(t)
 	torpedoes = survivors
 
+func _break_rock(rock: SimBody) -> void:
+	bodies.erase(rock)
+	removed_body_ids.append(rock.id)
+	events.append({"type": "rock_break", "pos": rock.pos})
+	if rng.randf() < config.pickup_chance:
+		var p := SimPickup.new()
+		p.id = alloc_id()
+		p.kind = rng.randi() % SimPickup.Kind.size()
+		p.pos = rock.pos
+		var ang := rng.randf() * TAU
+		p.vel = Vector2(cos(ang), sin(ang)) * rng.randf_range(10.0, 50.0)
+		p.ttl = config.pickup_ttl
+		p.radius = config.pickup_radius
+		pickups.append(p)
+
+func _step_pickups(dt: float) -> void:
+	var survivors: Array[SimPickup] = []
+	for p in pickups:
+		p.age += dt
+		p.ttl -= dt
+		if p.ttl <= 0.0:
+			continue
+		p.vel += gravity_accel(p.pos) * dt
+		p.pos += p.vel * dt
+		if config.wrap_edges:
+			p.pos = _wrap_point(p.pos)
+		var claimed := false
+		for s in ships:
+			if not s.alive:
+				continue
+			if p.pos.distance_to(s.pos) <= p.radius + s.radius:
+				_grant_pickup(s, p)
+				claimed = true
+				break
+		if not claimed:
+			survivors.append(p)
+	pickups = survivors
+
+func _grant_pickup(s: SimShip, p: SimPickup) -> void:
+	match p.kind:
+		SimPickup.Kind.FUEL:
+			s.fuel = minf(config.max_fuel, s.fuel + config.pickup_fuel_amount)
+		SimPickup.Kind.AMMO:
+			s.ammo = mini(config.max_ammo, s.ammo + config.pickup_ammo_amount)
+		SimPickup.Kind.MINES:
+			s.mines = mini(config.max_mines, s.mines + config.pickup_mines_amount)
+	events.append({"type": "pickup", "ship": s.id, "kind": p.kind, "pos": p.pos})
+
 func _step_mines(dt: float) -> void:
 	var survivors: Array[SimMine] = []
 	for m in mines:
@@ -313,8 +366,10 @@ func step_ship_kinematics(s: SimShip, turn: float, thrust: bool, dt: float) -> v
 # --------------------------------------------------------------------------
 
 func _resolve_collisions() -> void:
-	# Torpedoes vs bodies (consumed by the sun/planets).
+	# Torpedoes vs bodies. Stars/planets simply eat torpedoes; ASTEROIDS are
+	# destructible — the rock shatters and sometimes drops its cargo.
 	var torp_survivors: Array[SimTorpedo] = []
+	var broken_rocks: Array[SimBody] = []
 	for t in torpedoes:
 		var hit_body := false
 		for b in bodies:
@@ -322,10 +377,14 @@ func _resolve_collisions() -> void:
 				continue
 			if t.pos.distance_to(b.pos) <= b.radius + t.radius:
 				hit_body = true
+				if b.kind == SimBody.Kind.ASTEROID and not broken_rocks.has(b):
+					broken_rocks.append(b)
 				break
 		if not hit_body:
 			torp_survivors.append(t)
 	torpedoes = torp_survivors
+	for rock in broken_rocks:
+		_break_rock(rock)
 
 	# Torpedoes vs ships.
 	var remaining: Array[SimTorpedo] = []

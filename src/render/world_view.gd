@@ -129,6 +129,13 @@ func _physics_process(dt: float) -> void:
 				_add_shake(ev["pos"], 1.4)
 			"hyperspace":
 				_spawn_burst(ev["pos"], Color(0.7, 1.2, 2.4), 28, 240.0)
+			"rock_break":
+				_spawn_burst(ev["pos"], Color(0.9, 0.85, 0.75), 30, 260.0)
+			"pickup":
+				if int(ev["ship"]) == session.human_ship_id:
+					_add_text_popup(ev["pos"],
+						"+" + ["FUEL", "AMMO", "MINES"][int(ev["kind"])],
+						Color(0.5, 1.6, 0.7))
 			"kill":
 				_add_kill_popup(int(ev["killer"]), int(ev["victim"]))
 	_audio.update(dt, session.world)
@@ -246,8 +253,11 @@ func _update_camera(dt: float) -> void:
 		target_pos = human.pos + human.render_pos_offset
 		target_zoom = 1.15
 		# Failsafe: whatever else happens, never let the player lose their own
-		# ship — if the camera is absurdly far from it, snap instead of pan.
+		# ship — if the camera is absurdly far from it, snap instead of pan
+		# (and leave a breadcrumb so the root cause can be reported).
 		if _camera.position.distance_to(target_pos) > 6000.0:
+			push_warning("camera failsafe: snapped %s -> ship %s (gen %d tick %d)"
+				% [_camera.position, target_pos, session.generation, session.world.tick])
 			_camera.position = target_pos
 	else:
 		# Movie Mode action camera: frame the closest hostile pair (a duel)
@@ -315,6 +325,8 @@ func _draw() -> void:
 				_draw_asteroid(b, world.time)
 	var wrap := world.config.wrap_edges
 	var half := world.config.arena_size * 0.5
+	for p in world.pickups:
+		_draw_pickup(p, world.time)
 	for m in world.mines:
 		for off in _ghost_offsets(m.pos, wrap, half, 100.0):
 			_draw_mine(m, world.time, off)
@@ -402,6 +414,26 @@ func _draw_asteroid(b: SimBody, t: float) -> void:
 	var shade := 0.38 + 0.18 * (float(b.seed % 13) / 13.0)
 	draw_colored_polygon(poly, Color(shade, shade * 0.95, shade * 0.88))
 	draw_set_transform(Vector2.ZERO)
+
+const PICKUP_COLORS: Array[Color] = [
+	Color(0.4, 1.8, 0.7),   # fuel — green
+	Color(1.8, 1.5, 0.4),   # ammo — gold
+	Color(1.8, 0.8, 0.3),   # mines — orange
+]
+const PICKUP_LETTERS := ["F", "A", "M"]
+
+func _draw_pickup(p: SimPickup, t: float) -> void:
+	var vis := clampf(_ship_vis_scale * 0.8, 1.0, 2.2)
+	var r := p.radius * vis * (1.0 + 0.12 * sin(t * 5.0 + float(p.id)))
+	var c: Color = PICKUP_COLORS[p.kind % PICKUP_COLORS.size()]
+	draw_set_transform(p.pos, t * 1.2)
+	draw_colored_polygon(PackedVector2Array([
+		Vector2(r, 0), Vector2(0, r), Vector2(-r, 0), Vector2(0, -r)]),
+		Color(c.r, c.g, c.b, 0.35))
+	draw_set_transform(Vector2.ZERO)
+	draw_string(ThemeDB.fallback_font, p.pos + Vector2(-6, 6),
+		PICKUP_LETTERS[p.kind % PICKUP_LETTERS.size()],
+		HORIZONTAL_ALIGNMENT_CENTER, 12, int(13 * vis), c)
 
 func _draw_mine(m: SimMine, t: float, ghost: Vector2 = Vector2.ZERO) -> void:
 	var p := m.pos + ghost
@@ -541,6 +573,10 @@ func _add_kill_popup(killer_id: int, victim_id: int) -> void:
 		kname = "BOT-%d" % killer_id
 	_popups.append({"pos": victim.pos, "vel": Vector2(0, -46), "ttl": 1.7,
 		"text": "+1  %s" % kname, "color": ship_color(killer)})
+
+func _add_text_popup(pos: Vector2, text: String, color: Color) -> void:
+	_popups.append({"pos": pos, "vel": Vector2(0, -40), "ttl": 1.4,
+		"text": text, "color": color})
 
 func _step_popups(dt: float) -> void:
 	for p in _popups:

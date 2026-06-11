@@ -12,7 +12,7 @@ extends RefCounted
 ## locally from the seed + params (ArenaGen is deterministic), then apply
 ## snapshots on top and dead-reckon between them.
 
-const VERSION := 4
+const VERSION := 5
 
 enum {
 	MSG_HELLO = 1,      ## client -> host: {v, name, spec?}
@@ -93,13 +93,17 @@ static func snapshot_of(world: SimWorld, thrust_ids: Array, events: Array,
 	var mines := []
 	for m in world.mines:
 		mines.append([m.id, m.owner_id, m.team, m.pos, m.vel, m.age])
+	var picks := []
+	for p in world.pickups:
+		picks.append([p.id, p.kind, p.pos, p.vel, p.age])
 	var bodies := []
 	for b in world.bodies:
 		if b.is_orbiting():
 			bodies.append([b.id, b.orbit_angle])
 	return {
 		"k": world.tick, "t": world.time,
-		"s": ships, "p": torps, "mn": mines, "b": bodies,
+		"s": ships, "p": torps, "mn": mines, "pk": picks, "b": bodies,
+		"rb": world.removed_body_ids,
 		"e": events, "th": thrust_ids, "a": acks,
 	}
 
@@ -165,6 +169,26 @@ static func apply_snapshot(world: SimWorld, snap: Dictionary) -> Dictionary:
 		m.life = world.config.mine_life
 		m.radius = world.config.mine_radius
 		world.mines.append(m)
+
+	world.pickups.clear()
+	for entry in snap.get("pk", []):
+		var p := SimPickup.new()
+		p.id = int(entry[0])
+		p.kind = int(entry[1])
+		p.pos = entry[2]
+		p.vel = entry[3]
+		p.age = float(entry[4])
+		p.ttl = world.config.pickup_ttl
+		p.radius = world.config.pickup_radius
+		world.pickups.append(p)
+
+	# Destroyed asteroids: locally-generated arenas lose the same rocks.
+	for rid in snap.get("rb", []):
+		if not world.removed_body_ids.has(int(rid)):
+			var rb := world.body_by_id(int(rid))
+			if rb != null:
+				world.bodies.erase(rb)
+			world.removed_body_ids.append(int(rid))
 
 	for entry in snap.get("b", []):
 		var b := world.body_by_id(int(entry[0]))

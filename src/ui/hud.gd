@@ -217,15 +217,23 @@ func _draw_radar() -> void:
 		center = primary.pos if primary != null else Vector2.ZERO
 	for b in world.bodies:
 		var mp := _radar_map(b.pos, center, size)
-		if not _radar_in_view(mp, size):
-			continue
+		var off_map := not _radar_in_view(mp, size)
+		mp = mp.clamp(Vector2(4, 4), size - Vector2(4, 4))
 		match b.kind:
 			SimBody.Kind.STAR:
-				_radar.draw_circle(mp, 4.0, Color(1.0, 0.85, 0.4))
+				# The star ALWAYS shows — pinned to the edge when far, so you
+				# can never lose the way home in the big arena.
+				_radar.draw_circle(mp, 4.0, Color(1.0, 0.85, 0.4, 0.6 if off_map else 1.0))
+				if off_map:
+					_radar.draw_arc(mp, 6.5, 0.0, TAU, 10, Color(1.0, 0.85, 0.4, 0.5), 1.0)
 			SimBody.Kind.PLANET:
-				_radar.draw_circle(mp, 2.5, Color(0.6, 0.7, 0.9))
+				if not off_map:
+					_radar.draw_circle(mp, 2.5, Color(0.6, 0.7, 0.9))
+				else:
+					_radar.draw_circle(mp, 1.8, Color(0.6, 0.7, 0.9, 0.4))
 			SimBody.Kind.SATELLITE:
-				_radar.draw_circle(mp, 1.5, Color(1.0, 0.4, 0.4, 0.8))
+				if not off_map:
+					_radar.draw_circle(mp, 1.5, Color(1.0, 0.4, 0.4, 0.8))
 			_:
 				pass  # moons/asteroids are clutter at this scale
 	for s in world.ships:
