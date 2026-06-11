@@ -83,7 +83,7 @@ func _build(seed: int) -> void:
 	# Procedural arena — vary the layout a little by mode. Kept sparse:
 	# space should read as mostly empty with hazards, not an obstacle course.
 	arena_params = ArenaGen.populate(world, {
-		"star_count": 2 if _rng.randf() < 0.2 else 1,
+		"star_count": 1,  # exactly one gravity well per map
 		"planets": _rng.randi_range(1, 2),
 		"asteroid_density": _rng.randi_range(16, 55),
 		"satellites": _rng.randi_range(0, 2),
