@@ -12,6 +12,8 @@ var _fire_s: AudioStreamWAV
 var _boom_s: AudioStreamWAV
 var _hyper_s: AudioStreamWAV
 var _thrust_s: AudioStreamWAV
+var _fanfare_s: AudioStreamWAV
+var _ui_player: AudioStreamPlayer    ## non-positional (fanfare, future UI)
 
 var _pool: Array[AudioStreamPlayer2D] = []
 var _pool_next := 0
@@ -23,6 +25,9 @@ func _ready() -> void:
 	_boom_s = SoundForge.explosion()
 	_hyper_s = SoundForge.hyperspace()
 	_thrust_s = SoundForge.thrust_loop()
+	_fanfare_s = SoundForge.fanfare()
+	_ui_player = AudioStreamPlayer.new()
+	add_child(_ui_player)
 	_rng.randomize()
 	for _i in range(POOL_SIZE):
 		var p := AudioStreamPlayer2D.new()
@@ -58,6 +63,12 @@ func update(dt: float, world: SimWorld) -> void:
 			var s := world.ship_by_id(int(sid))
 			if s != null:
 				p.position = s.pos + s.render_pos_offset
+
+## Match-won jingle (non-positional).
+func play_fanfare() -> void:
+	_ui_player.stream = _fanfare_s
+	_ui_player.volume_db = -4.0
+	_ui_player.play()
 
 ## Stop everything and drop per-ship players (arena regenerated / left match).
 func reset() -> void:

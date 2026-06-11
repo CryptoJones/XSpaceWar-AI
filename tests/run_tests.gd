@@ -20,6 +20,7 @@ func _initialize() -> void:
 	_test_ai_combat()
 	_test_match_flow()
 	_test_hull_generation()
+	_test_pick_duel()
 	print("=== %d passed, %d failed ===" % [_passed, _failed])
 	quit(1 if _failed > 0 else 0)
 
@@ -228,3 +229,22 @@ func _test_hull_generation() -> void:
 	_check("hull: enough points for a silhouette",
 		(a["poly"] as PackedVector2Array).size() >= 5)
 	_check("hull: different seeds give different ships", a["poly"] != c["poly"])
+
+func _test_pick_duel() -> void:
+	var w := _make_world(7777)
+	var a := w.add_ship(0)
+	var b := w.add_ship(0)   # a's teammate
+	var c := w.add_ship(1)
+	var d := w.add_ship(1)
+	a.pos = Vector2(0, 0)
+	b.pos = Vector2(60, 0)        # closest pair overall (60u), but same team
+	c.pos = Vector2(-100, 0)      # closest ENEMY: 100u from a, 160u from b
+	d.pos = Vector2(2000, 2000)
+	var duel := WorldView.pick_duel(w)
+	_check("camera: duel picks the closest hostile pair",
+		duel.size() == 2 and a.id in duel and c.id in duel, str(duel))
+	a.alive = false
+	b.alive = false
+	d.alive = false
+	duel = WorldView.pick_duel(w)
+	_check("camera: lone survivor is followed solo", duel == [c.id], str(duel))

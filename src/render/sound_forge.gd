@@ -86,6 +86,26 @@ static func thrust_loop() -> AudioStreamWAV:
 		s[i] = s[i] / peak * 0.7
 	return _to_wav(s, true)
 
+## Match-won fanfare: a quick rising four-note arpeggio with a soft tail.
+static func fanfare() -> AudioStreamWAV:
+	var notes := [392.0, 523.25, 659.25, 783.99]  # G4 C5 E5 G5
+	var step := 0.16
+	var n := int((step * notes.size() + 0.5) * RATE)
+	var s := PackedFloat32Array()
+	s.resize(n)
+	for i in range(n):
+		var t := float(i) / RATE
+		var v := 0.0
+		for k in range(notes.size()):
+			var t0 := t - step * float(k)
+			if t0 < 0.0:
+				continue
+			var f: float = notes[k]
+			var env := exp(-t0 * (3.0 if k == notes.size() - 1 else 9.0))
+			v += (sin(TAU * f * t0) + 0.3 * sin(TAU * f * 2.0 * t0)) * env
+		s[i] = v * 0.35
+	return _to_wav(s)
+
 static func _to_wav(samples: PackedFloat32Array, loop := false) -> AudioStreamWAV:
 	var bytes := PackedByteArray()
 	bytes.resize(samples.size() * 2)

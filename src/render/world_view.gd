@@ -35,6 +35,12 @@ var _cam_zoom := 0.6
 var _ship_vis_scale := 1.6          ## visual-only hull scale (grows when zoomed out)
 var _follow_id := -1                ## camera wrap-follow tracking
 var _follow_pos := Vector2.ZERO
+var _focus_a := -1                  ## movie-mode action camera: current duel
+var _focus_b := -1
+var _focus_timer := 0.0
+var _match_over_seen := false
+
+const DUEL_SHOT_TIME := 7.0         ## seconds before the movie camera recuts
 
 func _ready() -> void:
 	# Parallax nebula backdrop: screen-fixed full-rect shader, below the world.
@@ -84,6 +90,12 @@ func _physics_process(dt: float) -> void:
 	if session.generation != _seen_generation:
 		_on_new_generation()
 
+	if session.match_over and not _match_over_seen:
+		_match_over_seen = true
+		_audio.play_fanfare()
+	elif not session.match_over:
+		_match_over_seen = false
+
 	for ev in session.world.events:
 		_audio.play_event(ev)
 		match ev.get("type", ""):
@@ -106,6 +118,9 @@ func _on_new_generation() -> void:
 	_hull_cache.clear()
 	_thrusting.clear()
 	_follow_id = -1
+	_focus_a = -1
+	_focus_b = -1
+	_focus_timer = 0.0
 	if _audio != null:
 		_audio.reset()
 	# Re-seed the nebula and tint it per-arena so every match looks distinct.
@@ -167,23 +182,32 @@ func _update_camera(dt: float) -> void:
 		target_pos = human.pos + human.render_pos_offset
 		target_zoom = 1.15
 	else:
-		# Movie Mode: frame the bounding box of alive ships (fit zoom).
-		var pts: Array[Vector2] = []
-		for s in session.world.ships:
-			if s.alive:
-				pts.append(s.pos)
-		if pts.is_empty():
-			var primary := session.world.primary_body()
-			pts.append(primary.pos if primary != null else Vector2.ZERO)
-		var lo := pts[0]
-		var hi := pts[0]
-		for p in pts:
-			lo = lo.min(p)
-			hi = hi.max(p)
-		target_pos = (lo + hi) * 0.5
-		var span := (hi - lo) + Vector2(900, 900)  # margin
+		# Movie Mode action camera: frame the closest hostile pair (a duel)
+		# and recut to a fresh fight every few seconds or when one dies.
+		var world := session.world
+		_focus_timer -= dt
+		var fa := world.ship_by_id(_focus_a)
+		var fb := world.ship_by_id(_focus_b)
+		if _focus_timer <= 0.0 or fa == null or not fa.alive \
+				or (_focus_b >= 0 and (fb == null or not fb.alive)):
+			var duel := pick_duel(world)
+			_focus_a = duel[0] if duel.size() > 0 else -1
+			_focus_b = duel[1] if duel.size() > 1 else -1
+			_focus_timer = DUEL_SHOT_TIME
+			fa = world.ship_by_id(_focus_a)
+			fb = world.ship_by_id(_focus_b)
 		var vp := get_viewport_rect().size
-		target_zoom = clampf(minf(vp.x / span.x, vp.y / span.y), 0.3, 1.15)
+		if fa != null and fb != null:
+			target_pos = (fa.pos + fb.pos) * 0.5
+			var span := (fa.pos - fb.pos).abs() + Vector2(750, 750)
+			target_zoom = clampf(minf(vp.x / span.x, vp.y / span.y), 0.5, 1.15)
+		elif fa != null:
+			target_pos = fa.pos
+			target_zoom = 0.9
+		else:
+			var primary := world.primary_body()
+			target_pos = primary.pos if primary != null else Vector2.ZERO
+			target_zoom = 0.5
 
 	var k := 1.0 - exp(-2.5 * dt)
 	_camera.position = _camera.position.lerp(target_pos, k)
@@ -336,6 +360,33 @@ func _draw_ship(s: SimShip, t: float, ghost: Vector2 = Vector2.ZERO) -> void:
 		draw_arc(Vector2.ZERO, 22.0, 0.0, TAU, 24, Color(0.6, 1.4, 2.0, a), 2.0)
 
 	draw_set_transform(Vector2.ZERO)
+
+## The most watchable fight right now: the closest pair of mutually hostile
+## alive ships ([id_a, id_b]), a lone survivor ([id]), or [] when empty.
+static func pick_duel(world: SimWorld) -> Array:
+	var alive: Array[SimShip] = []
+	for s in world.ships:
+		if s.alive:
+			alive.append(s)
+	var best_a := -1
+	var best_b := -1
+	var best_d := INF
+	for i in range(alive.size()):
+		for j in range(i + 1, alive.size()):
+			var a := alive[i]
+			var b := alive[j]
+			if a.team != -1 and a.team == b.team:
+				continue
+			var d := a.pos.distance_squared_to(b.pos)
+			if d < best_d:
+				best_d = d
+				best_a = a.id
+				best_b = b.id
+	if best_a >= 0:
+		return [best_a, best_b]
+	if not alive.is_empty():
+		return [alive[0].id]
+	return []
 
 static func ship_color(s: SimShip) -> Color:
 	if s.team >= 0:

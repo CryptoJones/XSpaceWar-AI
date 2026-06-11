@@ -163,12 +163,37 @@ networked *Spacewar!* / `xspacewar`. Godot 4.6, Apache 2.0. Plan file:
   prediction, procedural audio, Movie Mode) + a multiplayer quick start
   (LAN + relay deploy instructions).
 
+## DONE (post-0.4.0 polish sprint, 2026-06-11 — live playtest with Aaron)
+- **v0.4.0 RELEASED**: CI green on all 3 platforms after enabling
+  import_etc2_astc (macOS universal requirement); tag v0.4.0 → GitHub Release
+  with linux/windows/macos zips. CI runs 5 suites on every push.
+- `install.sh` — hardened one-shot installer (platform detect, pinned
+  SHA-512-verified Godot 4.6.3 download, ~/.local/bin symlink, import cache,
+  --test mode). Born from real playtest failures: bare `godot` not on PATH,
+  and fresh clones black-screening without the import cache (now in README).
+- Settings row: volume slider + fullscreen toggle persisted to
+  user://settings.cfg with the relay address.
+- **Match flow**: score limit (menu, default 10, 0=endless), FFA/team win
+  detection, 8s victory-lap win screen + fanfare, auto-restart on a fresh
+  arena; net clients get re-WELCOMEd into the rebuilt arena (names preserved
+  via per-peer memory on the host).
+- **Visual overhaul from live feedback**: nebula shader rewritten (aspect-
+  corrected isotropic star math — was rendering 16:9 "morse code" dashes —
+  sub-cell jitter, twinkle, domain-warped patchy nebula, MUCH darker);
+  ships draw 1.6x physical size (up to 3.2x zoomed out), skirmish zoom 1.15;
+  arena decluttered (16-55 asteroids, ≤2 planets/satellites, looser belts).
+- **Procedural ship hulls** from hull_seed (deterministic across peers);
+  HUD kill feed; HUD radar minimap; Movie Mode action camera (frames the
+  closest hostile duel, recuts every 7s or on death — no more zoomed-out
+  bbox of all 12 ships).
+- Suites: 23 sim / 23 net / 15 relay / 8 audio / smoke.
+
 ## NEXT
-- Verify the first CI run (gh run list); fix template URL / preset option
-  drift if the matrix export fails.
-- M5 lobby: pre-match lobby screen (roster, arena params, difficulty, ready-up).
-- Settings: audio volume sliders + key rebinding (project has none yet).
-- Tag v0.4.0 once CI is green to cut the first downloadable release.
+- Await Aaron's next playtest pass (brightness/scale/density are taste knobs).
+- Gamepad support (menu + flight).
+- Tag v0.5.0 after playtest sign-off.
+- Maybe: PlatformServices stub (steam/null), CHANGELOG.md, lobby/ready-up if
+  drop-in + match flow proves insufficient.
 - M4 online: `server/` master/relay (hole-punch + relay), server browser, `PlatformServices`
   (steam/null) so non-Steam builds compile without GodotSteam.
 - M5 wire procedural map params + difficulty into a real lobby; M6 polish/audio (procedural);
