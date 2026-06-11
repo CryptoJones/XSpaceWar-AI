@@ -14,9 +14,13 @@ uniform bool far_stars = false;
 uniform vec3 tint_a : source_color = vec3(0.10, 0.16, 0.42);
 uniform vec3 tint_b : source_color = vec3(0.45, 0.10, 0.38);
 
+// Sine-free hash (Hoskins): the classic fract(sin(dot)) hash goes visibly
+// periodic at larger cell coordinates, which showed up as repeating star
+// patterns across the sky.
 vec2 hash2(vec2 p) {
-	p = vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)));
-	return fract(sin(p + seed) * 43758.5453);
+	vec3 p3 = fract(vec3(p.xyx) * vec3(0.1031, 0.1030, 0.0973) + seed * 0.0173);
+	p3 += dot(p3, p3.yzx + 33.33);
+	return fract((p3.xx + p3.yz) * p3.zy);
 }
 
 float hash1(vec2 p) {
