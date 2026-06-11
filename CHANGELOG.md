@@ -2,6 +2,28 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [1.0.0] — 2026-06-11
+
+**1.0.** The original vision, complete: a modern AI-driven networked
+space-fighter with deterministic Newtonian physics, 100% procedural
+graphics and audio, LAN + internet multiplayer with prediction, bots with
+personalities, bit-exact replays, and a full match system — built in one
+continuous live session. From 1.0.0 onward every release ships macOS,
+Windows, and Linux packages.
+
+### Added
+- **Asteroids hazard slider**: 0 = clean space, 100 = roughly every 3rd
+  cell of the combat zone holds a randomized rock (deterministic per seed;
+  Movie Mode rolls its own level per arena).
+- **Time limit** match option (0–30 min): HUD countdown; the clock expiring
+  crowns the current leader (team totals in team mode).
+- **M** toggles the minimap (persisted).
+
+### Changed
+- The classic minimap is back: fixed star-centered overview in the
+  **bottom-left** corner (bars stacked above it); everything outside the
+  window — including your own ship — pins to the rim with its bearing.
+
 ## [0.8.0] — 2026-06-11
 
 ### Added
