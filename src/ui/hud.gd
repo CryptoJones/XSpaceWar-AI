@@ -13,6 +13,7 @@ var _bars: Control
 var _feed_label: Label
 var _radar: Control
 var _arrows: Control
+var _respawn_label: Label
 var _feed: Array[Dictionary] = []   ## {"t": text, "ttl": seconds}
 var _seen_tick := -1
 var _seen_gen := -1
@@ -66,6 +67,14 @@ func _ready() -> void:
 	_arrows.draw.connect(_draw_arrows)
 	add_child(_arrows)
 
+	_respawn_label = _make_label(44, Color(1.0, 0.85, 0.4))
+	_respawn_label.set_anchors_preset(Control.PRESET_CENTER)
+	_respawn_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_respawn_label.grow_vertical = Control.GROW_DIRECTION_BOTH
+	_respawn_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_respawn_label.visible = false
+	add_child(_respawn_label)
+
 	_radar = Control.new()
 	_radar.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
 	_radar.grow_horizontal = Control.GROW_DIRECTION_BEGIN
@@ -100,6 +109,13 @@ func _process(dt: float) -> void:
 	_hint.visible = human != null
 	if human != null:
 		_bars.queue_redraw()
+	# Big center countdown while you're dead (skirmish only).
+	if human != null and not human.alive and not session.match_over:
+		_respawn_label.visible = true
+		_respawn_label.text = "RESPAWNING IN %d" % maxi(1, ceili(human.respawn_timer))
+		_respawn_label.modulate.a = 0.65 + 0.35 * sin(Time.get_ticks_msec() / 1000.0 * 6.0)
+	else:
+		_respawn_label.visible = false
 
 ## Resolve a ship id to what the local player should read.
 func _ship_name(id: int) -> String:
@@ -235,12 +251,8 @@ func _update_banner() -> void:
 		_banner.text = "MOVIE MODE — arena %d — next regeneration in %02d:%02d" \
 			% [session.generation, int(t) / 60, int(t) % 60]
 	else:
-		var mode_name := "TEAM BATTLE" if session.mode == GameSession.Mode.TEAM else "FREE-FOR-ALL"
-		var human := session.human_ship()
-		if human != null and not human.alive:
-			_banner.text = "%s — respawning in %.1f…" % [mode_name, maxf(0.0, human.respawn_timer)]
-		else:
-			_banner.text = mode_name
+		# (The respawn countdown gets its own big center overlay.)
+		_banner.text = "TEAM BATTLE" if session.mode == GameSession.Mode.TEAM else "FREE-FOR-ALL"
 
 func _update_scoreboard() -> void:
 	var lines: Array[String] = ["  SCORE  K  D"]
@@ -264,21 +276,32 @@ func _draw_bars() -> void:
 	if human == null:
 		return
 	var cfg := session.world.config
-	# Fuel bar.
+	var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() / 1000.0 * 8.0)
+	# Fuel bar (flashes red + LOW under 20%).
 	var w := 260.0
+	var low_fuel := human.fuel < cfg.max_fuel * 0.2
 	_bars.draw_string(ThemeDB.fallback_font, Vector2(0, 12), "FUEL",
 		HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.7, 0.8, 0.9, 0.8))
 	_bars.draw_rect(Rect2(50, 2, w, 12), Color(1, 1, 1, 0.12))
 	var frac := clampf(human.fuel / cfg.max_fuel, 0.0, 1.0)
-	var fuel_col := Color(0.4, 1.0, 0.5) if frac > 0.3 else Color(1.0, 0.5, 0.3)
+	var fuel_col := Color(0.4, 1.0, 0.5)
+	if low_fuel:
+		fuel_col = Color(1.0, 0.25 + 0.35 * pulse, 0.2)
+	elif frac <= 0.3:
+		fuel_col = Color(1.0, 0.5, 0.3)
 	_bars.draw_rect(Rect2(50, 2, w * frac, 12), fuel_col)
-	# Ammo pips.
+	if low_fuel:
+		_bars.draw_string(ThemeDB.fallback_font, Vector2(50 + w + 8, 12), "LOW",
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(1.0, 0.3, 0.2, 0.5 + 0.5 * pulse))
+	# Ammo pips (frame flashes when empty).
 	_bars.draw_string(ThemeDB.fallback_font, Vector2(0, 36), "AMMO",
 		HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.7, 0.8, 0.9, 0.8))
 	var pip_w := w / float(cfg.max_ammo)
 	for i in range(cfg.max_ammo):
 		var c := Color(1.0, 0.9, 0.4) if i < human.ammo else Color(1, 1, 1, 0.10)
 		_bars.draw_rect(Rect2(50 + i * pip_w, 26, pip_w - 2.0, 12), c)
+	if human.ammo == 0:
+		_bars.draw_rect(Rect2(49, 25, w + 2, 14), Color(1.0, 0.3, 0.2, 0.3 + 0.5 * pulse), false, 1.5)
 	# Mine pips.
 	_bars.draw_string(ThemeDB.fallback_font, Vector2(0, 60), "MINE",
 		HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.7, 0.8, 0.9, 0.8))

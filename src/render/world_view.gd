@@ -39,6 +39,8 @@ var _focus_a := -1                  ## movie-mode action camera: current duel
 var _focus_b := -1
 var _focus_timer := 0.0
 var _match_over_seen := false
+var _shake := 0.0                   ## camera shake energy (decays)
+var _popups: Array[Dictionary] = [] ## floating kill texts: pos/vel/text/ttl/color
 
 const DUEL_SHOT_TIME := 7.0         ## seconds before the movie camera recuts
 
@@ -103,11 +105,16 @@ func _physics_process(dt: float) -> void:
 				_thrusting[ev["ship"]] = true
 			"explosion":
 				_spawn_burst(ev["pos"], Color(2.4, 1.5, 0.5), 56, 420.0)
+				_add_shake(ev["pos"], 1.0)
 			"mine_explode":
 				_spawn_burst(ev["pos"], Color(2.6, 1.1, 0.25), 72, 520.0)
+				_add_shake(ev["pos"], 1.4)
 			"hyperspace":
 				_spawn_burst(ev["pos"], Color(0.7, 1.2, 2.4), 28, 240.0)
+			"kill":
+				_add_kill_popup(int(ev["killer"]), int(ev["victim"]))
 	_audio.update(dt, session.world)
+	_step_popups(dt)
 
 	_update_camera(dt)
 	if _bg_mat != null:
@@ -240,6 +247,15 @@ func _update_camera(dt: float) -> void:
 	_camera.position = _camera.position.lerp(target_pos, k)
 	_cam_zoom = lerpf(_cam_zoom, target_zoom, k)
 	_camera.zoom = Vector2(_cam_zoom, _cam_zoom)
+
+	# Explosion shake: jitter the camera offset, energy decays fast.
+	if _shake > 0.2:
+		var tt := session.world.time * 70.0
+		_camera.offset = Vector2(sin(tt * 1.13), cos(tt * 0.97)) * _shake
+		_shake *= exp(-6.0 * dt)
+	else:
+		_camera.offset = Vector2.ZERO
+		_shake = 0.0
 	# Keep ships readable when the camera pulls back: hulls draw bigger than
 	# their (unchanged) physical radius, more so the further out we are.
 	_ship_vis_scale = clampf(1.6 * maxf(1.0, 0.55 / _cam_zoom), 1.6, 3.2)
@@ -275,6 +291,7 @@ func _draw() -> void:
 		if s.alive:
 			for off in _ghost_offsets(s.pos + s.render_pos_offset, wrap, half, 240.0):
 				_draw_ship(s, world.time, off)
+	_draw_popups()
 
 ## Offsets at which to additionally draw an entity so it appears on both sides
 ## of a toroidal wrap seam (corners produce three ghosts).
@@ -468,6 +485,43 @@ static func hull_polygon(hull_seed: int) -> Dictionary:
 	for i in range(top.size() - 1, 0, -1):  # mirror, skipping the nose
 		pts.append(Vector2(top[i].x, -top[i].y))
 	return {"poly": pts, "tail": tail}
+
+# --------------------------------------------------------------------------
+# Juice: shake + kill popups
+# --------------------------------------------------------------------------
+
+## More shake the closer the blast is to the camera's center of attention.
+func _add_shake(pos: Vector2, base: float) -> void:
+	var falloff := clampf(1.0 - pos.distance_to(_camera.position) / 1600.0, 0.0, 1.0)
+	_shake = minf(26.0, _shake + base * 16.0 * falloff)
+
+func _add_kill_popup(killer_id: int, victim_id: int) -> void:
+	var victim := session.world.ship_by_id(victim_id)
+	var killer := session.world.ship_by_id(killer_id)
+	if victim == null or killer == null:
+		return
+	var kname: String = session.ship_names.get(killer_id, "")
+	if killer_id == session.human_ship_id:
+		kname = "YOU"
+	elif kname == "":
+		kname = "BOT-%d" % killer_id
+	_popups.append({"pos": victim.pos, "vel": Vector2(0, -46), "ttl": 1.7,
+		"text": "+1  %s" % kname, "color": ship_color(killer)})
+
+func _step_popups(dt: float) -> void:
+	for p in _popups:
+		p["ttl"] = float(p["ttl"]) - dt
+		p["pos"] = (p["pos"] as Vector2) + (p["vel"] as Vector2) * dt
+	while not _popups.is_empty() and float(_popups[0]["ttl"]) <= 0.0:
+		_popups.pop_front()
+
+func _draw_popups() -> void:
+	for p in _popups:
+		var c: Color = p["color"]
+		c.a = clampf(float(p["ttl"]) / 0.6, 0.0, 1.0)
+		var sz := int(18.0 * clampf(_ship_vis_scale * 0.7, 1.0, 2.0))
+		draw_string(ThemeDB.fallback_font, (p["pos"] as Vector2) + Vector2(-60, 0),
+			String(p["text"]), HORIZONTAL_ALIGNMENT_CENTER, 120, sz, c)
 
 # --------------------------------------------------------------------------
 # Particles
