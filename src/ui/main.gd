@@ -44,48 +44,49 @@ var _replays_panel: CanvasLayer
 var _replays_list: ItemList
 
 ## OPENING credits — the lineage this game stands on, rolled flat (no Star
-## Wars tilt) at boot and replayable via the CREDITS button.
+## Wars tilt) at boot and replayable via the CREDITS button. The title leads
+## at a size that dwarfs the screen, everything else at cinema scale.
 ## Format: [text, font_size, tier] — tier 0 title / 1 header / 2 name / 3 dim.
 const CREDITS_LINES := [
-	["XSPACEWAR-AI", 40, 0],
-	["a 2026 reimagining", 14, 3],
-	["", 20, 3],
-	["— STANDING ON THE SHOULDERS OF —", 20, 1],
-	["", 8, 3],
-	["SPACEWAR!   (1962, MIT PDP-1)", 22, 1],
-	["Steve Russell · Martin Graetz · Wayne Wiitanen", 18, 2],
-	["Peter Samson · Dan Edwards · Alan Kotok", 18, 2],
-	["", 12, 3],
-	["PDP-11 NETWORKED PORT   (1974)", 22, 1],
-	["Bill Seiler · Larry Bryant", 18, 2],
-	["", 12, 3],
-	["XSPACEWAR 1.2   (1992, X11)", 22, 1],
-	["Ron Frederick", 18, 2],
-	["an early serverless networked multiplayer game", 14, 3],
-	["github.com/ronf  ·  timeheart.net/spacewar", 14, 3],
-	["", 20, 3],
-	["— THIS GAME —", 20, 1],
-	["", 12, 3],
-	["EXECUTIVE PRODUCER", 22, 1],
-	["Trevor Flurry", 18, 2],
-	["", 12, 3],
-	["ARCHITECTURE & DESIGN", 22, 1],
-	["Aaron K. Clark (CryptoJones)", 18, 2],
-	["", 12, 3],
-	["PROGRAMMING", 22, 1],
-	["Claude Fable 5", 18, 2],
-	["", 12, 3],
-	["engine: Godot 4 — every pixel and sound procedurally generated", 14, 3],
-	["", 20, 3],
-	["SPECIAL THANKS", 22, 1],
-	["John Van Lowe (JVL)", 18, 2],
-	["for all the nights in 90s-era Dickinson, Texas", 14, 3],
-	["HTMFPWGCBNOTDOD!", 14, 3],
-	["", 20, 3],
-	["Source Code Available At:", 14, 3],
-	["https://github.com/CryptoJones/XSpaceWar-AI", 16, 2],
-	["", 8, 3],
-	["Apache 2.0 License", 14, 3],
+	["XSPACEWAR-AI", 230, 0],
+	["a 2026 reimagining", 42, 3],
+	["", 60, 3],
+	["— STANDING ON THE SHOULDERS OF —", 60, 1],
+	["", 24, 3],
+	["SPACEWAR!   (1962, MIT PDP-1)", 66, 1],
+	["Steve Russell · Martin Graetz · Wayne Wiitanen", 54, 2],
+	["Peter Samson · Dan Edwards · Alan Kotok", 54, 2],
+	["", 36, 3],
+	["PDP-11 NETWORKED PORT   (1974)", 66, 1],
+	["Bill Seiler · Larry Bryant", 54, 2],
+	["", 36, 3],
+	["XSPACEWAR 1.2   (1992, X11)", 66, 1],
+	["Ron Frederick", 54, 2],
+	["an early serverless networked multiplayer game", 42, 3],
+	["github.com/ronf  ·  timeheart.net/spacewar", 42, 3],
+	["", 60, 3],
+	["— THIS GAME —", 60, 1],
+	["", 36, 3],
+	["EXECUTIVE PRODUCER", 66, 1],
+	["Trevor Flurry", 54, 2],
+	["", 36, 3],
+	["ARCHITECTURE & DESIGN", 66, 1],
+	["Aaron K. Clark (CryptoJones)", 54, 2],
+	["", 36, 3],
+	["PROGRAMMING", 66, 1],
+	["Claude Fable 5", 54, 2],
+	["", 36, 3],
+	["engine: Godot 4 — every pixel and sound procedurally generated", 42, 3],
+	["", 60, 3],
+	["SPECIAL THANKS", 66, 1],
+	["John Van Lowe (JVL)", 54, 2],
+	["for all the nights in 90s-era Dickinson, Texas", 42, 3],
+	["HTMFPWGCBNOTDOD!", 42, 3],
+	["", 60, 3],
+	["Source Code Available At:", 42, 3],
+	["https://github.com/CryptoJones/XSpaceWar-AI", 48, 2],
+	["", 24, 3],
+	["Apache 2.0 License", 42, 3],
 ]
 
 const SETTINGS_PATH := "user://settings.cfg"
@@ -117,7 +118,7 @@ func _process(dt: float) -> void:
 	# Credits roll scrolls up and ends past its own height; splash prompt blinks.
 	if _credits.visible:
 		var vp := get_viewport().get_visible_rect().size
-		_credits_y -= 62.0 * dt
+		_credits_y -= 190.0 * dt  # cinema-scale text wants a brisker roll
 		_credits_box.position = Vector2((vp.x - _credits_box.size.x) * 0.5, _credits_y)
 		if _credits_y < -_credits_box.size.y - 40.0:
 			_end_credits()
@@ -358,39 +359,51 @@ func _build_menu() -> void:
 	replay_row.add_child(replay_btn)
 	box.add_child(replay_row)
 
-	# Bottom row: QUIT and CREDITS on the left, PLAY (the primary action,
-	# dressed to draw the eye) on the right.
+	# Bottom row: QUIT left, CREDITS centered, PLAY right. All three wear
+	# borders; PLAY's is thickest and brightest so it owns the eye.
 	var bottom_row := HBoxContainer.new()
 	var quit := Button.new()
 	quit.text = "QUIT"
 	quit.pressed.connect(_on_quit_pressed)
+	_apply_button_border(quit, 3, false)
 	bottom_row.add_child(quit)
+	var spacer_l := Control.new()
+	spacer_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bottom_row.add_child(spacer_l)
 	var credits_btn := Button.new()
 	credits_btn.text = "CREDITS"
 	credits_btn.pressed.connect(_on_credits_pressed)
+	_apply_button_border(credits_btn, 3, false)
 	bottom_row.add_child(credits_btn)
-	var spacer := Control.new()
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	bottom_row.add_child(spacer)
+	var spacer_r := Control.new()
+	spacer_r.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bottom_row.add_child(spacer_r)
 	var play := Button.new()
 	play.text = "PLAY — Skirmish vs AI"
 	play.pressed.connect(_on_play_pressed)
 	play.add_theme_font_size_override("font_size", 18)
+	_apply_button_border(play, 4, true)
+	bottom_row.add_child(play)
+	box.add_child(bottom_row)
+
+	add_child(_menu)
+
+func _apply_button_border(btn: Button, width: int, bright: bool) -> void:
 	for state in ["normal", "hover", "pressed", "focus"]:
 		var sb := StyleBoxFlat.new()
-		sb.bg_color = Color(0.10, 0.22, 0.30) if state != "hover" else Color(0.14, 0.30, 0.40)
-		sb.border_color = Color(0.55, 0.95, 1.0) if state != "pressed" else Color(1.0, 1.0, 1.0)
-		sb.set_border_width_all(4)
+		if bright:
+			sb.bg_color = Color(0.10, 0.22, 0.30) if state != "hover" else Color(0.14, 0.30, 0.40)
+			sb.border_color = Color(0.55, 0.95, 1.0) if state != "pressed" else Color(1.0, 1.0, 1.0)
+		else:
+			sb.bg_color = Color(0.09, 0.13, 0.18) if state != "hover" else Color(0.12, 0.18, 0.24)
+			sb.border_color = Color(0.40, 0.55, 0.70) if state != "pressed" else Color(0.8, 0.9, 1.0)
+		sb.set_border_width_all(width)
 		sb.set_corner_radius_all(6)
 		sb.content_margin_left = 18.0
 		sb.content_margin_right = 18.0
 		sb.content_margin_top = 8.0
 		sb.content_margin_bottom = 8.0
-		play.add_theme_stylebox_override(state, sb)
-	bottom_row.add_child(play)
-	box.add_child(bottom_row)
-
-	add_child(_menu)
+		btn.add_theme_stylebox_override(state, sb)
 
 # --------------------------------------------------------------------------
 # Splash + credits (boot: credits roll -> splash -> menu)
