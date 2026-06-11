@@ -63,6 +63,7 @@ const CREDITS_LINES := [
 	["github.com/ronf  ·  timeheart.net/spacewar", 14, 3],
 	["", 20, 3],
 	["— THIS GAME —", 20, 1],
+	["", 12, 3],
 	["EXECUTIVE PRODUCER", 22, 1],
 	["Trevor Flurry", 18, 2],
 	["", 12, 3],
