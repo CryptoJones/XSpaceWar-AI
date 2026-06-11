@@ -2,6 +2,33 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [0.6.0] — 2026-06-11
+
+### Added
+- **Match replays**: enable *Record matches* and every match saves a tiny
+  input recording (`user://replays/*.xsr` — kilobytes per minute). Playback
+  is **bit-exact** thanks to the deterministic sim, directed by the Movie
+  Mode action camera, with pause (P) and 1×/2×/4× speed (F). Records solo
+  skirmishes and matches you host online.
+- **Mines**: drop one behind you (S/Down, pad B/LT) — it keeps most of your
+  velocity and coasts under gravity, so minefields drift and orbit. Arms
+  after 0.7s; your own mine never trips on you (the blast is another story).
+  **Torpedoes detonate them** — shoot your way through. Bots dodge armed
+  mines, and brawler/opportunist personalities mine their pursuers. HUD pips
+  show your supply of three.
+- **Off-screen ship indicators**: edge arrows point at every off-screen
+  ship — enemies bright with a live distance tag, teammates dimmed.
+
+### Changed
+- **The arena is 10× larger** (40,000 units). Combat keeps its scale around
+  the star — what grew is the void. The radar now maps a fixed combat-zone
+  window centered on the star, pinning out-of-window ships to its edge.
+- Menu: PLAY moved to the bottom row, right of QUIT.
+
+### Fixed
+- Visible repeating patterns in the starfield — the sine-based hash went
+  periodic at large coordinates; replaced with a sine-free hash.
+
 ## [0.5.0] — 2026-06-11
 
 ### Added

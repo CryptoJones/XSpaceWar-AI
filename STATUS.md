@@ -188,12 +188,31 @@ networked *Spacewar!* / `xspacewar`. Godot 4.6, Apache 2.0. Plan file:
   bbox of all 12 ships).
 - Suites: 23 sim / 23 net / 15 relay / 8 audio / smoke.
 
+## DONE (v0.5.0 → v0.6.0, 2026-06-11 — continued live playtest)
+- **v0.5.0 RELEASED** (3 platform zips, curated release notes). Gamepad
+  support; sky made player-configurable (nebula/stars/far-stars sliders,
+  Aaron's black+stars as defaults — "chef's kiss"); CHANGELOG.md started;
+  PLAY button moved bottom-right next to QUIT.
+- Playtest fixes: stars-only black backdrop, sine-free hash (visible sky
+  repetition), 3x3-neighborhood star sampling (quarter-circle clipping),
+  exactly one star per arena.
+- **Mines** (S/B/LT): proximity weapon, gravity-coasting, torpedo
+  counterplay, bot awareness + defensive mining, HUD pips, net-replicated
+  (protocol v3).
+- **Arena 10x** (40,000u): combat scale unchanged, void grows; radar shows
+  a 5200u combat-zone window pinned to the star; HUD edge arrows point at
+  off-screen ships with distance tags.
+- **Match replays**: change-encoded input recordings (.xsr), bit-exact
+  playback (proven in tests), pause/speed, records solo + hosted matches.
+  Suites: 37 sim / 25 net / 15 relay / 8 audio / smoke.
+- **v0.6.0 tagged** (replays/mines/arena/indicators/hash fix) — release
+  notes to be curated once CI publishes.
+
 ## NEXT
-- Await Aaron's next playtest pass (brightness/scale/density are taste knobs).
-- Gamepad support (menu + flight).
-- Tag v0.5.0 after playtest sign-off.
-- Maybe: PlatformServices stub (steam/null), CHANGELOG.md, lobby/ready-up if
-  drop-in + match flow proves insufficient.
+- Curate v0.6.0 release notes after CI publishes (changelog excerpt + tagline).
+- Replay browser (list all recordings, not just last) if Aaron wants it.
+- Ideas backlog: spectator join for net games, PlatformServices stub,
+  relay deployment guide in server/README.
 - M4 online: `server/` master/relay (hole-punch + relay), server browser, `PlatformServices`
   (steam/null) so non-Steam builds compile without GodotSteam.
 - M5 wire procedural map params + difficulty into a real lobby; M6 polish/audio (procedural);
