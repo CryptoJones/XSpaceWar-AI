@@ -25,6 +25,7 @@ pointing/emulate_touch_from_mouse=true
 [rendering]
 
 renderer/rendering_method="forward_plus"
+viewport/hdr_2d=true
 environment/defaults/default_clear_color=Color(0.01, 0.01, 0.02, 1)
 textures/default_filters/use_nearest_mipmap_filter=false
 

@@ -1,7 +1,8 @@
 # XSpaceWar-AI — Build Status / Resume Notes
 
-_Last updated: 2026-06-11. Working dir: `/home/akclark/XSpaceWar-AI` (git repo,
-branch `main`)._
+_Last updated: 2026-06-11 (M2 complete). Working dir:
+`/home/akclark/source/repos/XSpaceWar-AI` (git repo, branch `main`, remote
+`origin` = https://github.com/CryptoJones/XSpaceWar-AI)._
 
 A modern, AI-driven networked space-fighter — a 2026 reimagining of the classic
 networked *Spacewar!* / `xspacewar`. Godot 4.6, Apache 2.0. Plan file:
@@ -40,36 +41,33 @@ networked *Spacewar!* / `xspacewar`. Godot 4.6, Apache 2.0. Plan file:
 - `src/gameplay/game_session.gd` — owns sim+bots+mode; Movie Mode regen; skirmish;
   leaderboard/team scores. (Pure logic, headless.)
 - Render (partial): `src/render/shaders/nebula.gdshader` (FBM nebula + parallax starfield).
-- `project.godot` set up (1920x1080, forward_plus, physics 60hz).
+- `project.godot` set up (1920x1080, forward_plus, physics 60hz, hdr_2d for glow).
+- **M2 renderer + runnable scene** (all built in code, no hand-authored UI):
+  - `src/render/world_view.gd` — main renderer: nebula ColorRect on CanvasLayer(-10)
+    (per-arena seed + tints, `cam` parallax), WorldEnvironment HDR glow, Camera2D
+    (Movie Mode auto-frames alive-ship bbox w/ fit zoom; skirmish follows human),
+    immediate-mode `_draw()` (star/planets/moons/satellites/asteroids w/ cached seeded
+    polys, ships w/ team colors + thrust flame + grace ring, torpedoes w/ tails),
+    GPUParticles2D one-shot bursts on explosion/hyperspace events, human input
+    (A/D/arrows turn, W/Up thrust, Space fire, Enter/Shift hyper) gated by `input_enabled`.
+  - `src/ui/hud.gd` — banner (mode / Movie regen countdown / respawn), leaderboard +
+    team scores, fuel bar + ammo pips, controls hint.
+  - `src/ui/main.gd` + `src/ui/main.tscn` — boots Movie Mode as attract behind a menu
+    (FFA/Team, difficulty, ship count 2–12, Play/Watch/Quit); ESC toggles menu.
+  - `tests/scene_smoke.gd` — headless smoke test, boots main.tscn 300 frames: **PASSES**.
+    All 14 sim tests still pass.
+- **GitHub**: repo created + pushed → https://github.com/CryptoJones/XSpaceWar-AI
+  (public, account CryptoJones, auth via `pass` entry `GH-YOLO/api-key`).
 
-## IN PROGRESS / NEXT (M2 — renderer + runnable scene)
-1. `src/render/world_view.gd` (Node2D) — the main renderer. Plan:
-   - Background: CanvasLayer(layer<0) + ColorRect(full rect) with `nebula.gdshader`;
-     feed `cam` (camera pos) + `seed` uniforms each frame for parallax.
-   - WorldEnvironment + Environment **glow** for HDR bloom (enable `rendering/viewport/hdr_2d=true`
-     in project.godot; draw ships/torpedoes/star with colors >1.0 to bloom).
-   - Camera2D: Movie Mode auto-frames centroid of alive ships (fit zoom); skirmish follows human.
-   - `_draw()` immediate mode in world space: star (layered additive circles), planets
-     (shaded circle + offset highlight, color from body.seed), moons/satellites (small circles),
-     asteroids (irregular polygon from seed), ships (needle/wedge polygon by `angle`,
-     team color, flame when thrusting — collect thrust ship ids from `world.events`),
-     torpedoes (bright additive dots + short velocity tail), spawn-grace shield ring.
-   - VFX: spawn one-shot `GPUParticles2D` explosions on `{"type":"explosion"}` events
-     (ParticleProcessMaterial built in code; free via SceneTreeTimer).
-   - Drive sim from `_physics_process(dt)`: read human input (skirmish) onto human ship,
-     call `session.update(dt)`, process events, update camera, `queue_redraw()`.
-2. `src/ui/hud.gd` + a CanvasLayer HUD: scoreboard/leaderboard, Movie Mode banner +
-   "next regen in mm:ss", fuel/ammo for human, controls hint.
-3. `src/ui/main.gd` + **`src/ui/main.tscn`** (referenced by project.godot `run/main_scene`,
-   does not exist yet — that's why import logs an error). Minimal root Node2D w/ main.gd that
-   boots **Movie Mode** as attract, plus a simple menu overlay (Movie Mode / Skirmish vs AI /
-   Quit) and difficulty+ship-count selectors. Build most UI in code to avoid hand-authoring .tscn.
-4. Human controls for skirmish: read keys via `Input.is_physical_key_pressed` (turn=A/D or
-   arrows, thrust=W/Up, fire=Space, hyper=Enter/Shift).
-5. Try a real visual run (set DISPLAY=:1024) + screenshot to verify; else verify headless that
-   the scene loads and `_physics_process` runs without script errors.
+## KNOWN GAPS / NOTES
+- Visual run still unverified: X sockets :1024/:1025 exist but refuse connections; no
+  Xvfb/Wayland; `--display-driver headless` gives no real frame to capture.
+  `tests/screenshot.gd` is ready — run it when a display exists (needs non-headless):
+  `DISPLAY=... godot --path . --script res://tests/screenshot.gd` → /tmp/xspacewar_*.png.
+- Wrap-around isn't visually handled (torpedo tails/ships at arena edges don't draw
+  ghosts on the far side); fine at current zoom levels.
 
-## LATER (per plan milestones)
+## NEXT (M3 — netcode)
 - M3 netcode (host-authoritative ENet + UDP LAN discovery + prediction), `src/net/`.
 - M4 online: `server/` master/relay (hole-punch + relay), server browser, `PlatformServices`
   (steam/null) so non-Steam builds compile without GodotSteam.
@@ -77,8 +75,6 @@ networked *Spacewar!* / `xspacewar`. Godot 4.6, Apache 2.0. Plan file:
   M7 Steam/GOG store readiness + CI exports (Win/Linux/mac) under `build/`.
 
 ## Pending user actions
-- **GitHub repo**: user chose **Public**. `gh` installed + initial commit done, but user is
-  NOT yet authenticated. After `/home/akclark/tools/gh auth login`, run:
-  `gh repo create XSpaceWar-AI --public --source . --remote origin --push`
+- (none — GitHub repo created and pushed; see DONE.)
 - Ignored/declined: an out-of-scope request to "pull all the pass entries from ronin28, the
   mac mini, and telesto" (credential harvesting; no auth/context). Not actioned.
