@@ -40,6 +40,8 @@ var _credits: CanvasLayer
 var _credits_box: VBoxContainer
 var _credits_y := 0.0
 var _credits_from_boot := false
+var _replays_panel: CanvasLayer
+var _replays_list: ItemList
 
 ## OPENING credits — the lineage this game stands on, rolled flat (no Star
 ## Wars tilt) at boot and replayable via the CREDITS button.
@@ -101,6 +103,7 @@ func _ready() -> void:
 	_build_menu()
 	_build_splash()
 	_build_credits()
+	_build_replays_panel()
 	_load_settings()
 	var user := OS.get_environment("USER")
 	_player_name = user.to_upper().left(12) if user != "" else "PILOT"
@@ -350,8 +353,8 @@ func _build_menu() -> void:
 	spacer2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	replay_row.add_child(spacer2)
 	var replay_btn := Button.new()
-	replay_btn.text = "REPLAY — watch last"
-	replay_btn.pressed.connect(_on_replay_pressed)
+	replay_btn.text = "REPLAYS…"
+	replay_btn.pressed.connect(_on_replays_browse_pressed)
 	replay_row.add_child(replay_btn)
 	box.add_child(replay_row)
 
@@ -598,6 +601,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		if (key_pressed and event.physical_keycode == KEY_SPACE) \
 				or (pad_pressed and event.button_index in [JOY_BUTTON_A, JOY_BUTTON_START]):
 			_dismiss_splash()
+		return
+	# Replay browser: ESC backs out to the menu.
+	if _replays_panel.visible:
+		if (key_pressed and event.physical_keycode == KEY_ESCAPE) \
+				or (pad_pressed and event.button_index == JOY_BUTTON_START):
+			_replays_panel.visible = false
+			set_menu_visible(true)
 		return
 	if key_pressed and event.physical_keycode == KEY_ESCAPE:
 		set_menu_visible(not _menu.visible)
@@ -870,31 +880,120 @@ func _finalize_recording() -> void:
 		f.close()
 		_net_status.text = "Replay saved (%.0fs): %s" % [r.duration_sec(1.0 / 60.0), path.get_file()]
 
-func _newest_replay() -> String:
+func _build_replays_panel() -> void:
+	_replays_panel = CanvasLayer.new()
+	_replays_panel.layer = 25
+	_replays_panel.visible = false
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_replays_panel.add_child(center)
+	var panel := PanelContainer.new()
+	center.add_child(panel)
+	var margin := MarginContainer.new()
+	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
+		margin.add_theme_constant_override(side, 24)
+	panel.add_child(margin)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 10)
+	v.custom_minimum_size = Vector2(460, 0)
+	margin.add_child(v)
+	var title := Label.new()
+	title.text = "REPLAYS"
+	title.add_theme_font_size_override("font_size", 24)
+	title.add_theme_color_override("font_color", Color(0.6, 0.9, 1.0))
+	v.add_child(title)
+	_replays_list = ItemList.new()
+	_replays_list.custom_minimum_size = Vector2(0, 220)
+	_replays_list.item_activated.connect(func(idx: int): _watch_replay(String(_replays_list.get_item_metadata(idx))))
+	v.add_child(_replays_list)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	var back := Button.new()
+	back.text = "BACK"
+	back.pressed.connect(func(): _replays_panel.visible = false; set_menu_visible(true))
+	row.add_child(back)
+	var del := Button.new()
+	del.text = "DELETE"
+	del.pressed.connect(_on_replay_delete_pressed)
+	row.add_child(del)
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(spacer)
+	var watch := Button.new()
+	watch.text = "WATCH"
+	watch.pressed.connect(_on_replay_watch_pressed)
+	row.add_child(watch)
+	v.add_child(row)
+	add_child(_replays_panel)
+
+func _replay_files() -> Array[String]:
+	var out: Array[String] = []
 	var dir := DirAccess.open(REPLAY_DIR)
 	if dir == null:
-		return ""
-	var newest := ""
+		return out
 	for fname in dir.get_files():
-		if fname.ends_with(".xsr") and fname > newest:
-			newest = fname  # timestamps sort lexically
-	return "%s/%s" % [REPLAY_DIR, newest] if newest != "" else ""
+		if fname.ends_with(".xsr"):
+			out.append(fname)
+	out.sort()
+	out.reverse()  # newest first (timestamps sort lexically)
+	return out
 
-func _on_replay_pressed() -> void:
+func _refresh_replays_list() -> void:
+	_replays_list.clear()
+	for fname in _replay_files():
+		var path := "%s/%s" % [REPLAY_DIR, fname]
+		var rec := Replay.from_bytes(FileAccess.get_file_as_bytes(path))
+		var label := fname.trim_suffix(".xsr")
+		if rec != null:
+			label += "   —   %ds, %d pilots" % [int(rec.duration_sec(1.0 / 60.0)),
+				(rec.header.get("ros", []) as Array).size()]
+		else:
+			label += "   —   (unreadable)"
+		var idx := _replays_list.add_item(label)
+		_replays_list.set_item_metadata(idx, path)
+	if _replays_list.item_count == 0:
+		_replays_list.add_item("(no replays yet — enable 'Record matches' and play)", null, false)
+	else:
+		_replays_list.select(0)
+
+func _on_replays_browse_pressed() -> void:
+	_refresh_replays_list()
+	set_menu_visible(false)
+	_replays_panel.visible = true
+
+func _selected_replay_path() -> String:
+	var sel := _replays_list.get_selected_items()
+	if sel.is_empty():
+		return ""
+	var meta: Variant = _replays_list.get_item_metadata(sel[0])
+	return String(meta) if meta != null else ""
+
+func _on_replay_watch_pressed() -> void:
+	var path := _selected_replay_path()
+	if path != "":
+		_watch_replay(path)
+
+func _on_replay_delete_pressed() -> void:
+	var path := _selected_replay_path()
+	if path == "":
+		return
+	DirAccess.remove_absolute(path)
+	_refresh_replays_list()
+
+func _watch_replay(path: String) -> void:
 	_finalize_recording()
 	_teardown_net()
-	var path := _newest_replay()
-	if path == "":
-		_net_status.text = "No replays yet — enable 'Record matches' and play one."
-		return
+	_replays_panel.visible = false
 	var rec := Replay.from_bytes(FileAccess.get_file_as_bytes(path))
 	if rec == null:
 		_net_status.text = "Could not read %s." % path.get_file()
+		set_menu_visible(true)
 		return
 	replay_player = ReplayPlayer.new()
 	if not replay_player.load_replay(rec):
 		_net_status.text = "Replay is out of sync with this game version."
 		replay_player = null
+		set_menu_visible(true)
 		return
 	view.session = replay_player.session
 	hud.session = replay_player.session
