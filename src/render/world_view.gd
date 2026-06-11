@@ -15,6 +15,28 @@ const TEAM_COLORS: Array[Color] = [
 	Color(1.00, 0.85, 0.40),   # gold
 ]
 
+## Sixteen hand-picked distinct colors for FFA rosters — one per ship by
+## roster position, identical on every peer. (Team mode keeps TEAM_COLORS:
+## there, matching colors ARE the information.)
+const PALETTE16: Array[Color] = [
+	Color(0.30, 0.90, 1.00),   # cyan
+	Color(1.00, 0.55, 0.20),   # orange
+	Color(0.40, 1.00, 0.45),   # green
+	Color(1.00, 0.40, 0.90),   # magenta
+	Color(1.00, 0.95, 0.30),   # yellow
+	Color(0.35, 0.50, 1.00),   # blue
+	Color(1.00, 0.30, 0.30),   # red
+	Color(0.20, 0.90, 0.75),   # teal
+	Color(0.65, 0.40, 1.00),   # purple
+	Color(0.75, 1.00, 0.30),   # lime
+	Color(1.00, 0.60, 0.65),   # pink
+	Color(0.55, 0.80, 1.00),   # sky
+	Color(1.00, 0.75, 0.45),   # amber
+	Color(0.60, 1.00, 0.80),   # mint
+	Color(0.80, 0.70, 1.00),   # lavender
+	Color(0.92, 0.92, 0.95),   # silver
+]
+
 ## Local hull space: +X = facing, roughly ±19 units, scaled by radius/12.
 
 var session: GameSession
@@ -530,7 +552,7 @@ static func pick_duel(world: SimWorld) -> Array:
 static func ship_color(s: SimShip) -> Color:
 	if s.team >= 0:
 		return TEAM_COLORS[s.team % TEAM_COLORS.size()]
-	return Color.from_hsv(float(s.hull_seed % 997) / 997.0, 0.65, 1.0)
+	return PALETTE16[s.palette_idx % PALETTE16.size()]
 
 ## Build a ship silhouette from its hull seed: a symmetric polygon — nose,
 ## optional shoulder, swept wingtip, inner tail, pointed-or-flat stern — in

@@ -9,6 +9,7 @@ extends RefCounted
 var id: int = -1
 var team: int = -1                      ## -1 = free-for-all (no team)
 var hull_seed: int = 0                  ## drives procedural ship silhouette
+var palette_idx: int = 0                ## roster position -> distinct FFA color
 
 # --- Kinematic state ---
 var pos: Vector2 = Vector2.ZERO

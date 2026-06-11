@@ -224,6 +224,7 @@ func _on_welcome(data: Dictionary) -> void:
 		s.team = int(entry[1])
 		s.hull_seed = int(entry[2])
 		s.radius = cfg.ship_radius
+		s.palette_idx = world.ships.size()  # roster order matches the host
 		world.ships.append(s)
 		var pname := String(entry[3])
 		if pname != "":

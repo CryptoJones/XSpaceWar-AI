@@ -20,6 +20,7 @@ func _initialize() -> void:
 	_test_ai_combat()
 	_test_match_flow()
 	_test_hazard_slider()
+	_test_ship_colors()
 	_test_team_spawns()
 	_test_sim_performance()
 	_test_hull_generation()
@@ -270,6 +271,15 @@ func _test_hazard_slider() -> void:
 		if b.kind == SimBody.Kind.ASTEROID:
 			rocks2 += 1
 	_check("hazard: deterministic per seed", rocks2 == rocks1)
+
+func _test_ship_colors() -> void:
+	var s := GameSession.new()
+	s.start_skirmish(16, GameSession.Mode.FFA, BotController.Difficulty.ROOKIE)
+	var seen := {}
+	for ship in s.world.ships:
+		seen[WorldView.ship_color(ship)] = true
+	_check("colors: 16 FFA ships get 16 distinct colors", seen.size() == 16,
+		"distinct=%d" % seen.size())
 
 func _test_team_spawns() -> void:
 	var s := GameSession.new()

@@ -250,8 +250,9 @@ func _draw_radar() -> void:
 		var off_view := not _radar_in_view(mp, size)
 		mp = mp.clamp(Vector2(3, 3), size - Vector2(3, 3))
 		if s.id == session.human_ship_id:
-			_radar.draw_circle(mp, 3.0, Color.WHITE)
-			_radar.draw_arc(mp, 5.5, 0.0, TAU, 12, Color(1, 1, 1, 0.6), 1.0)
+			# YOUR ship is always DARK RED on the map — instantly findable.
+			_radar.draw_circle(mp, 3.2, Color(0.62, 0.07, 0.07))
+			_radar.draw_arc(mp, 5.5, 0.0, TAU, 12, Color(0.62, 0.07, 0.07, 0.75), 1.2)
 		else:
 			var c := WorldView.ship_color(s)
 			_radar.draw_circle(mp, 2.2, Color(c.r, c.g, c.b, 0.5 if off_view else 1.0))

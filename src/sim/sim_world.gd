@@ -60,6 +60,7 @@ func add_ship(team: int = -1) -> SimShip:
 	s.team = team
 	s.radius = config.ship_radius
 	s.hull_seed = rng.randi()
+	s.palette_idx = ships.size()
 	place_in_orbit(s)
 	ships.append(s)
 	return s
