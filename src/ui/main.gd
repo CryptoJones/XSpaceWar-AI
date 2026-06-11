@@ -20,6 +20,11 @@ var _net_status: Label
 var _lan: LanDiscovery
 var _server_repr := ""
 var _player_name := "PILOT"
+var _relay_edit: LineEdit
+var _code_edit: LineEdit
+var _browser: RelayBrowser
+var _relay_rooms: Array = []
+var _shown_room_code := ""
 
 func _ready() -> void:
 	view = WorldView.new()
@@ -45,6 +50,22 @@ func _process(dt: float) -> void:
 		session.start_movie()
 		set_menu_visible(true)
 		_net_status.text = "Disconnected: %s" % why
+	# Surface the relay room code once the relay assigns it.
+	if net_host != null and net_host.room_code() != "" \
+			and net_host.room_code() != _shown_room_code:
+		_shown_room_code = net_host.room_code()
+		_net_status.text = "Hosting online — room code: %s" % _shown_room_code
+	if net_host != null and net_host.transport_failed():
+		_net_status.text = "Relay link lost — clients can no longer reach this game."
+	if _browser != null and not _browser.done:
+		_browser.update(dt)
+		if _browser.done:
+			if _browser.error != "":
+				_net_status.text = "Browse failed: %s" % _browser.error
+			else:
+				_relay_rooms = _browser.servers
+				_net_status.text = "" if not _relay_rooms.is_empty() else "No online games right now."
+			_server_repr = "force"  # rebuild the merged list
 	if _menu.visible:
 		_refresh_server_list(dt)
 
@@ -132,8 +153,37 @@ func _build_menu() -> void:
 	join_row.add_child(join_btn)
 	box.add_child(join_row)
 
+	var online_row := HBoxContainer.new()
+	_relay_edit = LineEdit.new()
+	var env_relay := OS.get_environment("XSW_RELAY")
+	_relay_edit.text = env_relay if env_relay != "" else ""
+	_relay_edit.placeholder_text = "relay address (ip[:port])"
+	_relay_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	online_row.add_child(_relay_edit)
+	var host_online_btn := Button.new()
+	host_online_btn.text = "HOST ONLINE"
+	host_online_btn.pressed.connect(_on_host_online_pressed)
+	online_row.add_child(host_online_btn)
+	var browse_btn := Button.new()
+	browse_btn.text = "BROWSE"
+	browse_btn.pressed.connect(_on_browse_pressed)
+	online_row.add_child(browse_btn)
+	box.add_child(online_row)
+
+	var code_row := HBoxContainer.new()
+	_code_edit = LineEdit.new()
+	_code_edit.placeholder_text = "room code"
+	_code_edit.max_length = RelayProtocol.CODE_LEN
+	_code_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	code_row.add_child(_code_edit)
+	var join_code_btn := Button.new()
+	join_code_btn.text = "JOIN CODE"
+	join_code_btn.pressed.connect(_on_join_code_pressed)
+	code_row.add_child(join_code_btn)
+	box.add_child(code_row)
+
 	var lan_label := Label.new()
-	lan_label.text = "LAN servers (double-click to join):"
+	lan_label.text = "Servers — LAN auto-discovered + online via BROWSE (double-click to join):"
 	lan_label.add_theme_font_size_override("font_size", 13)
 	lan_label.add_theme_color_override("font_color", Color(0.6, 0.7, 0.85, 0.8))
 	box.add_child(lan_label)
@@ -228,8 +278,13 @@ func _on_join_ip_pressed() -> void:
 
 func _on_server_activated(index: int) -> void:
 	var srv: Variant = _server_list.get_item_metadata(index)
-	if typeof(srv) == TYPE_DICTIONARY:
-		_join(String(srv["ip"]), int(srv.get("port", NetHost.DEFAULT_PORT)))
+	if typeof(srv) != TYPE_DICTIONARY:
+		return
+	var d: Dictionary = srv
+	if d.has("code"):
+		_join_relay(String(d["code"]))
+	else:
+		_join(String(d["ip"]), int(d.get("port", NetHost.DEFAULT_PORT)))
 
 func _join(ip: String, port: int) -> void:
 	_teardown_net()
@@ -247,29 +302,108 @@ func _join(ip: String, port: int) -> void:
 	set_menu_visible(false)
 
 func _refresh_server_list(dt: float) -> void:
-	if _lan == null or not _lan.bind_ok:
-		if _server_repr != "unavailable":
-			_server_repr = "unavailable"
-			_server_list.clear()
-			_server_list.add_item("(LAN discovery unavailable — port in use?)", null, false)
-		return
-	var found := _lan.poll(dt)
+	var found: Array = []
+	if _lan != null and _lan.bind_ok:
+		found = _lan.poll(dt)
+	var entries: Array = []
 	var lines: Array[String] = []
 	for srv in found:
-		lines.append("%s — %s:%d  (%d/%d)" % [String(srv.get("name", "?")),
+		entries.append(srv)
+		lines.append("[LAN] %s — %s:%d  (%d/%d)" % [String(srv.get("name", "?")),
 			String(srv["ip"]), int(srv.get("port", NetHost.DEFAULT_PORT)),
 			int(srv.get("players", 0)), int(srv.get("max", 0))])
+	for room in _relay_rooms:
+		entries.append(room)
+		lines.append("[ONLINE] %s — room %s  (%d/%d)" % [String(room.get("name", "?")),
+			String(room.get("code", "????")),
+			int(room.get("players", 0)), int(room.get("max", 0))])
 	var repr := "\n".join(lines)
 	if repr == _server_repr:
 		return
 	_server_repr = repr
 	_server_list.clear()
-	if found.is_empty():
-		_server_list.add_item("(searching LAN…)", null, false)
+	if entries.is_empty():
+		var why := "searching LAN…" if (_lan != null and _lan.bind_ok) else "LAN discovery unavailable"
+		_server_list.add_item("(%s — BROWSE checks the relay)" % why, null, false)
 	else:
-		for i in range(found.size()):
+		for i in range(entries.size()):
 			var idx := _server_list.add_item(lines[i])
-			_server_list.set_item_metadata(idx, found[i])
+			_server_list.set_item_metadata(idx, entries[i])
+
+## Parse the relay address field: "ip" or "ip:port". Empty -> error.
+func _relay_addr() -> Dictionary:
+	var txt := _relay_edit.text.strip_edges()
+	if txt == "":
+		return {}
+	var ip := txt
+	var port := RelayProtocol.DEFAULT_PORT
+	if ":" in txt:
+		var parts := txt.rsplit(":", false, 1)
+		ip = parts[0]
+		if parts.size() > 1 and parts[1].is_valid_int():
+			port = int(parts[1])
+	return {"ip": ip, "port": port}
+
+func _on_host_online_pressed() -> void:
+	var addr := _relay_addr()
+	if addr.is_empty():
+		_net_status.text = "Enter a relay address first (or set XSW_RELAY)."
+		return
+	_teardown_net()
+	var mode := GameSession.Mode.TEAM if _mode_btn.selected == 1 else GameSession.Mode.FFA
+	session.start_skirmish(int(_ships_spin.value), mode, _diff_btn.selected)
+	session.ship_names[session.human_ship_id] = _player_name
+	net_host = NetHost.new(session)
+	var err: Error = net_host.open_relay(String(addr["ip"]), int(addr["port"]),
+		"%s's arena" % _player_name)
+	if err != OK:
+		_net_status.text = "Relay host failed (error %d)." % err
+		net_host = null
+		return
+	_shown_room_code = ""
+	view.external_driver = func(dt: float): net_host.update(dt,
+		view.gather_local_input() if not _menu.visible else {})
+	_net_status.text = "Registering with relay…"
+	set_menu_visible(false)
+
+func _on_browse_pressed() -> void:
+	var addr := _relay_addr()
+	if addr.is_empty():
+		_net_status.text = "Enter a relay address first (or set XSW_RELAY)."
+		return
+	_browser = RelayBrowser.new()
+	if _browser.open(String(addr["ip"]), int(addr["port"])) != OK:
+		_net_status.text = "Could not reach the relay."
+		_browser = null
+		return
+	_net_status.text = "Browsing online games…"
+
+func _on_join_code_pressed() -> void:
+	var code := _code_edit.text.strip_edges().to_upper()
+	if code.length() != RelayProtocol.CODE_LEN:
+		_net_status.text = "Room codes are %d characters." % RelayProtocol.CODE_LEN
+		return
+	_join_relay(code)
+
+func _join_relay(code: String) -> void:
+	var addr := _relay_addr()
+	if addr.is_empty():
+		_net_status.text = "Enter a relay address first (or set XSW_RELAY)."
+		return
+	_teardown_net()
+	net_client = NetClient.new()
+	var err: Error = net_client.open_relay(String(addr["ip"]), int(addr["port"]),
+		code, _player_name)
+	if err != OK:
+		_net_status.text = "Relay join failed (error %d)." % err
+		net_client = null
+		return
+	view.session = net_client.session
+	hud.session = net_client.session
+	view.external_driver = func(dt: float): net_client.update(dt,
+		view.gather_local_input() if not _menu.visible else {})
+	_net_status.text = ""
+	set_menu_visible(false)
 
 func _teardown_net() -> void:
 	if net_host != null:
@@ -278,6 +412,7 @@ func _teardown_net() -> void:
 	if net_client != null:
 		net_client.close()
 		net_client = null
+	_shown_room_code = ""
 	view.external_driver = Callable()
 	view.session = session
 	hud.session = session

@@ -1,24 +1,26 @@
 class_name NetHost
 extends RefCounted
-## Authoritative LAN game host. Wraps a running GameSession: pumps ENet,
+## Authoritative game host. Wraps a running GameSession: pumps its transport,
 ## hands joining players a bot's ship (and hands it back to a bot when they
 ## leave), applies remote inputs, steps the session, and broadcasts state
-## snapshots at a fixed rate. Also advertises the game for LAN discovery.
+## snapshots at a fixed rate.
 ##
-## Drive it from the renderer (or a headless test) by calling
-## `update(dt, local_input)` once per fixed step instead of session.update().
+## Runs over either transport: `open()` binds a direct ENet socket (LAN play,
+## with UDP discovery advertising) and `open_relay()` registers a room on a
+## relay server for internet play (room code via `room_code()`). Peers are
+## opaque transport keys. Drive it from the renderer (or a headless test) by
+## calling `update(dt, local_input)` once per fixed step.
 
 const DEFAULT_PORT := 24642
 const SNAPSHOT_INTERVAL := 1.0 / 20.0
-const MAX_SERVICE_EVENTS := 64
 
 var session: GameSession
 var port := DEFAULT_PORT
 var server_name := "XSpaceWar"
 
-var _conn := ENetConnection.new()
+var _t = null                 ## duck-typed host transport (direct or relay)
 var _open := false
-var _peers := {}              ## ENetPacketPeer -> ship_id
+var _peers := {}              ## transport peer key -> ship_id
 var _inputs := {}             ## ship_id -> latest input payload
 var _acked := {}              ## ship_id -> highest input sequence received
 var _advertiser: LanDiscovery
@@ -32,7 +34,8 @@ func open(p_port := DEFAULT_PORT, advertise := true, p_server_name := "XSpaceWar
 		bind_address := "*") -> Error:
 	port = p_port
 	server_name = p_server_name
-	var err := _conn.create_host_bound(bind_address, port, 12, NetProtocol.CHANNELS)
+	_t = DirectHostTransport.new()
+	var err: Error = _t.open({"port": port, "bind": bind_address, "max_peers": 12})
 	if err != OK:
 		return err
 	_open = true
@@ -42,6 +45,25 @@ func open(p_port := DEFAULT_PORT, advertise := true, p_server_name := "XSpaceWar
 			"max": session.num_ships, "mode": session.mode, "players": 1,
 		})
 	return OK
+
+## Host an internet game through a relay server (see server/relay_main.gd).
+func open_relay(relay_ip: String, relay_port: int, p_server_name := "XSpaceWar") -> Error:
+	server_name = p_server_name
+	_t = RelayHostTransport.new()
+	var err: Error = _t.open({"ip": relay_ip, "port": relay_port,
+		"name": server_name, "max": session.num_ships, "mode": session.mode})
+	if err != OK:
+		return err
+	_open = true
+	return OK
+
+## Relay room code ("" until the relay assigns one / for direct hosting).
+func room_code() -> String:
+	return _t.room_code() if _open and _t is RelayHostTransport else ""
+
+## True when the transport has irrecoverably failed (e.g. relay link lost).
+func transport_failed() -> bool:
+	return _open and bool(_t.failed)
 
 func update(dt: float, local_input: Dictionary) -> void:
 	if not _open:
@@ -69,6 +91,7 @@ func update(dt: float, local_input: Dictionary) -> void:
 
 	if _advertiser != null:
 		_advertiser.advertise(dt, player_count())
+	_t.tick(dt, player_count())
 
 func player_count() -> int:
 	return _peers.size() + 1
@@ -86,24 +109,19 @@ func _broadcast_snapshot() -> void:
 		NetProtocol.snapshot_of(session.world, thrust_ids, _event_accum, _acked))
 	_event_accum = []
 	for peer in _peers:
-		peer.send(NetProtocol.CH_STATE, bytes, 0)
+		_t.send(peer, bytes, false, NetProtocol.CH_STATE)
 
 func _pump() -> void:
-	for _i in range(MAX_SERVICE_EVENTS):
-		var ev: Array = _conn.service(0)
-		var type := int(ev[0])
-		if type == ENetConnection.EVENT_NONE or type == ENetConnection.EVENT_ERROR:
-			break
-		var peer: ENetPacketPeer = ev[1]
-		match type:
-			ENetConnection.EVENT_CONNECT:
+	for ev in _t.poll():
+		match String(ev["t"]):
+			"connect":
 				pass  # ship assigned on MSG_HELLO, not on raw connect
-			ENetConnection.EVENT_DISCONNECT:
-				_drop_peer(peer)
-			ENetConnection.EVENT_RECEIVE:
-				_on_packet(peer, peer.get_packet())
+			"disconnect":
+				_drop_peer(ev["peer"])
+			"data":
+				_on_packet(ev["peer"], ev["bytes"])
 
-func _on_packet(peer: ENetPacketPeer, bytes: PackedByteArray) -> void:
+func _on_packet(peer, bytes: PackedByteArray) -> void:
 	var msg := NetProtocol.unpack(bytes)
 	if msg.is_empty():
 		return
@@ -119,7 +137,7 @@ func _on_packet(peer: ENetPacketPeer, bytes: PackedByteArray) -> void:
 					_acked[sid] = q
 					_inputs[sid] = data
 
-func _on_hello(peer: ENetPacketPeer, data: Dictionary) -> void:
+func _on_hello(peer, data: Dictionary) -> void:
 	if _peers.has(peer):
 		return
 	if int(data.get("v", -1)) != NetProtocol.VERSION:
@@ -135,18 +153,16 @@ func _on_hello(peer: ENetPacketPeer, data: Dictionary) -> void:
 	_peers[peer] = sid
 	var pname := String(data.get("name", "")).strip_edges().left(16)
 	session.ship_names[sid] = pname if pname != "" else "PILOT-%d" % sid
-	peer.send(NetProtocol.CH_CONTROL,
+	_t.send(peer,
 		NetProtocol.pack(NetProtocol.MSG_WELCOME, NetProtocol.welcome_of(session, sid)),
-		ENetPacketPeer.FLAG_RELIABLE)
+		true, NetProtocol.CH_CONTROL)
 
-func _reject(peer: ENetPacketPeer, why: String) -> void:
-	peer.send(NetProtocol.CH_CONTROL,
-		NetProtocol.pack(NetProtocol.MSG_REJECT, {"why": why}),
-		ENetPacketPeer.FLAG_RELIABLE)
-	_conn.flush()
-	peer.peer_disconnect_later()
+func _reject(peer, why: String) -> void:
+	_t.send(peer, NetProtocol.pack(NetProtocol.MSG_REJECT, {"why": why}),
+		true, NetProtocol.CH_CONTROL)
+	_t.kick(peer)
 
-func _drop_peer(peer: ENetPacketPeer) -> void:
+func _drop_peer(peer) -> void:
 	if not _peers.has(peer):
 		return
 	var sid: int = _peers[peer]
@@ -161,12 +177,12 @@ func close() -> void:
 	if not _open:
 		return
 	for peer in _peers:
-		peer.peer_disconnect()
-	_conn.flush()
-	_conn.destroy()
+		_t.kick(peer)
+	_t.close()
 	_open = false
 	_peers.clear()
 	_inputs.clear()
+	_acked.clear()
 	if _advertiser != null:
 		_advertiser.close()
 		_advertiser = null

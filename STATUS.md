@@ -124,11 +124,35 @@ networked *Spacewar!* / `xspacewar`. Godot 4.6, Apache 2.0. Plan file:
   (Smoke exits with one orphan "Master" StringName from the dummy audio
   driver — engine-internal, zero leaked objects.)
 
+## DONE (M4 — online play via own relay/master, 2026-06-11)
+- `server/relay_server.gd` + `relay_main.gd` — standalone headless relay+master
+  (run: `godot --headless --path . --script res://server/relay_main.gd -- --port N`).
+  Hosts REGISTER → 4-char room code; browsers LIST; clients JOIN by code; game
+  packets forwarded in FWD envelopes preserving reliable/unreliable class.
+  Both ends only dial OUT → works behind NAT, no port forwarding, no Steam.
+- Transport abstraction: NetHost/NetClient now run over duck-typed transports —
+  `transport_direct_{host,client}.gd` (LAN, unchanged behavior) and
+  `transport_relay_{host,client}.gd` (peers = relay pids). Game protocol layer
+  untouched; relay msg ids (101+) disjoint from game ids.
+- `relay_browser.gd` — one-shot online server list fetch.
+- Menu: relay address field (XSW_RELAY env default), HOST ONLINE (room code
+  shown in status), BROWSE (merges [ONLINE] rooms into the server list),
+  JOIN CODE; relay-loss notice for hosts.
+- `tests/relay_tests.gd` — **15 checks pass**: in-process relay + host +
+  2 clients over loopback (room code, master list, case-insensitive join,
+  arena/name/torpedo sync through the hop, bad-code refusal, leaver re-bot,
+  host-left CLOSED + room dissolve). All suites: 14 sim + 21 net + 15 relay
+  + 8 audio + smoke.
+- NOT done (deliberate): NAT hole-punch for direct online (relay always
+  carries traffic — costs relay bandwidth, zero-config for players);
+  PlatformServices (steam/null) stub.
+
 ## NEXT
-- M4 online: `server/` master/relay (hole-punch + relay), server browser,
-  PlatformServices (steam/null).
-- M5 lobby: wire arena params + difficulty into a pre-match lobby screen.
+- M5 lobby: pre-match lobby screen (roster, arena params, difficulty, ready-up).
 - Settings: audio volume sliders + key rebinding (project has none yet).
+- M7 release: export presets + CI builds (Win/Linux/mac) under `build/`.
+- Deploy a relay for real play: any box with godot + this repo,
+  open UDP 24645, set XSW_RELAY on clients.
 - M4 online: `server/` master/relay (hole-punch + relay), server browser, `PlatformServices`
   (steam/null) so non-Steam builds compile without GodotSteam.
 - M5 wire procedural map params + difficulty into a real lobby; M6 polish/audio (procedural);

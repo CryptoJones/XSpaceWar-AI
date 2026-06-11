@@ -16,8 +16,7 @@ extends RefCounted
 
 enum State { CONNECTING, READY, FAILED }
 
-const CONNECT_TIMEOUT := 6.0
-const MAX_SERVICE_EVENTS := 64
+const CONNECT_TIMEOUT := 8.0
 const MAX_PENDING_INPUTS := 120    ## ~2s of unacked inputs before we drop old ones
 
 var session := GameSession.new()   ## world is null until MSG_WELCOME arrives
@@ -25,8 +24,7 @@ var state := State.CONNECTING
 var error_msg := ""
 var player_name := "PILOT"
 
-var _conn := ENetConnection.new()
-var _server: ENetPacketPeer
+var _t = null                      ## duck-typed client transport (direct or relay)
 var _open := false
 var _timer := 0.0
 var _pending_events: Array = []    ## one-shots from snapshots, drained per frame
@@ -34,16 +32,23 @@ var _last_thrusting: Array = []    ## ship ids thrusting per the latest snapshot
 var _input_seq := 0                ## sequence number of the last input sent
 var _pending_inputs: Array = []    ## sent-but-unacked inputs, for replay
 
+## Join a LAN / direct-IP game.
 func open(ip: String, port := 24642, p_name := "PILOT") -> Error:
+	return _open_with(DirectClientTransport.new(), {"ip": ip, "port": port}, p_name)
+
+## Join an internet game through a relay server by room code.
+func open_relay(relay_ip: String, relay_port: int, code: String, p_name := "PILOT") -> Error:
+	return _open_with(RelayClientTransport.new(),
+		{"ip": relay_ip, "port": relay_port, "code": code}, p_name)
+
+func _open_with(transport, cfg: Dictionary, p_name: String) -> Error:
 	player_name = p_name
 	session.movie_mode = false
 	session.human_ship_id = -1
-	var err := _conn.create_host(1, NetProtocol.CHANNELS)
+	var err: Error = transport.open(cfg)
 	if err != OK:
 		return err
-	_server = _conn.connect_to_host(ip, port, NetProtocol.CHANNELS)
-	if _server == null:
-		return ERR_CANT_CONNECT
+	_t = transport
 	_open = true
 	return OK
 
@@ -71,7 +76,7 @@ func update(dt: float, local_input: Dictionary) -> void:
 	_pending_inputs.append(inp)
 	while _pending_inputs.size() > MAX_PENDING_INPUTS:
 		_pending_inputs.pop_front()
-	_server.send(NetProtocol.CH_STATE, NetProtocol.pack(NetProtocol.MSG_INPUT, inp), 0)
+	_t.send(NetProtocol.pack(NetProtocol.MSG_INPUT, inp), false, NetProtocol.CH_STATE)
 
 	# Surface queued one-shot events + thrust flames to the renderer. Remote
 	# flames come from the snapshot; our own comes from the live input.
@@ -152,22 +157,17 @@ func _reconcile(acks: Dictionary) -> void:
 			bool(inp.get("t", false)), world.config.fixed_dt)
 
 func _pump() -> void:
-	for _i in range(MAX_SERVICE_EVENTS):
-		var ev: Array = _conn.service(0)
-		var type := int(ev[0])
-		if type == ENetConnection.EVENT_NONE or type == ENetConnection.EVENT_ERROR:
-			break
-		match type:
-			ENetConnection.EVENT_CONNECT:
-				_server.send(NetProtocol.CH_CONTROL,
-					NetProtocol.pack(NetProtocol.MSG_HELLO,
-						{"v": NetProtocol.VERSION, "name": player_name}),
-					ENetPacketPeer.FLAG_RELIABLE)
-			ENetConnection.EVENT_DISCONNECT:
-				_fail("host closed the connection" if state == State.READY else "connection refused")
+	for ev in _t.poll():
+		match String(ev["t"]):
+			"connect":
+				_t.send(NetProtocol.pack(NetProtocol.MSG_HELLO,
+					{"v": NetProtocol.VERSION, "name": player_name}),
+					true, NetProtocol.CH_CONTROL)
+			"disconnect":
+				_fail(String(ev.get("why", "host closed the connection")))
 				return
-			ENetConnection.EVENT_RECEIVE:
-				_on_packet(_server.get_packet())
+			"data":
+				_on_packet(ev["bytes"])
 
 func _on_packet(bytes: PackedByteArray) -> void:
 	var msg := NetProtocol.unpack(bytes)
@@ -213,14 +213,13 @@ func _on_welcome(data: Dictionary) -> void:
 	state = State.READY
 
 func _fail(why: String) -> void:
+	if state == State.FAILED:
+		return
 	state = State.FAILED
 	error_msg = why
 
 func close() -> void:
 	if not _open:
 		return
-	if _server != null and _server.get_state() == ENetPacketPeer.STATE_CONNECTED:
-		_server.peer_disconnect()
-	_conn.flush()
-	_conn.destroy()
+	_t.close()
 	_open = false
