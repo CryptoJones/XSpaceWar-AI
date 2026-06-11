@@ -5,6 +5,12 @@ extends RefCounted
 ## then applies host snapshots and dead-reckons entities between them. Local
 ## key state is forwarded to the host every step; the host owns all gameplay.
 ##
+## The local ship is *predicted*: every tick its input is applied immediately
+## via SimWorld.step_ship_kinematics and buffered with a sequence number; each
+## snapshot carries the host's last-applied sequence, so the authoritative
+## state is adopted and the still-unacked inputs are replayed on top. Flying
+## feels instant while the host stays in charge of weapons and deaths.
+##
 ## Owns a shell GameSession so WorldView/Hud can render it unchanged. The
 ## session is never update()d here — its world is written by snapshots.
 
@@ -12,6 +18,7 @@ enum State { CONNECTING, READY, FAILED }
 
 const CONNECT_TIMEOUT := 6.0
 const MAX_SERVICE_EVENTS := 64
+const MAX_PENDING_INPUTS := 120    ## ~2s of unacked inputs before we drop old ones
 
 var session := GameSession.new()   ## world is null until MSG_WELCOME arrives
 var state := State.CONNECTING
@@ -24,6 +31,8 @@ var _open := false
 var _timer := 0.0
 var _pending_events: Array = []    ## one-shots from snapshots, drained per frame
 var _last_thrusting: Array = []    ## ship ids thrusting per the latest snapshot
+var _input_seq := 0                ## sequence number of the last input sent
+var _pending_inputs: Array = []    ## sent-but-unacked inputs, for replay
 
 func open(ip: String, port := 24642, p_name := "PILOT") -> Error:
 	player_name = p_name
@@ -52,29 +61,48 @@ func update(dt: float, local_input: Dictionary) -> void:
 		return
 
 	var world := session.world
-	# Surface queued one-shot events + sustained thrust flames to the renderer.
+	var own := world.ship_by_id(session.human_ship_id)
+
+	# Sequence, buffer, and send this tick's input (even neutral input — the
+	# sequence stream is what reconciliation replays against).
+	_input_seq += 1
+	var inp := local_input.duplicate()
+	inp["q"] = _input_seq
+	_pending_inputs.append(inp)
+	while _pending_inputs.size() > MAX_PENDING_INPUTS:
+		_pending_inputs.pop_front()
+	_server.send(NetProtocol.CH_STATE, NetProtocol.pack(NetProtocol.MSG_INPUT, inp), 0)
+
+	# Surface queued one-shot events + thrust flames to the renderer. Remote
+	# flames come from the snapshot; our own comes from the live input.
 	world.events.clear()
 	for ev in _pending_events:
 		world.events.append(ev)
 	_pending_events.clear()
-	for sid in _last_thrusting:
-		var s := world.ship_by_id(int(sid))
+	for sid_v in _last_thrusting:
+		var sid := int(sid_v)
+		if sid == session.human_ship_id:
+			continue
+		var s := world.ship_by_id(sid)
 		if s != null and s.alive:
-			world.events.append({"type": "thrust", "ship": int(sid), "pos": s.pos})
+			world.events.append({"type": "thrust", "ship": sid, "pos": s.pos})
 
-	_extrapolate(world, dt)
+	# Predict our own ship now; everyone else dead-reckons.
+	if own != null and own.alive:
+		if bool(inp.get("t", false)) and own.fuel > 0.0:
+			world.events.append({"type": "thrust", "ship": own.id, "pos": own.pos})
+		world.step_ship_kinematics(own, float(inp.get("u", 0.0)), bool(inp.get("t", false)), dt)
 
-	if not local_input.is_empty():
-		_server.send(NetProtocol.CH_STATE,
-			NetProtocol.pack(NetProtocol.MSG_INPUT, local_input), 0)
+	_extrapolate(world, dt, own)
 
 ## Dead-reckon between snapshots: orbiting bodies advance kinematically and
 ## ships/torpedoes coast under gravity. The next snapshot corrects any drift.
-func _extrapolate(world: SimWorld, dt: float) -> void:
+## `skip` is the locally-predicted ship (already integrated this tick).
+func _extrapolate(world: SimWorld, dt: float, skip: SimShip) -> void:
 	world.time += dt
 	world._advance_bodies(dt)
 	for s in world.ships:
-		if not s.alive:
+		if not s.alive or s == skip:
 			continue
 		s.vel += world.gravity_accel(s.pos) * dt
 		s.pos += s.vel * dt
@@ -82,6 +110,21 @@ func _extrapolate(world: SimWorld, dt: float) -> void:
 		if world.config.torpedo_gravity:
 			t.vel += world.gravity_accel(t.pos) * dt
 		t.pos += t.vel * dt
+
+## Adopt the snapshot's authoritative own-ship state, drop acked inputs, and
+## replay the unacked tail so local control stays ahead of the wire.
+func _reconcile(acks: Dictionary) -> void:
+	var world := session.world
+	var ack := int(acks.get(session.human_ship_id, 0))
+	while not _pending_inputs.is_empty() and int(_pending_inputs[0]["q"]) <= ack:
+		_pending_inputs.pop_front()
+	var own := world.ship_by_id(session.human_ship_id)
+	if own == null or not own.alive:
+		_pending_inputs.clear()
+		return
+	for inp in _pending_inputs:
+		world.step_ship_kinematics(own, float(inp.get("u", 0.0)),
+			bool(inp.get("t", false)), world.config.fixed_dt)
 
 func _pump() -> void:
 	for _i in range(MAX_SERVICE_EVENTS):
@@ -116,6 +159,7 @@ func _on_packet(bytes: PackedByteArray) -> void:
 				var fx := NetProtocol.apply_snapshot(session.world, data)
 				_pending_events.append_array(fx["e"])
 				_last_thrusting = fx["th"]
+				_reconcile(fx["a"])
 
 func _on_welcome(data: Dictionary) -> void:
 	var cfg := SimConfig.from_seed(int(data["seed"]))

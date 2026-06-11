@@ -249,6 +249,22 @@ func gravity_accel(p: Vector2) -> Vector2:
 		a += d * (config.gravity_constant * b.mass / (r2 * r))
 	return a
 
+## Advance one ship's pilot kinematics (turn / thrust+fuel / gravity /
+## position / wrap) exactly as a full step would, without weapons, timers, or
+## collisions. Used by net clients to predict the local ship: the order
+## matches _step_ship -> _integrate_ships for a single ship.
+func step_ship_kinematics(s: SimShip, turn: float, thrust: bool, dt: float) -> void:
+	s.angle = wrapf(s.angle + clampf(turn, -1.0, 1.0) * config.turn_rate * dt, -PI, PI)
+	if thrust and s.fuel > 0.0:
+		s.vel += s.facing() * config.thrust_accel * dt
+		s.fuel = maxf(0.0, s.fuel - config.thrust_fuel_per_sec * dt)
+	else:
+		s.fuel = minf(config.max_fuel, s.fuel + config.fuel_regen_per_sec * dt)
+	s.vel += gravity_accel(s.pos) * dt
+	s.pos += s.vel * dt
+	if config.wrap_edges:
+		s.pos = _wrap_point(s.pos)
+
 # --------------------------------------------------------------------------
 # Collisions
 # --------------------------------------------------------------------------

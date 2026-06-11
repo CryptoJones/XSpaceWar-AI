@@ -93,12 +93,24 @@ networked *Spacewar!* / `xspacewar`. Godot 4.6, Apache 2.0. Plan file:
   forwarding (client fire spawns host torpedoes), snapshot sync (< tolerance),
   torpedo replication, leaver re-botting, discovery. 14 sim + smoke still green.
 
+## DONE (M3 polish — client-side prediction, 2026-06-11)
+- Own ship is predicted: inputs are sequenced ("q"), applied locally the same
+  tick via `SimWorld.step_ship_kinematics` (turn/thrust/fuel/gravity/wrap in
+  exact host order), and buffered; snapshots carry per-player input acks ("a");
+  on snapshot the client adopts authoritative state, drops acked inputs, and
+  replays the unacked tail. Remote ships/torps still dead-reckon. Own thrust
+  flame renders from live input (snapshot thrust list skips own id).
+  Protocol VERSION bumped to 2.
+- `tests/net_tests.gd` now **21 checks**, incl. a trajectory-ride assertion
+  (lead-invariant: distance to host_pos + host_vel*k*dt minimized over k,
+  wrap-aware) — stable across repeated runs. 14 sim + smoke still green.
+
 ## NEXT
-- M3 polish: client-side *prediction* of own ship (apply local input + rewind/
-  replay on snapshot) — current client is snapshot+extrapolate only (fine on
-  LAN, ~50-100ms input feel; not for internet play yet).
+- Visual polish for net play: smooth snapshot corrections for remote ships
+  (currently snap; fine at 20Hz LAN) + wrap-seam ghost rendering.
 - M4 online: `server/` master/relay (hole-punch + relay), server browser,
   PlatformServices (steam/null).
+- M6 procedural audio (engine hum, fire, explosions — all synthesized).
 - M4 online: `server/` master/relay (hole-punch + relay), server browser, `PlatformServices`
   (steam/null) so non-Steam builds compile without GodotSteam.
 - M5 wire procedural map params + difficulty into a real lobby; M6 polish/audio (procedural);

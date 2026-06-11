@@ -17,6 +17,7 @@ func _initialize() -> void:
 	print("=== XSpaceWar-AI — net tests ===")
 	_test_protocol_roundtrip()
 	_test_host_join_sync()
+	_test_prediction()
 	_test_discovery_loopback()
 	print("=== %d passed, %d failed ===" % [_passed, _failed])
 	quit(1 if _failed > 0 else 0)
@@ -28,6 +29,13 @@ func _check(name: String, ok: bool, detail: String = "") -> void:
 	else:
 		_failed += 1
 		print("  [FAIL] ", name, ("  -> " + detail) if detail != "" else "")
+
+## Distance on the toroidal arena (shortest path across wrap seams).
+func _wrap_dist(a: Vector2, b: Vector2, size: float) -> float:
+	var d := (a - b).abs()
+	d.x = minf(d.x, size - d.x)
+	d.y = minf(d.y, size - d.y)
+	return d.length()
 
 # --------------------------------------------------------------------------
 
@@ -131,6 +139,63 @@ func _test_host_join_sync() -> void:
 			break
 		OS.delay_msec(1)
 	_check("net: leaver's ship handed back to a bot", hsession.bots.has(sid))
+	host.close()
+
+func _test_prediction() -> void:
+	# Hold turn+thrust on the client and verify its locally-predicted ship
+	# stays glued to the host's authoritative one. Pure extrapolation can't do
+	# this (it doesn't know about the thrust); only predict+replay can.
+	var hsession := GameSession.new()
+	hsession.start_skirmish(2, GameSession.Mode.FFA, BotController.Difficulty.ROOKIE)
+	var host := NetHost.new(hsession)
+	var err := host.open(TEST_PORT + 7, false, "pred", "127.0.0.1")
+	_check("prediction: host binds", err == OK, "err=%d" % err)
+	if err != OK:
+		return
+	var client := NetClient.new()
+	client.open("127.0.0.1", TEST_PORT + 7, "PRED")
+
+	# The client legitimately runs a few ticks AHEAD of the host — that is the
+	# point of prediction — so same-instant position diffs just measure
+	# lead x speed. Instead require the client to sit ON the host's trajectory:
+	# distance to (host_pos + host_vel * k*dt), minimized over a small tick
+	# window k. A broken predictor (no replay) leaves the trajectory by
+	# hundreds of units under sustained turn+thrust.
+	var drive := {"u": 0.6, "t": true, "f": false, "h": false}
+	var worst := 0.0
+	var total := 0.0
+	var samples := 0
+	var ready_at := -1
+	for i in range(1800):
+		host.update(DT, {})
+		var ready := client.state == NetClient.State.READY
+		client.update(DT, drive if ready else {})
+		if ready and ready_at < 0:
+			ready_at = i
+		if ready_at >= 0 and i > ready_at + 60:
+			var sid := client.session.human_ship_id
+			var hs := hsession.world.ship_by_id(sid)
+			var cs := client.session.world.ship_by_id(sid)
+			if hs != null and cs != null and hs.alive and cs.alive:
+				var arena := hsession.world.config.arena_size
+				var best := INF
+				for k in range(-2, 7):
+					best = minf(best, _wrap_dist(cs.pos, hs.pos + hs.vel * (DT * k), arena))
+				worst = maxf(worst, best)
+				total += best
+				samples += 1
+		if ready_at >= 0 and i > ready_at + 480:
+			break
+		OS.delay_msec(1)
+
+	_check("prediction: client reached READY", ready_at >= 0)
+	var mean := total / maxf(1.0, float(samples))
+	_check("prediction: own ship rides the host trajectory under active input",
+		samples > 40 and mean < 12.0 and worst < 60.0,
+		"mean=%.1f worst=%.1f samples=%d" % [mean, worst, samples])
+	_check("prediction: unacked input buffer stays bounded",
+		client._pending_inputs.size() < 60, "pending=%d" % client._pending_inputs.size())
+	client.close()
 	host.close()
 
 func _test_discovery_loopback() -> void:

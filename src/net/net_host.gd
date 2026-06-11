@@ -20,6 +20,7 @@ var _conn := ENetConnection.new()
 var _open := false
 var _peers := {}              ## ENetPacketPeer -> ship_id
 var _inputs := {}             ## ship_id -> latest input payload
+var _acked := {}              ## ship_id -> highest input sequence received
 var _advertiser: LanDiscovery
 var _event_accum: Array = []  ## forwarded events since the last snapshot
 var _snap_accum := 0.0
@@ -82,7 +83,7 @@ func _broadcast_snapshot() -> void:
 		if String(ev.get("type", "")) == "thrust":
 			thrust_ids.append(ev["ship"])
 	var bytes := NetProtocol.pack(NetProtocol.MSG_SNAPSHOT,
-		NetProtocol.snapshot_of(session.world, thrust_ids, _event_accum))
+		NetProtocol.snapshot_of(session.world, thrust_ids, _event_accum, _acked))
 	_event_accum = []
 	for peer in _peers:
 		peer.send(NetProtocol.CH_STATE, bytes, 0)
@@ -112,7 +113,11 @@ func _on_packet(peer: ENetPacketPeer, bytes: PackedByteArray) -> void:
 			_on_hello(peer, data)
 		NetProtocol.MSG_INPUT:
 			if _peers.has(peer):
-				_inputs[_peers[peer]] = data
+				var sid: int = _peers[peer]
+				var q := int(data.get("q", 0))
+				if q >= int(_acked.get(sid, 0)):
+					_acked[sid] = q
+					_inputs[sid] = data
 
 func _on_hello(peer: ENetPacketPeer, data: Dictionary) -> void:
 	if _peers.has(peer):
@@ -147,6 +152,7 @@ func _drop_peer(peer: ENetPacketPeer) -> void:
 	var sid: int = _peers[peer]
 	_peers.erase(peer)
 	_inputs.erase(sid)
+	_acked.erase(sid)
 	session.ship_names.erase(sid)
 	# Hand the ship back to a bot so the match keeps its full roster.
 	session.bots[sid] = BotController.new(session.world, sid, session.difficulty)

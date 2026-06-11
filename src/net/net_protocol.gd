@@ -12,13 +12,13 @@ extends RefCounted
 ## locally from the seed + params (ArenaGen is deterministic), then apply
 ## snapshots on top and dead-reckon between them.
 
-const VERSION := 1
+const VERSION := 2
 
 enum {
 	MSG_HELLO = 1,      ## client -> host: {v, name}
 	MSG_WELCOME = 2,    ## host -> client: {v, id, seed, prm, mode, dif, gen, ros}
 	MSG_REJECT = 3,     ## host -> client: {why}
-	MSG_INPUT = 4,      ## client -> host: {u, t, f, h}
+	MSG_INPUT = 4,      ## client -> host: {q, u, t, f, h} (q = input sequence)
 	MSG_SNAPSHOT = 5,   ## host -> client: see snapshot_of()
 }
 
@@ -78,8 +78,10 @@ static func welcome_of(session: GameSession, your_ship_id: int) -> Dictionary:
 
 ## Capture the authoritative world state. `thrust_ids` are ships that thrust
 ## on the most recent step; `events` are one-shots accumulated since the
-## previous snapshot (already filtered to FORWARDED_EVENTS).
-static func snapshot_of(world: SimWorld, thrust_ids: Array, events: Array) -> Dictionary:
+## previous snapshot (already filtered to FORWARDED_EVENTS); `acks` maps
+## player ship id -> last input sequence applied, for client reconciliation.
+static func snapshot_of(world: SimWorld, thrust_ids: Array, events: Array,
+		acks: Dictionary = {}) -> Dictionary:
 	var ships := []
 	for s in world.ships:
 		ships.append([s.id, s.pos, s.vel, s.angle, s.fuel, s.ammo, 1 if s.alive else 0,
@@ -94,7 +96,7 @@ static func snapshot_of(world: SimWorld, thrust_ids: Array, events: Array) -> Di
 	return {
 		"k": world.tick, "t": world.time,
 		"s": ships, "p": torps, "b": bodies,
-		"e": events, "th": thrust_ids,
+		"e": events, "th": thrust_ids, "a": acks,
 	}
 
 ## Apply a snapshot onto a client-side world. Returns the snapshot's one-shot
@@ -142,4 +144,4 @@ static func apply_snapshot(world: SimWorld, snap: Dictionary) -> Dictionary:
 		if parent != null:
 			b.pos = parent.pos + Vector2(cos(b.orbit_angle), sin(b.orbit_angle)) * b.orbit_radius
 
-	return {"e": snap.get("e", []), "th": snap.get("th", [])}
+	return {"e": snap.get("e", []), "th": snap.get("th", []), "a": snap.get("a", {})}
