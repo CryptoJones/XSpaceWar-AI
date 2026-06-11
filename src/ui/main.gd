@@ -25,6 +25,10 @@ var _code_edit: LineEdit
 var _browser: RelayBrowser
 var _relay_rooms: Array = []
 var _shown_room_code := ""
+var _vol_slider: HSlider
+var _fullscreen_check: CheckButton
+
+const SETTINGS_PATH := "user://settings.cfg"
 
 func _ready() -> void:
 	view = WorldView.new()
@@ -36,6 +40,7 @@ func _ready() -> void:
 	add_child(hud)
 
 	_build_menu()
+	_load_settings()
 	var user := OS.get_environment("USER")
 	_player_name = user.to_upper().left(12) if user != "" else "PILOT"
 	_lan = LanDiscovery.listener()
@@ -199,6 +204,23 @@ func _build_menu() -> void:
 	_net_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(_net_status)
 
+	var settings_row := HBoxContainer.new()
+	var vol_label := Label.new()
+	vol_label.text = "Volume"
+	settings_row.add_child(vol_label)
+	_vol_slider = HSlider.new()
+	_vol_slider.min_value = 0
+	_vol_slider.max_value = 100
+	_vol_slider.value = 80
+	_vol_slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_vol_slider.value_changed.connect(_on_volume_changed)
+	settings_row.add_child(_vol_slider)
+	_fullscreen_check = CheckButton.new()
+	_fullscreen_check.text = "Fullscreen"
+	_fullscreen_check.toggled.connect(_on_fullscreen_toggled)
+	settings_row.add_child(_fullscreen_check)
+	box.add_child(settings_row)
+
 	var quit := Button.new()
 	quit.text = "QUIT"
 	quit.pressed.connect(_on_quit_pressed)
@@ -299,6 +321,7 @@ func _join(ip: String, port: int) -> void:
 	view.external_driver = func(dt: float): net_client.update(dt,
 		view.gather_local_input() if not _menu.visible else {})
 	_net_status.text = ""
+	_save_settings()
 	set_menu_visible(false)
 
 func _refresh_server_list(dt: float) -> void:
@@ -364,6 +387,7 @@ func _on_host_online_pressed() -> void:
 	view.external_driver = func(dt: float): net_host.update(dt,
 		view.gather_local_input() if not _menu.visible else {})
 	_net_status.text = "Registering with relay…"
+	_save_settings()
 	set_menu_visible(false)
 
 func _on_browse_pressed() -> void:
@@ -404,6 +428,42 @@ func _join_relay(code: String) -> void:
 		view.gather_local_input() if not _menu.visible else {})
 	_net_status.text = ""
 	set_menu_visible(false)
+
+# --------------------------------------------------------------------------
+# Settings (volume / fullscreen, persisted to user://settings.cfg)
+# --------------------------------------------------------------------------
+
+func _on_volume_changed(value: float) -> void:
+	# 0..100 -> dB; 0 is a true mute.
+	var db := linear_to_db(maxf(0.0001, value / 100.0)) if value > 0.0 else -80.0
+	AudioServer.set_bus_volume_db(0, db)
+	_save_settings()
+
+func _on_fullscreen_toggled(on: bool) -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	DisplayServer.window_set_mode(
+		DisplayServer.WINDOW_MODE_FULLSCREEN if on else DisplayServer.WINDOW_MODE_WINDOWED)
+	_save_settings()
+
+func _load_settings() -> void:
+	var cfg := ConfigFile.new()
+	if cfg.load(SETTINGS_PATH) == OK:
+		_vol_slider.set_value_no_signal(float(cfg.get_value("audio", "volume", 80.0)))
+		_fullscreen_check.set_pressed_no_signal(bool(cfg.get_value("video", "fullscreen", false)))
+		_relay_edit.text = String(cfg.get_value("net", "relay", _relay_edit.text))
+	# Apply whatever we ended up with (defaults or loaded).
+	var v := _vol_slider.value
+	AudioServer.set_bus_volume_db(0, linear_to_db(maxf(0.0001, v / 100.0)) if v > 0.0 else -80.0)
+	if _fullscreen_check.button_pressed and DisplayServer.get_name() != "headless":
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
+
+func _save_settings() -> void:
+	var cfg := ConfigFile.new()
+	cfg.set_value("audio", "volume", _vol_slider.value)
+	cfg.set_value("video", "fullscreen", _fullscreen_check.button_pressed)
+	cfg.set_value("net", "relay", _relay_edit.text.strip_edges())
+	cfg.save(SETTINGS_PATH)
 
 func _teardown_net() -> void:
 	if net_host != null:
