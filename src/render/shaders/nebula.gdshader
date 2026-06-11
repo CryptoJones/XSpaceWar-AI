@@ -47,19 +47,29 @@ float fbm(vec2 p) {
 }
 
 // One layer of stars: sparse cells, random sub-cell offset (kills the grid),
-// random size, gentle twinkle.
+// random size, gentle twinkle. Each pixel samples its 3x3 cell neighborhood
+// so a star whose jitter pushes it against a cell edge still renders whole
+// instead of being sliced into quarter circles at the tile boundary.
 float star_layer(vec2 uv, float density, float bright, float t) {
-	vec2 g = floor(uv * density);
-	vec2 rnd = hash2(g);
-	if (rnd.x < 0.965) {
-		return 0.0;
+	vec2 gv = uv * density;
+	vec2 g0 = floor(gv);
+	float acc = 0.0;
+	for (int y = -1; y <= 1; y++) {
+		for (int x = -1; x <= 1; x++) {
+			vec2 g = g0 + vec2(float(x), float(y));
+			vec2 rnd = hash2(g);
+			if (rnd.x < 0.965) {
+				continue;
+			}
+			vec2 c = g + 0.5 + 0.7 * (hash2(g + 31.7) - 0.5);
+			float d = length(gv - c);  // distance in cell units
+			float size = 0.18 + 0.5 * rnd.y;
+			float s = smoothstep(size, 0.0, d);
+			float tw = 0.75 + 0.25 * sin(t * (2.0 + 4.0 * rnd.y) + rnd.x * 40.0);
+			acc += s * tw;
+		}
 	}
-	vec2 c = (g + 0.5 + 0.7 * (hash2(g + 31.7) - 0.5)) / density;
-	float d = length(uv - c) * density;
-	float size = 0.18 + 0.5 * rnd.y;
-	float s = smoothstep(size, 0.0, d);
-	float tw = 0.75 + 0.25 * sin(t * (2.0 + 4.0 * rnd.y) + rnd.x * 40.0);
-	return s * bright * tw;
+	return acc * bright;
 }
 
 void fragment() {
