@@ -64,13 +64,13 @@ func start_movie() -> void:
 ## Start a skirmish with one human ship plus AI opponents.
 func start_skirmish(p_num_ships: int, p_mode: int, p_difficulty: int) -> void:
 	movie_mode = false
-	num_ships = clampi(p_num_ships, 2, 12)
+	num_ships = clampi(p_num_ships, 2, 16)
 	mode = p_mode
 	difficulty = p_difficulty
 	_build(_rng.randi())
 
 func _randomize_match_params() -> void:
-	num_ships = _rng.randi_range(6, 12)
+	num_ships = _rng.randi_range(6, 16)
 	mode = Mode.TEAM if _rng.randf() < 0.5 else Mode.FFA
 	num_teams = _rng.randi_range(2, 3) if mode == Mode.TEAM else 1
 	difficulty = _rng.randi_range(BotController.Difficulty.VETERAN, BotController.Difficulty.INSANE)

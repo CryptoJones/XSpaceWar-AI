@@ -257,7 +257,7 @@ func _build_menu() -> void:
 
 	_ships_spin = SpinBox.new()
 	_ships_spin.min_value = 2
-	_ships_spin.max_value = 12
+	_ships_spin.max_value = 16
 	_ships_spin.value = 8
 	box.add_child(_labelled("Ships", _ships_spin))
 

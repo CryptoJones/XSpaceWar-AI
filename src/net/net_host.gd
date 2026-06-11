@@ -63,7 +63,7 @@ func open(p_port := DEFAULT_PORT, advertise := true, p_server_name := "XSpaceWar
 	port = p_port
 	server_name = p_server_name
 	_t = DirectHostTransport.new()
-	var err: Error = _t.open({"port": port, "bind": bind_address, "max_peers": 12})
+	var err: Error = _t.open({"port": port, "bind": bind_address, "max_peers": 32})
 	if err != OK:
 		return err
 	_open = true

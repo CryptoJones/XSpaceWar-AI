@@ -76,7 +76,7 @@ func _register(peer: ENetPacketPeer, d: Dictionary) -> void:
 	var code := _new_code()
 	_rooms[code] = {"host": peer, "clients": {}, "info": {
 		"name": String(d.get("name", "?")).left(24),
-		"max": clampi(int(d.get("max", 12)), 2, 12),
+		"max": clampi(int(d.get("max", 16)), 2, 16),
 		"mode": int(d.get("mode", 0)),
 		"players": 1,
 	}}

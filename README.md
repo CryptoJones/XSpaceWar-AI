@@ -4,7 +4,7 @@ A modern, AAA-styled networked **space-fighter** with a strong AI focus — a
 2026 reimagining of the classic networked *Spacewar!* / `xspacewar`. Bird's-eye
 view like the original, but with
 **space-accurate Newtonian physics**, **100% procedurally-generated graphics**
-(no hand-drawn art assets), and **LAN + internet multiplayer for up to 12
+(no hand-drawn art assets), and **LAN + internet multiplayer for up to 16
 ships**.
 
 Built with **Godot 4** for **Windows, Linux, and macOS**. Licensed under
@@ -32,7 +32,7 @@ networked Spacewar is this game's direct ancestor.
 
 ## Features
 
-- Top-down arena dogfights around a gravity well, up to **12 ships**.
+- Top-down arena dogfights around a gravity well, up to **16 ships**.
 - Modern **Newtonian** flight — conserved momentum, inverse-square gravity on
   ships *and* torpedoes, gravity-assist slingshots, hyperspace.
 - **Procedurally generated everything** — stars, planets, moons, asteroid
