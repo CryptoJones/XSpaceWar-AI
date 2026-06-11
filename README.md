@@ -93,8 +93,18 @@ chmod +x xspacewar-ai.x86_64 && ./xspacewar-ai.x86_64
 
 ## Running from source
 
-The repo ships no engine binary — install **Godot 4.6.x** (standard build,
-not .NET) from the
+**Easiest:** the install script downloads Godot 4.6.3 (SHA-512 verified
+against the official release sums), puts it on your PATH, and builds the
+project's import cache:
+
+```bash
+./install.sh          # Linux (x86_64/arm64) + macOS; safe to re-run
+./install.sh --test   # same, then prove it with the headless test suites
+godot --path .        # play
+```
+
+**Manual route** — the repo ships no engine binary; install **Godot 4.6.x**
+(standard build, not .NET) from the
 [official releases](https://github.com/godotengine/godot/releases/tag/4.6.3-stable):
 
 ```bash
