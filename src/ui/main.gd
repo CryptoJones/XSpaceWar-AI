@@ -31,8 +31,12 @@ var _fullscreen_check: CheckButton
 var _nebula_slider: HSlider
 var _stars_slider: HSlider
 var _far_check: CheckButton
+var _record_check: CheckButton
+var replay_player: ReplayPlayer
+var _recorded_gen := -1
 
 const SETTINGS_PATH := "user://settings.cfg"
+const REPLAY_DIR := "user://replays"
 
 func _ready() -> void:
 	view = WorldView.new()
@@ -52,6 +56,15 @@ func _ready() -> void:
 	set_menu_visible(true)
 
 func _process(dt: float) -> void:
+	# Rotate recordings across auto-restarts; bounce to menu when a replay ends.
+	if session.recorder != null and session.generation != _recorded_gen:
+		_finalize_recording()
+		_maybe_start_recording()
+	if replay_player != null and replay_player.finished:
+		_teardown_net()
+		session.start_movie()
+		set_menu_visible(true)
+		_net_status.text = "Replay finished."
 	# A dropped/refused connection bounces back to the menu over attract mode.
 	if net_client != null and net_client.state == NetClient.State.FAILED:
 		var why := net_client.error_msg
@@ -258,6 +271,21 @@ func _build_menu() -> void:
 	sky_row.add_child(_far_check)
 	box.add_child(sky_row)
 
+	var replay_row := HBoxContainer.new()
+	_record_check = CheckButton.new()
+	_record_check.text = "Record matches"
+	_record_check.tooltip_text = "Save input recordings of your matches (tiny files; bit-exact playback)"
+	_record_check.toggled.connect(func(_on: bool): _save_settings())
+	replay_row.add_child(_record_check)
+	var spacer2 := Control.new()
+	spacer2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	replay_row.add_child(spacer2)
+	var replay_btn := Button.new()
+	replay_btn.text = "REPLAY — watch last"
+	replay_btn.pressed.connect(_on_replay_pressed)
+	replay_row.add_child(replay_btn)
+	box.add_child(replay_row)
+
 	# Bottom row: QUIT on the left, PLAY (the primary action) on the right.
 	var bottom_row := HBoxContainer.new()
 	var quit := Button.new()
@@ -292,18 +320,22 @@ func set_menu_visible(v: bool) -> void:
 
 func _on_play_pressed() -> void:
 	_teardown_net()
+	_finalize_recording()
 	var mode := GameSession.Mode.TEAM if _mode_btn.selected == 1 else GameSession.Mode.FFA
 	session.score_limit = int(_limit_spin.value)
 	session.host_name = _player_name
 	session.start_skirmish(int(_ships_spin.value), mode, _diff_btn.selected)
+	_maybe_start_recording()
 	set_menu_visible(false)
 
 func _on_movie_pressed() -> void:
 	_teardown_net()
+	_finalize_recording()
 	session.start_movie()
 	set_menu_visible(false)
 
 func _on_quit_pressed() -> void:
+	_finalize_recording()
 	_teardown_net()
 	get_tree().quit()
 
@@ -314,6 +346,12 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventJoypadButton and event.pressed \
 			and event.button_index == JOY_BUTTON_START:
 		set_menu_visible(not _menu.visible)
+	elif replay_player != null and event is InputEventKey and event.pressed and not event.echo:
+		if event.physical_keycode == KEY_P:
+			replay_player.paused = not replay_player.paused
+		elif event.physical_keycode == KEY_F:
+			replay_player.speed = 2.0 if replay_player.speed == 1.0 \
+				else (4.0 if replay_player.speed == 2.0 else 1.0)
 
 # --------------------------------------------------------------------------
 # Networking (M3: LAN host / join / discovery)
@@ -321,6 +359,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _on_host_pressed() -> void:
 	_teardown_net()
+	_finalize_recording()
 	var mode := GameSession.Mode.TEAM if _mode_btn.selected == 1 else GameSession.Mode.FFA
 	session.score_limit = int(_limit_spin.value)
 	session.host_name = _player_name
@@ -334,6 +373,7 @@ func _on_host_pressed() -> void:
 		return
 	view.external_driver = func(dt: float): net_host.update(dt,
 		view.gather_local_input() if not _menu.visible else {})
+	_maybe_start_recording()
 	_net_status.text = ""
 	set_menu_visible(false)
 
@@ -513,6 +553,7 @@ func _load_settings() -> void:
 		_nebula_slider.set_value_no_signal(float(cfg.get_value("display", "nebula", 0.0)))
 		_stars_slider.set_value_no_signal(float(cfg.get_value("display", "stars", 50.0)))
 		_far_check.set_pressed_no_signal(bool(cfg.get_value("display", "far_stars", false)))
+		_record_check.set_pressed_no_signal(bool(cfg.get_value("replay", "record", false)))
 	# Apply whatever we ended up with (defaults or loaded).
 	var v := _vol_slider.value
 	AudioServer.set_bus_volume_db(0, linear_to_db(maxf(0.0001, v / 100.0)) if v > 0.0 else -80.0)
@@ -528,6 +569,7 @@ func _save_settings() -> void:
 	cfg.set_value("display", "nebula", _nebula_slider.value)
 	cfg.set_value("display", "stars", _stars_slider.value)
 	cfg.set_value("display", "far_stars", _far_check.button_pressed)
+	cfg.set_value("replay", "record", _record_check.button_pressed)
 	cfg.save(SETTINGS_PATH)
 
 func _teardown_net() -> void:
@@ -537,7 +579,69 @@ func _teardown_net() -> void:
 	if net_client != null:
 		net_client.close()
 		net_client = null
+	replay_player = null
 	_shown_room_code = ""
 	view.external_driver = Callable()
 	view.session = session
 	hud.session = session
+
+# --------------------------------------------------------------------------
+# Replays (record on the authoritative side; play back bit-exact)
+# --------------------------------------------------------------------------
+
+func _maybe_start_recording() -> void:
+	# Record solo skirmishes and hosted matches — anywhere this process runs
+	# the authoritative sim (clients don't; the host's recording is the match).
+	if _record_check.button_pressed and not session.movie_mode \
+			and session.human_ship_id >= 0 and net_client == null:
+		session.recorder = Replay.begin(session)
+		_recorded_gen = session.generation
+
+func _finalize_recording() -> void:
+	if session.recorder == null:
+		return
+	var r := session.recorder
+	session.recorder = null
+	if r.final_tick < 300:
+		return  # < 5 seconds of match — not worth keeping
+	DirAccess.make_dir_recursive_absolute(REPLAY_DIR)
+	var stamp := Time.get_datetime_string_from_system().replace(":", "-")
+	var path := "%s/%s.xsr" % [REPLAY_DIR, stamp]
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	if f != null:
+		f.store_buffer(r.to_bytes())
+		f.close()
+		_net_status.text = "Replay saved (%.0fs): %s" % [r.duration_sec(1.0 / 60.0), path.get_file()]
+
+func _newest_replay() -> String:
+	var dir := DirAccess.open(REPLAY_DIR)
+	if dir == null:
+		return ""
+	var newest := ""
+	for fname in dir.get_files():
+		if fname.ends_with(".xsr") and fname > newest:
+			newest = fname  # timestamps sort lexically
+	return "%s/%s" % [REPLAY_DIR, newest] if newest != "" else ""
+
+func _on_replay_pressed() -> void:
+	_finalize_recording()
+	_teardown_net()
+	var path := _newest_replay()
+	if path == "":
+		_net_status.text = "No replays yet — enable 'Record matches' and play one."
+		return
+	var rec := Replay.from_bytes(FileAccess.get_file_as_bytes(path))
+	if rec == null:
+		_net_status.text = "Could not read %s." % path.get_file()
+		return
+	replay_player = ReplayPlayer.new()
+	if not replay_player.load_replay(rec):
+		_net_status.text = "Replay is out of sync with this game version."
+		replay_player = null
+		return
+	view.session = replay_player.session
+	hud.session = replay_player.session
+	var rp := replay_player
+	view.external_driver = func(dt: float): rp.update(dt)
+	_net_status.text = "Replaying %s — P pause, F speed, ESC menu" % path.get_file()
+	set_menu_visible(false)

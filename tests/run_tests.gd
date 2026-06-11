@@ -23,6 +23,7 @@ func _initialize() -> void:
 	_test_pick_duel()
 	_test_bot_character()
 	_test_mines()
+	_test_replay()
 	print("=== %d passed, %d failed ===" % [_passed, _failed])
 	quit(1 if _failed > 0 else 0)
 
@@ -353,3 +354,46 @@ func _test_mines() -> void:
 			break
 	_check("mine: torpedo detonates it (counterplay)",
 		w.mines.is_empty() and w.torpedoes.is_empty())
+
+func _test_replay() -> void:
+	# Record a real match (ACE bots + scripted human), then play the tape into
+	# a fresh world and demand a bit-exact final state.
+	var s := GameSession.new()
+	s.score_limit = 0
+	s.start_skirmish(4, GameSession.Mode.FFA, BotController.Difficulty.ACE)
+	s.recorder = Replay.begin(s)
+	for i in range(900):  # 15 simulated seconds
+		var human := s.human_ship()
+		if human != null and human.alive:
+			human.in_turn = 1.0 if (i / 40) % 2 == 0 else -1.0
+			human.in_thrust = i % 3 == 0
+			human.in_fire = i % 23 == 0
+			human.in_mine = i == 400
+		s.update(1.0 / 60.0)
+	var rec := s.recorder
+	s.recorder = null
+
+	var loaded := Replay.from_bytes(rec.to_bytes())
+	_check("replay: round-trips through bytes",
+		loaded != null and loaded.frames.size() == rec.frames.size()
+		and loaded.final_tick == rec.final_tick)
+	_check("replay: change-encoding stays compact",
+		rec.to_bytes().size() < 200_000, "%d bytes" % rec.to_bytes().size())
+
+	var rp := ReplayPlayer.new()
+	_check("replay: loads and rebuilds the arena", rp.load_replay(loaded))
+	var guard := 0
+	while not rp.finished and guard < 2000:
+		rp.update(1.0 / 60.0)
+		guard += 1
+	_check("replay: playback reaches the end", rp.finished, "guard=%d" % guard)
+
+	var exact := rp.session.world.ships.size() == s.world.ships.size()
+	if exact:
+		for i in range(s.world.ships.size()):
+			var a := s.world.ships[i]
+			var b := rp.session.world.ships[i]
+			if a.pos != b.pos or a.score != b.score or a.kills != b.kills or a.alive != b.alive:
+				exact = false
+				break
+	_check("replay: playback is bit-exact (positions, scores, kills, alive)", exact)

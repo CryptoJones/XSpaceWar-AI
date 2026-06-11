@@ -44,6 +44,7 @@ var restart_timer := 0.0
 
 var _rng := RandomNumberGenerator.new()
 var on_regenerate: Callable = Callable()  ## optional hook for the renderer
+var recorder: Replay = null               ## when set, captures inputs each step
 
 func _init() -> void:
 	_rng.seed = Time.get_ticks_usec()
@@ -126,6 +127,8 @@ func update(dt: float) -> void:
 	if match_over:
 		# Victory lap: the sim keeps running (no bot pilots) while the win
 		# banner shows, then the match restarts with the same settings.
+		if recorder != null:
+			recorder.capture(world)
 		world.step(dt)
 		restart_timer -= dt
 		if restart_timer <= 0.0:
@@ -134,6 +137,8 @@ func update(dt: float) -> void:
 
 	for sid in bots:
 		(bots[sid] as BotController).update(dt)
+	if recorder != null:
+		recorder.capture(world)
 	world.step(dt)
 
 	if movie_mode:
