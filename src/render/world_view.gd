@@ -77,6 +77,15 @@ var _focus_a := -1                  ## movie-mode action camera: current duel
 var _focus_b := -1
 var _focus_timer := 0.0
 var _killcam_id := -1               ## while dead: ride along with your killer
+
+# Render interpolation: the sim steps at a fixed 60Hz; drawing raw sim
+# positions makes motion visibly hop on >60Hz displays. We keep last tick's
+# state and draw blended by the physics interpolation fraction.
+var _prev_pos := {}                 ## "s3"/"t9"/"m2"/"p7" -> last-tick position
+var _prev_angle := {}               ## ship id -> last-tick angle
+var _cam_pos := Vector2.ZERO        ## camera current (per-tick) state
+var _cam_pos_prev := Vector2.ZERO
+var _cam_zoom_prev := 0.6
 var _match_over_seen := false
 var _shake := 0.0                   ## camera shake energy (decays)
 var _popups: Array[Dictionary] = [] ## floating kill texts: pos/vel/text/ttl/color
@@ -117,9 +126,59 @@ func _ready() -> void:
 	_audio = AudioDirector.new()
 	add_child(_audio)
 
+## Render-rate: redraw every display frame at interpolated positions, and
+## move the actual camera between its per-tick states the same way.
+func _process(_dt: float) -> void:
+	if session == null or session.world == null:
+		return
+	var f := Engine.get_physics_interpolation_fraction()
+	_camera.position = _cam_pos_prev.lerp(_cam_pos, f)
+	var z := lerpf(_cam_zoom_prev, _cam_zoom, f)
+	_camera.zoom = Vector2(z, z)
+	if _shake > 0.2:
+		var tt := session.world.time * 70.0
+		_camera.offset = Vector2(sin(tt * 1.13), cos(tt * 0.97)) * _shake
+	else:
+		_camera.offset = Vector2.ZERO
+	queue_redraw()
+
+## Interpolated draw position for an entity ("s3"/"t9"/"m2"/"p7"). Teleports
+## (wrap, hyperspace, respawn) snap instead of smearing across the map.
+func _ipos(key: String, curr: Vector2) -> Vector2:
+	var prev: Variant = _prev_pos.get(key)
+	if prev == null:
+		return curr
+	var pv := prev as Vector2
+	if pv.distance_to(curr) > session.world.config.arena_size * 0.25:
+		return curr
+	return pv.lerp(curr, Engine.get_physics_interpolation_fraction())
+
+func _iangle(id: int, curr: float) -> float:
+	var prev: Variant = _prev_angle.get(id)
+	if prev == null:
+		return curr
+	return lerp_angle(float(prev), curr, Engine.get_physics_interpolation_fraction())
+
+func _capture_prev_state() -> void:
+	_prev_pos.clear()
+	_prev_angle.clear()
+	var w := session.world
+	if w == null:
+		return
+	for s in w.ships:
+		_prev_pos["s%d" % s.id] = s.pos
+		_prev_angle[s.id] = s.angle
+	for t in w.torpedoes:
+		_prev_pos["t%d" % t.id] = t.pos
+	for m in w.mines:
+		_prev_pos["m%d" % m.id] = m.pos
+	for p in w.pickups:
+		_prev_pos["p%d" % p.id] = p.pos
+
 func _physics_process(dt: float) -> void:
 	if session == null:
 		return
+	_capture_prev_state()
 	_thrusting.clear()
 	if external_driver.is_valid():
 		external_driver.call(dt)
@@ -261,9 +320,14 @@ func _read_human_input() -> void:
 # --------------------------------------------------------------------------
 
 func _update_camera(dt: float) -> void:
-	var target_pos := _camera.position
+	# Per-tick camera state: _cam_pos/_cam_zoom are the simulation-rate truth;
+	# _process() blends prev->curr each display frame (render interpolation).
+	_cam_pos_prev = _cam_pos
+	_cam_zoom_prev = _cam_zoom
+	var target_pos := _cam_pos
 	var target_zoom := _cam_zoom
 	var human := session.human_ship()
+	var killcam_active := false
 
 	if human != null and not human.alive and _killcam_id >= 0:
 		# Killcam: ride with whoever got you until you respawn.
@@ -271,12 +335,10 @@ func _update_camera(dt: float) -> void:
 		if killer != null and killer.alive:
 			target_pos = killer.pos + killer.render_pos_offset
 			target_zoom = 1.0
-			var k2 := 1.0 - exp(-2.5 * dt)
-			_camera.position = _camera.position.lerp(target_pos, k2)
-			_cam_zoom = lerpf(_cam_zoom, target_zoom, k2)
-			_camera.zoom = Vector2(_cam_zoom, _cam_zoom)
-			return
-	if human != null:
+			killcam_active = true
+	if killcam_active:
+		pass
+	elif human != null:
 		if human.alive:
 			_killcam_id = -1
 		# When the followed ship wraps the toroidal edge (or hyperspaces), jump
@@ -285,9 +347,11 @@ func _update_camera(dt: float) -> void:
 			var jump := human.pos - _follow_pos
 			var half := session.world.config.arena_size * 0.5
 			if absf(jump.x) > half:
-				_camera.position.x += signf(jump.x) * session.world.config.arena_size
+				_cam_pos.x += signf(jump.x) * session.world.config.arena_size
+				_cam_pos_prev.x = _cam_pos.x
 			if absf(jump.y) > half:
-				_camera.position.y += signf(jump.y) * session.world.config.arena_size
+				_cam_pos.y += signf(jump.y) * session.world.config.arena_size
+				_cam_pos_prev.y = _cam_pos.y
 		_follow_id = human.id
 		_follow_pos = human.pos
 		target_pos = human.pos + human.render_pos_offset
@@ -295,10 +359,11 @@ func _update_camera(dt: float) -> void:
 		# Failsafe: whatever else happens, never let the player lose their own
 		# ship — if the camera is absurdly far from it, snap instead of pan
 		# (and leave a breadcrumb so the root cause can be reported).
-		if _camera.position.distance_to(target_pos) > 6000.0:
+		if _cam_pos.distance_to(target_pos) > 6000.0:
 			push_warning("camera failsafe: snapped %s -> ship %s (gen %d tick %d)"
-				% [_camera.position, target_pos, session.generation, session.world.tick])
-			_camera.position = target_pos
+				% [_cam_pos, target_pos, session.generation, session.world.tick])
+			_cam_pos = target_pos
+			_cam_pos_prev = target_pos
 	elif session.watch_ship_id >= 0 \
 			and session.world.ship_by_id(session.watch_ship_id) != null \
 			and session.world.ship_by_id(session.watch_ship_id).alive:
@@ -335,28 +400,25 @@ func _update_camera(dt: float) -> void:
 			target_zoom = 0.5
 
 	var k := 1.0 - exp(-2.5 * dt)
-	_camera.position = _camera.position.lerp(target_pos, k)
+	_cam_pos = _cam_pos.lerp(target_pos, k)
 	_cam_zoom = lerpf(_cam_zoom, target_zoom, k)
-	_camera.zoom = Vector2(_cam_zoom, _cam_zoom)
 
 	# The bleed-zone rule (Aaron's): the player's ship may NEVER leave the
 	# screen. The lerp above lags proportionally to speed, so on a long
 	# straight burn the ship can outrun it — when the ship reaches the outer
 	# buffer of the view, the map moves instead. Hard per-axis clamp keeping
 	# the ship inside the inner 72% of the screen.
-	if human != null:
+	if human != null and human.alive and not killcam_active:
 		var half_view := get_viewport_rect().size * 0.5 / _cam_zoom
 		var limit := half_view * 0.72
 		var sp := human.pos + human.render_pos_offset
-		_camera.position = _camera.position.clamp(sp - limit, sp + limit)
+		_cam_pos = _cam_pos.clamp(sp - limit, sp + limit)
 
-	# Explosion shake: jitter the camera offset, energy decays fast.
+	# Shake energy decays at sim rate (the offset itself is applied per
+	# display frame in _process).
 	if _shake > 0.2:
-		var tt := session.world.time * 70.0
-		_camera.offset = Vector2(sin(tt * 1.13), cos(tt * 0.97)) * _shake
 		_shake *= exp(-6.0 * dt)
 	else:
-		_camera.offset = Vector2.ZERO
 		_shake = 0.0
 	# Keep ships readable when the camera pulls back: hulls draw bigger than
 	# their (unchanged) physical radius, more so the further out we are.
@@ -386,14 +448,14 @@ func _draw() -> void:
 	for p in world.pickups:
 		_draw_pickup(p, world.time)
 	for m in world.mines:
-		for off in _ghost_offsets(m.pos, wrap, half, 100.0):
+		for off in _ghost_offsets(_ipos("m%d" % m.id, m.pos), wrap, half, 100.0):
 			_draw_mine(m, world.time, off)
 	for t in world.torpedoes:
-		for off in _ghost_offsets(t.pos, wrap, half, 80.0):
+		for off in _ghost_offsets(_ipos("t%d" % t.id, t.pos), wrap, half, 80.0):
 			_draw_torpedo(t, off)
 	for s in world.ships:
 		if s.alive:
-			for off in _ghost_offsets(s.pos + s.render_pos_offset, wrap, half, 240.0):
+			for off in _ghost_offsets(_ipos("s%d" % s.id, s.pos) + s.render_pos_offset, wrap, half, 240.0):
 				_draw_ship(s, world.time, off)
 	_draw_popups()
 
@@ -490,17 +552,18 @@ func _draw_pickup(p: SimPickup, t: float) -> void:
 	var vis := clampf(_ship_vis_scale * 0.8, 1.0, 2.2)
 	var r := p.radius * vis * (1.0 + 0.12 * sin(t * 5.0 + float(p.id)))
 	var c: Color = PICKUP_COLORS[p.kind % PICKUP_COLORS.size()]
-	draw_set_transform(p.pos, t * 1.2)
+	var pp := _ipos("p%d" % p.id, p.pos)
+	draw_set_transform(pp, t * 1.2)
 	draw_colored_polygon(PackedVector2Array([
 		Vector2(r, 0), Vector2(0, r), Vector2(-r, 0), Vector2(0, -r)]),
 		Color(c.r, c.g, c.b, 0.35))
 	draw_set_transform(Vector2.ZERO)
-	draw_string(ThemeDB.fallback_font, p.pos + Vector2(-6, 6),
+	draw_string(ThemeDB.fallback_font, pp + Vector2(-6, 6),
 		PICKUP_LETTERS[p.kind % PICKUP_LETTERS.size()],
 		HORIZONTAL_ALIGNMENT_CENTER, 12, int(13 * vis), c)
 
 func _draw_mine(m: SimMine, t: float, ghost: Vector2 = Vector2.ZERO) -> void:
-	var p := m.pos + ghost
+	var p := _ipos("m%d" % m.id, m.pos) + ghost
 	var vis := clampf(_ship_vis_scale * 0.8, 1.0, 2.4)
 	var body_col := Color(0.55, 0.6, 0.65)
 	draw_circle(p, m.radius * vis, body_col)
@@ -514,7 +577,7 @@ func _draw_mine(m: SimMine, t: float, ghost: Vector2 = Vector2.ZERO) -> void:
 		draw_circle(p, m.radius * vis * 0.45, Color(2.0 * blink, 0.2, 0.15))
 
 func _draw_torpedo(t: SimTorpedo, ghost: Vector2 = Vector2.ZERO) -> void:
-	var p := t.pos + ghost
+	var p := _ipos("t%d" % t.id, t.pos) + ghost
 	var m := clampf(_ship_vis_scale * 0.7, 1.0, 2.2)
 	var dir := t.vel.normalized() if t.vel.length() > 1.0 else Vector2.RIGHT
 	draw_line(p - dir * 16.0 * m, p, Color(1.6, 1.2, 0.4, 0.35), 2.0 * m)
@@ -523,7 +586,8 @@ func _draw_torpedo(t: SimTorpedo, ghost: Vector2 = Vector2.ZERO) -> void:
 func _draw_ship(s: SimShip, t: float, ghost: Vector2 = Vector2.ZERO) -> void:
 	var col := ship_color(s)
 	var k := s.radius / 12.0 * _ship_vis_scale
-	draw_set_transform(s.pos + s.render_pos_offset + ghost, s.angle, Vector2(k, k))
+	draw_set_transform(_ipos("s%d" % s.id, s.pos) + s.render_pos_offset + ghost,
+		_iangle(s.id, s.angle), Vector2(k, k))
 
 	var hull: Dictionary = _hull_cache.get(s.id, {})
 	if hull.is_empty():
