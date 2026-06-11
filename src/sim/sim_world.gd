@@ -275,7 +275,10 @@ func _step_torpedoes(dt: float) -> void:
 			t.vel += gravity_accel(t.pos) * dt
 		t.pos += t.vel * dt
 		if config.wrap_edges:
-			t.pos = _wrap_point(t.pos)
+			var wrapped := _wrap_point(t.pos)
+			if wrapped != t.pos:
+				t.pos = wrapped
+				t.vel = (t.vel * WRAP_BOOST).limit_length(WRAP_SPEED_CAP)
 		survivors.append(t)
 	torpedoes = survivors
 
@@ -304,7 +307,10 @@ func _step_pickups(dt: float) -> void:
 		p.vel += gravity_accel(p.pos) * dt
 		p.pos += p.vel * dt
 		if config.wrap_edges:
-			p.pos = _wrap_point(p.pos)
+			var wrapped := _wrap_point(p.pos)
+			if wrapped != p.pos:
+				p.pos = wrapped
+				p.vel = (p.vel * WRAP_BOOST).limit_length(WRAP_SPEED_CAP)
 		var claimed := false
 		for s in ships:
 			if not s.alive:
@@ -337,7 +343,10 @@ func _step_mines(dt: float) -> void:
 		m.vel += gravity_accel(m.pos) * dt
 		m.pos += m.vel * dt
 		if config.wrap_edges:
-			m.pos = _wrap_point(m.pos)
+			var wrapped := _wrap_point(m.pos)
+			if wrapped != m.pos:
+				m.pos = wrapped
+				m.vel = (m.vel * WRAP_BOOST).limit_length(WRAP_SPEED_CAP)
 		survivors.append(m)
 	mines = survivors
 
@@ -369,7 +378,10 @@ func step_ship_kinematics(s: SimShip, turn: float, thrust: bool, dt: float) -> v
 	s.vel += gravity_accel(s.pos) * dt
 	s.pos += s.vel * dt
 	if config.wrap_edges:
-		s.pos = _wrap_point(s.pos)
+		var wrapped := _wrap_point(s.pos)
+		if wrapped != s.pos:
+			s.pos = wrapped
+			s.vel = (s.vel * WRAP_BOOST).limit_length(WRAP_SPEED_CAP)
 
 # --------------------------------------------------------------------------
 # Collisions
@@ -529,9 +541,18 @@ func _destroy_ship(s: SimShip, killer_id: int, cause: String) -> void:
 # Arena wrapping
 # --------------------------------------------------------------------------
 
+## Wrap-mode bonus (Aaron's rule): crossing the map edge DOUBLES your speed —
+## the toroidal seam is a slingshot. Capped well above gameplay speeds so the
+## math can't run away into absurdity.
+const WRAP_BOOST := 2.0
+const WRAP_SPEED_CAP := 20000.0
+
 func _wrap_positions() -> void:
 	for s in ships:
-		s.pos = _wrap_point(s.pos)
+		var wrapped := _wrap_point(s.pos)
+		if wrapped != s.pos:
+			s.pos = wrapped
+			s.vel = (s.vel * WRAP_BOOST).limit_length(WRAP_SPEED_CAP)
 
 ## Lethal-edge mode: the border is a wall of death. Ships crossing it are
 ## destroyed (environmental, no score penalty — like flying into a rock);

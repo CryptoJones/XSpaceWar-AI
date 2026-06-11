@@ -322,6 +322,18 @@ func _test_lethal_edges() -> void:
 	s2.start_skirmish(2, GameSession.Mode.FFA, BotController.Difficulty.ROOKIE)
 	_check("edges: toroidal wrap remains the default", s2.world.config.wrap_edges)
 
+	# Wrap-mode slingshot: crossing the seam doubles your speed.
+	var h2 := s2.human_ship()
+	h2.pos = Vector2(s2.world.config.arena_size * 0.5 - 5.0, 0.0)
+	h2.vel = Vector2(600, 0)
+	h2.spawn_grace = 0.0
+	var v_before := h2.vel.length()
+	s2.update(1.0 / 60.0)
+	_check("edges: wrapping doubles the object's speed",
+		h2.alive and absf(h2.vel.length() - v_before * 2.0) < 5.0
+		and h2.pos.x < 0.0,
+		"v %.0f -> %.0f x=%.0f" % [v_before, h2.vel.length(), h2.pos.x])
+
 func _test_team_spawns() -> void:
 	var s := GameSession.new()
 	s.start_skirmish(8, GameSession.Mode.TEAM, BotController.Difficulty.ROOKIE)
