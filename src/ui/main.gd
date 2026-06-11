@@ -96,6 +96,15 @@ func _build_menu() -> void:
 	quit.pressed.connect(func(): get_tree().quit())
 	box.add_child(quit)
 
+	box.add_child(HSeparator.new())
+
+	var tagline := Label.new()
+	tagline.text = "Honestly, it's not for everyone."
+	tagline.add_theme_font_size_override("font_size", 13)
+	tagline.add_theme_color_override("font_color", Color(0.55, 0.62, 0.75, 0.6))
+	tagline.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(tagline)
+
 	add_child(_menu)
 
 func _labelled(text: String, control: Control) -> HBoxContainer:
