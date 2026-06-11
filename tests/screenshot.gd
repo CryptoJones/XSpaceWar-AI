@@ -1,10 +1,12 @@
 extends SceneTree
-## Visual verification: boot the main scene with a real renderer, capture the
-## menu over the Movie Mode attract, then hide the menu and capture pure
-## gameplay. Writes PNGs to /tmp.
+## Capture documentation screenshots into docs/ (requires a real display —
+## run this on a machine with a desktop, NOT --headless):
 ##
-## Run with (needs a working display, NOT --headless):
 ##   godot --path . --script res://tests/screenshot.gd
+##
+## Writes: docs/screenshot-menu.png (tabbed menu over the attract),
+##         docs/screenshot-gameplay.png (Movie Mode action),
+##         docs/screenshot-splash.png (controls splash).
 
 var _frames := 0
 
@@ -15,16 +17,24 @@ func _initialize() -> void:
 
 func _on_frame() -> void:
 	_frames += 1
-	if _frames == 120:
-		_capture("/tmp/xspacewar_menu.png")
-		var main := root.get_node_or_null("Main")
-		if main != null:
-			main.set_menu_visible(false)
-	elif _frames == 420:
-		_capture("/tmp/xspacewar_movie.png")
+	var main := root.get_node_or_null("Main")
+	if main == null:
+		return
+	if _frames == 30:
+		main._end_credits()  # skip the boot roll for the captures
+	elif _frames == 150:
+		_capture("docs/screenshot-splash.png")
+		main._dismiss_splash()
+	elif _frames == 240:
+		_capture("docs/screenshot-menu.png")
+		main.set_menu_visible(false)
+	elif _frames == 700:
+		_capture("docs/screenshot-gameplay.png")
 		quit(0)
 
-func _capture(path: String) -> void:
+func _capture(rel_path: String) -> void:
 	var img := root.get_viewport().get_texture().get_image()
-	img.save_png(path)
-	print("saved ", path, " (", img.get_width(), "x", img.get_height(), ")")
+	var abs := ProjectSettings.globalize_path("res://" + rel_path)
+	DirAccess.make_dir_recursive_absolute(abs.get_base_dir())
+	img.save_png(abs)
+	print("saved %s (%dx%d)" % [rel_path, img.get_width(), img.get_height()])

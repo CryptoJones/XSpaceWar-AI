@@ -37,6 +37,12 @@ var world: SimWorld
 var ship_id: int
 var difficulty: int = Difficulty.VETERAN
 var personality: int = Personality.BRAWLER
+## 1..100: where this pilot prefers to hunt — 1 hugs the star, 100 prowls
+## the far edges. Every bot rolls its own, so the fleet spreads out instead
+## of swarming the gravity well.
+var roam := 50
+## 1..100: 1 flees from other ships, 100 hunts them relentlessly.
+var aggression := 70
 var _p: Dictionary
 var _preferred_range := 520.0
 var _fire_range := 1400.0
@@ -53,7 +59,7 @@ var _want_thrust: bool = false
 var _aim_noise: float = 0.0
 
 func _init(p_world: SimWorld, p_ship_id: int, p_difficulty: int = Difficulty.VETERAN,
-		p_personality := -1) -> void:
+		p_personality := -1, p_roam := -1, p_aggression := -1) -> void:
 	world = p_world
 	ship_id = p_ship_id
 	difficulty = p_difficulty
@@ -64,12 +70,18 @@ func _init(p_world: SimWorld, p_ship_id: int, p_difficulty: int = Difficulty.VET
 	personality = personality_for(pseed) if p_personality < 0 else p_personality
 	var pp: Dictionary = PERSONALITIES[personality]
 	_p = (PRESETS[difficulty] as Dictionary).duplicate()
-	_p["aggression"] = clampf(float(_p["aggression"]) * float(pp["aggr"]), 0.0, 1.0)
 	_p["fire_cone"] = float(_p["fire_cone"]) * float(pp["cone"])
 	_p["panic"] = float(_p["panic"]) * float(pp["panic"])
 	_preferred_range = float(pp["range"])
 	_fire_range = float(pp["fire_range"])
 	_sling = float(pp["sling"])
+
+	# Per-pilot temperament rolls (deterministic from the match seed) —
+	# personality tilts the aggression roll rather than overriding it.
+	roam = _rng.randi_range(1, 100) if p_roam < 0 else clampi(p_roam, 1, 100)
+	aggression = _rng.randi_range(1, 100) if p_aggression < 0 else clampi(p_aggression, 1, 100)
+	if p_aggression < 0:
+		aggression = clampi(int(float(aggression) * float(pp["aggr"])), 1, 100)
 
 static func difficulty_from_name(n: String) -> int:
 	match n.to_lower():
@@ -166,6 +178,12 @@ func _imminent_mine(ship: SimShip) -> SimMine:
 				return m
 	return null
 
+## This pilot's preferred hunting ring radius around the star.
+func _roam_radius(star_r: float) -> float:
+	var r_min := star_r + 500.0
+	var r_max := world.config.spawn_orbit_radius * 6.0
+	return lerpf(r_min, r_max, float(roam - 1) / 99.0)
+
 ## A nearby pickup worth detouring for (only when actually short on it).
 func _wanted_pickup(ship: SimShip) -> SimPickup:
 	var best: SimPickup = null
@@ -220,10 +238,23 @@ func _decide(ship: SimShip) -> void:
 		_want_thrust = true
 		return
 
-	# 1.5) Logistics: detour to a nearby supply drop when we're short — but
+	var aggr := float(aggression - 1) / 99.0
+	var target := world.ship_by_id(_target_id)
+
+	# 1.6) Fear: timid pilots run FROM ships. The less aggressive, the larger
+	# the radius at which they break and flee (still snapping off shots when
+	# their nose happens to cross someone — see _apply).
+	if target != null:
+		var dist_t := ship.pos.distance_to(target.pos)
+		var flee_r := lerpf(1500.0, 0.0, aggr)
+		if dist_t < flee_r:
+			_want_angle = (ship.pos - target.pos).angle() + _aim_noise
+			_want_thrust = true
+			return
+
+	# 1.7) Logistics: detour to a nearby supply drop when we're short — but
 	# never abandon an enemy already inside firing range. Fighting > shopping.
-	var tgt_now := world.ship_by_id(_target_id)
-	if tgt_now == null or ship.pos.distance_to(tgt_now.pos) > _fire_range:
+	if target == null or ship.pos.distance_to(target.pos) > _fire_range:
 		var want_pickup := _wanted_pickup(ship)
 		if want_pickup != null:
 			var lead := want_pickup.pos + want_pickup.vel * 0.4 - ship.pos
@@ -231,11 +262,23 @@ func _decide(ship: SimShip) -> void:
 			_want_thrust = true
 			return
 
-	var target := world.ship_by_id(_target_id)
-	if target == null:
-		# No enemy: hold a gentle prograde orbit (thrust along velocity).
-		_want_angle = ship.vel.angle()
-		_want_thrust = ship.vel.length() < 120.0
+	# 1.8) Hunter-killer patrol: every pilot has a preferred ring around the
+	# star (roam 1 = hug it, 100 = prowl the far edges). With no target —
+	# or no appetite to chase — correct back to the ring instead of letting
+	# gravity swarm everyone into the well.
+	var chase := target != null and _rng.randf() < maxf(0.12, aggr)
+	if target == null or not chase:
+		var want_r := _roam_radius(star_r)
+		var dist_now := maxf(1.0, dist_star)
+		if absf(dist_now - want_r) > 280.0:
+			# Aim at a point on our ring, a little ahead of us angularly.
+			var dir := (ship.pos - star_pos) / dist_now
+			var ring_point := star_pos + dir.rotated(0.55) * want_r
+			_want_angle = (ring_point - ship.pos).angle()
+			_want_thrust = true
+		else:
+			_want_angle = ship.vel.angle()
+			_want_thrust = ship.vel.length() < 120.0
 		return
 
 	# 2) Lead-aim: predict intercept accounting for relative velocity.
@@ -254,7 +297,7 @@ func _decide(ship: SimShip) -> void:
 	if _sling > 0.0 and dist > _preferred_range * 1.7 and primary != null:
 		var blended := aim.normalized().lerp((star_pos - ship.pos).normalized(), _sling)
 		_want_angle = blended.angle() + _aim_noise
-	_want_thrust = dist > _preferred_range and _rng.randf() < float(_p["aggression"])
+	_want_thrust = dist > _preferred_range and _rng.randf() < maxf(0.15, aggr)
 
 func _apply(ship: SimShip, dt: float) -> void:
 	# Steer toward the desired heading.

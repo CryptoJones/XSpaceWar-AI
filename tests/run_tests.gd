@@ -26,6 +26,7 @@ func _initialize() -> void:
 	_test_hull_generation()
 	_test_pick_duel()
 	_test_bot_character()
+	_test_ai_temperament()
 	_test_mines()
 	_test_pickups()
 	_test_match_stats()
@@ -188,12 +189,12 @@ func _test_ai_combat() -> void:
 	var w := _make_world(2024)
 	var a := w.add_ship()
 	var b := w.add_ship()
-	# Pin both to BRAWLER so the assertion tests combat, not the luck of
-	# which personalities the seed deals (sniper-vs-sniper can stalemate).
+	# Pin personality AND temperament so the assertion tests combat, not the
+	# luck of the rolls (timid or far-roaming pilots can avoid each other).
 	var ba := BotController.new(w, a.id, BotController.Difficulty.ACE,
-		BotController.Personality.BRAWLER)
+		BotController.Personality.BRAWLER, 30, 95)
 	var bb := BotController.new(w, b.id, BotController.Difficulty.ACE,
-		BotController.Personality.BRAWLER)
+		BotController.Personality.BRAWLER, 30, 95)
 	var dt := w.config.fixed_dt
 	var torpedoes_fired := 0
 	for i in range(5400):  # ~90 simulated seconds
@@ -391,6 +392,62 @@ func _test_bot_character() -> void:
 	_check("avoidance: collision course is detected", hz == planet)
 	ship.vel = Vector2(-420, 0)
 	_check("avoidance: diverging course is clear", bot._imminent_hazard(ship) == null)
+
+func _test_ai_temperament() -> void:
+	# Rolls are deterministic per match seed + ship.
+	var w := _make_world(909)
+	var a := w.add_ship()
+	var b1 := BotController.new(w, a.id, BotController.Difficulty.ACE)
+	var b2 := BotController.new(w, a.id, BotController.Difficulty.ACE)
+	_check("ai: temperament rolls are deterministic",
+		b1.roam == b2.roam and b1.aggression == b2.aggression,
+		"roam %d/%d aggr %d/%d" % [b1.roam, b2.roam, b1.aggression, b2.aggression])
+
+	# Roam: a lone far-roamer (100) prowls way out; a star-hugger (1) stays
+	# near the well. 30 simulated seconds each, no enemies.
+	var dt := 1.0 / 60.0
+	var w1 := SimWorld.new(SimConfig.from_seed(5151))
+	ArenaGen.populate(w1, {"hazard": 0.0})
+	var s1 := w1.add_ship()
+	var far := BotController.new(w1, s1.id, BotController.Difficulty.ACE,
+		BotController.Personality.OPPORTUNIST, 100, 80)
+	for _i in range(1800):
+		far.update(dt)
+		w1.step()
+	var d_far := s1.pos.distance_to(w1.primary_body().pos)
+
+	var w2 := SimWorld.new(SimConfig.from_seed(5151))
+	ArenaGen.populate(w2, {"hazard": 0.0})
+	var s2 := w2.add_ship()
+	var hugger := BotController.new(w2, s2.id, BotController.Difficulty.ACE,
+		BotController.Personality.OPPORTUNIST, 1, 80)
+	for _i in range(1800):
+		hugger.update(dt)
+		w2.step()
+	var d_close := s2.pos.distance_to(w2.primary_body().pos)
+	_check("ai: roam spreads pilots (100 roams far, 1 hugs the star)",
+		d_far > w1.config.spawn_orbit_radius * 2.0 and d_close < d_far * 0.5,
+		"far=%.0f close=%.0f" % [d_far, d_close])
+
+	# Aggression 1 = flee: with an enemy 600 away, the desired heading points
+	# AWAY from it.
+	var cfg := SimConfig.from_seed(7)
+	cfg.wrap_edges = false
+	var w3 := SimWorld.new(cfg)
+	var sa := w3.add_ship()
+	var sb := w3.add_ship()
+	# Keep well away from the origin: with no star, the escape-the-star check
+	# treats (0,0) as the well and would override the flee heading.
+	sa.pos = Vector2(5000, 0)
+	sb.pos = Vector2(5600, 0)
+	var timid := BotController.new(w3, sa.id, BotController.Difficulty.ACE,
+		BotController.Personality.BRAWLER, 50, 1)
+	timid._acquire_target(sa)
+	timid._decide(sa)
+	var away := (sa.pos - sb.pos).normalized()
+	var want := Vector2(cos(timid._want_angle), sin(timid._want_angle))
+	_check("ai: aggression 1 flees from nearby ships", want.dot(away) > 0.4,
+		"dot=%.2f" % want.dot(away))
 
 func _test_mines() -> void:
 	var cfg := SimConfig.from_seed(11)
