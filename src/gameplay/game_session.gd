@@ -80,12 +80,13 @@ func _build(seed: int) -> void:
 	bots.clear()
 	ship_names.clear()
 
-	# Procedural arena — vary the layout a little by mode.
+	# Procedural arena — vary the layout a little by mode. Kept sparse:
+	# space should read as mostly empty with hazards, not an obstacle course.
 	arena_params = ArenaGen.populate(world, {
 		"star_count": 2 if _rng.randf() < 0.2 else 1,
-		"planets": _rng.randi_range(1, 3),
-		"asteroid_density": _rng.randi_range(40, 130),
-		"satellites": _rng.randi_range(0, 3),
+		"planets": _rng.randi_range(1, 2),
+		"asteroid_density": _rng.randi_range(16, 55),
+		"satellites": _rng.randi_range(0, 2),
 		"mirror": mode == Mode.TEAM,
 	})
 

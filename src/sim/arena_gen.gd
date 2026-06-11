@@ -16,7 +16,7 @@ const DEFAULTS := {
 	"planets": 2,             # planets orbiting the primary
 	"moons_max": 2,           # max moons per planet
 	"asteroid_belts": 1,
-	"asteroid_density": 90,   # asteroids per belt
+	"asteroid_density": 40,   # asteroids per belt
 	"satellites": 2,          # small orbiting hazards
 	"mirror": false,          # mirror layout for fair team play
 }
@@ -80,7 +80,7 @@ static func populate(world: SimWorld, params: Dictionary = {}) -> Dictionary:
 			var ang := rng.randf() * TAU
 			if bool(p["mirror"]) and a % 2 == 1:
 				ang = PI - ang  # mirror across the Y axis for symmetry
-			var jitter := rng.randf_range(-belt_r * 0.08, belt_r * 0.08)
+			var jitter := rng.randf_range(-belt_r * 0.15, belt_r * 0.15)
 			var pos := center + Vector2(cos(ang), sin(ang)) * (belt_r + jitter)
 			var rock := SimBody.new()
 			rock.kind = SimBody.Kind.ASTEROID

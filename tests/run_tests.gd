@@ -19,6 +19,7 @@ func _initialize() -> void:
 	_test_hyperspace_relocates()
 	_test_ai_combat()
 	_test_match_flow()
+	_test_hull_generation()
 	print("=== %d passed, %d failed ===" % [_passed, _failed])
 	quit(1 if _failed > 0 else 0)
 
@@ -218,3 +219,12 @@ func _test_match_flow() -> void:
 	t.update(1.0 / 60.0)
 	_check("match: team totals trigger a team win",
 		t.match_over and t.winner_team == 0)
+
+func _test_hull_generation() -> void:
+	var a: Dictionary = WorldView.hull_polygon(1234)
+	var b: Dictionary = WorldView.hull_polygon(1234)
+	var c: Dictionary = WorldView.hull_polygon(987654)
+	_check("hull: deterministic for a seed", a["poly"] == b["poly"] and a["tail"] == b["tail"])
+	_check("hull: enough points for a silhouette",
+		(a["poly"] as PackedVector2Array).size() >= 5)
+	_check("hull: different seeds give different ships", a["poly"] != c["poly"])

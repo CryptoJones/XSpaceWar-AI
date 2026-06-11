@@ -15,10 +15,7 @@ const TEAM_COLORS: Array[Color] = [
 	Color(1.00, 0.85, 0.40),   # gold
 ]
 
-## Ship silhouette (local coords, +X = facing), scaled by radius/12.
-const SHIP_POLY: Array[Vector2] = [
-	Vector2(16, 0), Vector2(-10, 9), Vector2(-5, 0), Vector2(-10, -9),
-]
+## Local hull space: +X = facing, roughly ±19 units, scaled by radius/12.
 
 var session: GameSession
 var input_enabled := false
@@ -32,8 +29,10 @@ var _bg_mat: ShaderMaterial
 var _audio: AudioDirector
 var _thrusting := {}                ## ship_id -> true (fired thrust this step)
 var _asteroid_polys := {}           ## body_id -> PackedVector2Array
+var _hull_cache := {}               ## ship_id -> {"poly": ..., "tail": float}
 var _seen_generation := -1
 var _cam_zoom := 0.6
+var _ship_vis_scale := 1.6          ## visual-only hull scale (grows when zoomed out)
 var _follow_id := -1                ## camera wrap-follow tracking
 var _follow_pos := Vector2.ZERO
 
@@ -104,6 +103,7 @@ func _physics_process(dt: float) -> void:
 func _on_new_generation() -> void:
 	_seen_generation = session.generation
 	_asteroid_polys.clear()
+	_hull_cache.clear()
 	_thrusting.clear()
 	_follow_id = -1
 	if _audio != null:
@@ -113,8 +113,8 @@ func _on_new_generation() -> void:
 	_bg_mat.set_shader_parameter("seed", float(absi(s) % 100000) * 0.001)
 	var h1 := float(absi(s) % 997) / 997.0
 	var h2 := wrapf(h1 + 0.35, 0.0, 1.0)
-	_bg_mat.set_shader_parameter("tint_a", Color.from_hsv(h1, 0.7, 0.45))
-	_bg_mat.set_shader_parameter("tint_b", Color.from_hsv(h2, 0.6, 0.40))
+	_bg_mat.set_shader_parameter("tint_a", Color.from_hsv(h1, 0.65, 0.30))
+	_bg_mat.set_shader_parameter("tint_b", Color.from_hsv(h2, 0.55, 0.26))
 
 # --------------------------------------------------------------------------
 # Input
@@ -165,7 +165,7 @@ func _update_camera(dt: float) -> void:
 		_follow_id = human.id
 		_follow_pos = human.pos
 		target_pos = human.pos + human.render_pos_offset
-		target_zoom = 0.9
+		target_zoom = 1.15
 	else:
 		# Movie Mode: frame the bounding box of alive ships (fit zoom).
 		var pts: Array[Vector2] = []
@@ -183,12 +183,15 @@ func _update_camera(dt: float) -> void:
 		target_pos = (lo + hi) * 0.5
 		var span := (hi - lo) + Vector2(900, 900)  # margin
 		var vp := get_viewport_rect().size
-		target_zoom = clampf(minf(vp.x / span.x, vp.y / span.y), 0.28, 1.0)
+		target_zoom = clampf(minf(vp.x / span.x, vp.y / span.y), 0.3, 1.15)
 
 	var k := 1.0 - exp(-2.5 * dt)
 	_camera.position = _camera.position.lerp(target_pos, k)
 	_cam_zoom = lerpf(_cam_zoom, target_zoom, k)
 	_camera.zoom = Vector2(_cam_zoom, _cam_zoom)
+	# Keep ships readable when the camera pulls back: hulls draw bigger than
+	# their (unchanged) physical radius, more so the further out we are.
+	_ship_vis_scale = clampf(1.6 * maxf(1.0, 0.55 / _cam_zoom), 1.6, 3.2)
 
 # --------------------------------------------------------------------------
 # Drawing
@@ -297,22 +300,30 @@ func _draw_asteroid(b: SimBody, t: float) -> void:
 
 func _draw_torpedo(t: SimTorpedo, ghost: Vector2 = Vector2.ZERO) -> void:
 	var p := t.pos + ghost
+	var m := clampf(_ship_vis_scale * 0.7, 1.0, 2.2)
 	var dir := t.vel.normalized() if t.vel.length() > 1.0 else Vector2.RIGHT
-	draw_line(p - dir * 16.0, p, Color(1.6, 1.2, 0.4, 0.35), 2.0)
-	draw_circle(p, t.radius * 0.8, Color(2.6, 2.2, 1.4))
+	draw_line(p - dir * 16.0 * m, p, Color(1.6, 1.2, 0.4, 0.35), 2.0 * m)
+	draw_circle(p, t.radius * 0.8 * m, Color(2.6, 2.2, 1.4))
 
 func _draw_ship(s: SimShip, t: float, ghost: Vector2 = Vector2.ZERO) -> void:
 	var col := ship_color(s)
-	var k := s.radius / 12.0
+	var k := s.radius / 12.0 * _ship_vis_scale
 	draw_set_transform(s.pos + s.render_pos_offset + ghost, s.angle, Vector2(k, k))
 
-	# Exhaust flame while thrusting (flickers).
+	var hull: Dictionary = _hull_cache.get(s.id, {})
+	if hull.is_empty():
+		hull = hull_polygon(s.hull_seed)
+		_hull_cache[s.id] = hull
+	var pts: PackedVector2Array = hull["poly"]
+	var tail_x: float = hull["tail"]
+
+	# Exhaust flame while thrusting (flickers), anchored to this hull's stern.
 	if _thrusting.has(s.id):
 		var len := 14.0 + 6.0 * sin(t * 40.0 + float(s.id))
-		var flame := PackedVector2Array([Vector2(-8, 4.5), Vector2(-8, -4.5), Vector2(-8.0 - len, 0)])
+		var flame := PackedVector2Array([Vector2(tail_x + 1.0, 4.5),
+			Vector2(tail_x + 1.0, -4.5), Vector2(tail_x - len, 0)])
 		draw_colored_polygon(flame, Color(2.2, 1.3, 0.35, 0.9))
 
-	var pts := PackedVector2Array(SHIP_POLY)
 	draw_colored_polygon(pts, col)
 	if s.id == session.human_ship_id:
 		var outline := pts.duplicate()
@@ -322,14 +333,46 @@ func _draw_ship(s: SimShip, t: float, ghost: Vector2 = Vector2.ZERO) -> void:
 	# Spawn-grace shield ring.
 	if s.spawn_grace > 0.0:
 		var a := 0.25 + 0.35 * absf(sin(t * 8.0))
-		draw_arc(Vector2.ZERO, 20.0, 0.0, TAU, 24, Color(0.6, 1.4, 2.0, a), 2.0)
+		draw_arc(Vector2.ZERO, 22.0, 0.0, TAU, 24, Color(0.6, 1.4, 2.0, a), 2.0)
 
 	draw_set_transform(Vector2.ZERO)
 
-func ship_color(s: SimShip) -> Color:
+static func ship_color(s: SimShip) -> Color:
 	if s.team >= 0:
 		return TEAM_COLORS[s.team % TEAM_COLORS.size()]
 	return Color.from_hsv(float(s.hull_seed % 997) / 997.0, 0.65, 1.0)
+
+## Build a ship silhouette from its hull seed: a symmetric polygon — nose,
+## optional shoulder, swept wingtip, inner tail, pointed-or-flat stern — in
+## the same local space as the classic wedge. Deterministic per seed, so
+## every peer renders the identical ship. Returns {"poly": PackedVector2Array,
+## "tail": float} (tail = stern x, used to anchor the exhaust flame).
+static func hull_polygon(hull_seed: int) -> Dictionary:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hull_seed
+	var nose := rng.randf_range(13.0, 19.0)
+	var tail := rng.randf_range(-12.0, -7.0)
+	var span := rng.randf_range(6.5, 11.0)
+	var sweep := rng.randf_range(-10.0, -3.0)
+	var has_shoulder := rng.randf() < 0.55
+	var shoulder := Vector2(rng.randf_range(2.0, 7.0), span * rng.randf_range(0.35, 0.55))
+	var tail_inner := Vector2(tail + rng.randf_range(0.0, 3.5), span * rng.randf_range(0.25, 0.45))
+	var pointed_stern := rng.randf() < 0.5
+
+	var top: Array[Vector2] = [Vector2(nose, 0)]
+	if has_shoulder:
+		top.append(shoulder)
+	top.append(Vector2(sweep, span))
+	top.append(tail_inner)
+
+	var pts := PackedVector2Array()
+	for p in top:
+		pts.append(p)
+	if pointed_stern:
+		pts.append(Vector2(tail, 0))
+	for i in range(top.size() - 1, 0, -1):  # mirror, skipping the nose
+		pts.append(Vector2(top[i].x, -top[i].y))
+	return {"poly": pts, "tail": tail}
 
 # --------------------------------------------------------------------------
 # Particles
