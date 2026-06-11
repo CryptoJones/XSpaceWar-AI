@@ -123,13 +123,9 @@ func _on_new_generation() -> void:
 	_focus_timer = 0.0
 	if _audio != null:
 		_audio.reset()
-	# Re-seed the nebula and tint it per-arena so every match looks distinct.
+	# Re-seed the starfield per-arena so every match's sky is distinct.
 	var s := session.world.config.seed
 	_bg_mat.set_shader_parameter("seed", float(absi(s) % 100000) * 0.001)
-	var h1 := float(absi(s) % 997) / 997.0
-	var h2 := wrapf(h1 + 0.35, 0.0, 1.0)
-	_bg_mat.set_shader_parameter("tint_a", Color.from_hsv(h1, 0.65, 0.30))
-	_bg_mat.set_shader_parameter("tint_b", Color.from_hsv(h2, 0.55, 0.26))
 
 # --------------------------------------------------------------------------
 # Input
