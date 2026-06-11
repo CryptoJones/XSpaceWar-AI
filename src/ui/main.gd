@@ -48,7 +48,7 @@ var _replays_list: ItemList
 ## at a size that dwarfs the screen, everything else at cinema scale.
 ## Format: [text, font_size, tier] — tier 0 title / 1 header / 2 name / 3 dim.
 const CREDITS_LINES := [
-	["XSPACEWAR-AI", 230, 0],
+	["XSpaceWar-AI", 230, 0],
 	["a 2026 reimagining", 42, 3],
 	["", 60, 3],
 	["— STANDING ON THE SHOULDERS OF —", 60, 1],
@@ -183,7 +183,7 @@ func _build_menu() -> void:
 	margin.add_child(outer)
 
 	var title := Label.new()
-	title.text = "XSPACEWAR-AI"
+	title.text = "XSpaceWar-AI"
 	title.add_theme_font_size_override("font_size", 42)
 	title.add_theme_color_override("font_color", Color(0.6, 0.9, 1.0))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -427,7 +427,7 @@ func _build_splash() -> void:
 	margin.add_child(v)
 
 	var title := Label.new()
-	title.text = "XSPACEWAR-AI"
+	title.text = "XSpaceWar-AI"
 	title.add_theme_font_size_override("font_size", 46)
 	title.add_theme_color_override("font_color", Color(0.6, 0.9, 1.0))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
