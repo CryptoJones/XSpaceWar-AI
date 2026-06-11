@@ -33,6 +33,7 @@ var key_binds := {
 	"fire": KEY_SPACE,
 	"mine": KEY_S,
 	"hyper": KEY_SHIFT,
+	"toggle_map": KEY_M,   # UI action (minimap), lives here so binds have one home
 }
 
 ## When valid, replaces the built-in input+update drive each physics step —

@@ -60,6 +60,7 @@ const BINDABLE := [
 	["fire", "Fire torpedo"],
 	["mine", "Drop mine"],
 	["hyper", "Hyperspace"],
+	["toggle_map", "Toggle minimap"],
 ]
 
 ## OPENING credits — the lineage this game stands on, rolled flat (no Star
@@ -273,6 +274,11 @@ func _build_menu() -> void:
 	credits_btn.pressed.connect(_on_credits_pressed)
 	_apply_button_border(credits_btn, 3, false)
 	bottom_row.add_child(credits_btn)
+	var keys_btn := Button.new()
+	keys_btn.text = "KEY BINDINGS"
+	keys_btn.pressed.connect(_on_keys_pressed)
+	_apply_button_border(keys_btn, 3, false)
+	bottom_row.add_child(keys_btn)
 	var spacer_r := Control.new()
 	spacer_r.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	bottom_row.add_child(spacer_r)
@@ -503,17 +509,10 @@ func _build_options_tab() -> Control:
 	stretch.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(stretch)
 
-	var buttons := HBoxContainer.new()
-	buttons.add_theme_constant_override("separation", 10)
-	var keys_btn := Button.new()
-	keys_btn.text = "KEYS\u2026"
-	keys_btn.pressed.connect(_on_keys_pressed)
-	buttons.add_child(keys_btn)
 	var replay_btn := Button.new()
 	replay_btn.text = "REPLAYS\u2026"
 	replay_btn.pressed.connect(_on_replays_browse_pressed)
-	buttons.add_child(replay_btn)
-	v.add_child(buttons)
+	v.add_child(replay_btn)
 	return parts[0]
 
 func _apply_button_border(btn: Button, width: int, bright: bool) -> void:
@@ -588,6 +587,7 @@ func _build_controls_panel() -> HBoxContainer:
 		[_key_name("fire"), "fire torpedo"],
 		["%s  or  ▼" % _key_name("mine"), "drop mine"],
 		["%s or ENTER" % _key_name("hyper"), "hyperspace"],
+		[_key_name("toggle_map"), "toggle minimap"],
 		["ESC", "menu"],
 	]))
 	row.add_child(VSeparator.new())
@@ -768,7 +768,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		_debug_overlay = not _debug_overlay
 		if not _debug_overlay:
 			hud.set_debug("")
-	elif key_pressed and event.physical_keycode == KEY_M:
+	elif key_pressed and event.physical_keycode == int(view.key_binds["toggle_map"]):
 		hud.set_radar_visible(not hud.radar_visible())
 		_save_settings()
 	elif key_pressed and event.physical_keycode == KEY_ESCAPE:
