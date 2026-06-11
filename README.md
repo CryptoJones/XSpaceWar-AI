@@ -10,6 +10,17 @@ ships**.
 Built with **Godot 4** for **Windows, Linux, and macOS**. Licensed under
 **Apache 2.0**.
 
+## Screenshots
+
+A free-for-all dogfight — sixteen distinct ship colors, kill feed, live
+scoreboard, and the minimap:
+
+![Free-for-all combat](docs/screenshot-combat.png)
+
+The gravity well takes another victim:
+
+![The star claims a ship](docs/screenshot-star.png)
+
 ---
 
 ## Heritage
