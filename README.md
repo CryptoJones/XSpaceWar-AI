@@ -99,9 +99,14 @@ not .NET) from the
 
 ```bash
 # Linux example
-mkdir -p ~/tools/godot && cd ~/tools/godot
+mkdir -p ~/tools/godot ~/.local/bin && cd ~/tools/godot
 curl -LO https://github.com/godotengine/godot/releases/download/4.6.3-stable/Godot_v4.6.3-stable_linux.x86_64.zip
 unzip Godot_v4.6.3-stable_linux.x86_64.zip && mv Godot_v4.6.3-stable_linux.x86_64 godot
+
+# Put `godot` on your PATH (most distros include ~/.local/bin already):
+ln -sf ~/tools/godot/godot ~/.local/bin/godot
+godot --version   # if "command not found", open a new shell or use the
+                  # full path ~/tools/godot/godot in the commands below
 ```
 
 (Windows: `Godot_v4.6.3-stable_win64.exe.zip` · macOS:
