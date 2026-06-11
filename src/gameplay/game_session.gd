@@ -100,6 +100,7 @@ func _build(seed: int) -> void:
 			human_ship_id = ship.id
 		else:
 			bots[ship.id] = BotController.new(world, ship.id, difficulty)
+			ship_names[ship.id] = BotController.callsign(ship.hull_seed)
 
 	match_over = false
 	winner_ship = -1

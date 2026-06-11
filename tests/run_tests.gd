@@ -21,6 +21,7 @@ func _initialize() -> void:
 	_test_match_flow()
 	_test_hull_generation()
 	_test_pick_duel()
+	_test_bot_character()
 	print("=== %d passed, %d failed ===" % [_passed, _failed])
 	quit(1 if _failed > 0 else 0)
 
@@ -248,3 +249,46 @@ func _test_pick_duel() -> void:
 	d.alive = false
 	duel = WorldView.pick_duel(w)
 	_check("camera: lone survivor is followed solo", duel == [c.id], str(duel))
+
+func _test_bot_character() -> void:
+	_check("callsign: deterministic and plausible",
+		BotController.callsign(42) == BotController.callsign(42)
+		and BotController.callsign(42).length() >= 5
+		and BotController.callsign(42) != BotController.callsign(43))
+	_check("personality: deterministic from seed",
+		BotController.personality_for(42) == BotController.personality_for(42))
+	var seen := {}
+	for i in range(60):
+		seen[BotController.personality_for(i * 7919)] = true
+	_check("personality: all four kinds occur",
+		seen.size() == BotController.Personality.size(), "saw %d kinds" % seen.size())
+
+	# Bots get callsigns on the scoreboard.
+	var s := GameSession.new()
+	s.start_skirmish(4, GameSession.Mode.FFA, BotController.Difficulty.VETERAN)
+	var named := 0
+	for sid in s.bots:
+		if String(s.ship_names.get(sid, "")).length() >= 5:
+			named += 1
+	_check("callsign: every bot is named in the session", named == s.bots.size(),
+		"%d/%d" % [named, s.bots.size()])
+
+	# Predictive avoidance: a ship coasting straight at a planet sees it.
+	var cfg := SimConfig.from_seed(5)
+	var w := SimWorld.new(cfg)
+	var planet := SimBody.new()
+	planet.kind = SimBody.Kind.PLANET
+	planet.pos = Vector2(400, 0)
+	planet.radius = 50.0
+	planet.mass = 0.0
+	planet.gravity = false
+	planet.lethal = true
+	w.add_body(planet)
+	var ship := w.add_ship()
+	ship.pos = Vector2.ZERO
+	ship.vel = Vector2(420, 0)
+	var bot := BotController.new(w, ship.id, BotController.Difficulty.ACE)
+	var hz := bot._imminent_hazard(ship)
+	_check("avoidance: collision course is detected", hz == planet)
+	ship.vel = Vector2(-420, 0)
+	_check("avoidance: diverging course is clear", bot._imminent_hazard(ship) == null)

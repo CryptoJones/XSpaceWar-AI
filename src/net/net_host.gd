@@ -196,9 +196,10 @@ func _drop_peer(peer) -> void:
 	_names.erase(peer)
 	_inputs.erase(sid)
 	_acked.erase(sid)
-	session.ship_names.erase(sid)
-	# Hand the ship back to a bot so the match keeps its full roster.
+	# Hand the ship back to a bot (with its own callsign again).
 	session.bots[sid] = BotController.new(session.world, sid, session.difficulty)
+	var ship := session.world.ship_by_id(sid)
+	session.ship_names[sid] = BotController.callsign(ship.hull_seed) if ship != null else ""
 
 func close() -> void:
 	if not _open:
