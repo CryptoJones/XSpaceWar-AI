@@ -77,6 +77,7 @@ const CREDITS_LINES := [
 	["Claude Fable 5", 54, 2],
 	["", 36, 3],
 	["engine: Godot 4 — every pixel and sound procedurally generated", 42, 3],
+	["title font: Orbitron by Matt McInerney (SIL Open Font License 1.1)", 42, 3],
 	["", 60, 3],
 	["SPECIAL THANKS", 66, 1],
 	["John Van Lowe (JVL)", 54, 2],
@@ -91,6 +92,17 @@ const CREDITS_LINES := [
 
 const SETTINGS_PATH := "user://settings.cfg"
 const REPLAY_DIR := "user://replays"
+
+var _title_font: FontVariation
+
+## Orbitron at bold weight — the futuristic display face used for titles
+## (OFL-licensed; see assets/fonts/ and NOTICE).
+func _get_title_font() -> FontVariation:
+	if _title_font == null:
+		_title_font = FontVariation.new()
+		_title_font.base_font = load("res://assets/fonts/Orbitron.ttf")
+		_title_font.variation_opentype = {"wght": 700}
+	return _title_font
 
 func _ready() -> void:
 	view = WorldView.new()
@@ -184,6 +196,7 @@ func _build_menu() -> void:
 
 	var title := Label.new()
 	title.text = "XSpaceWar-AI"
+	title.add_theme_font_override("font", _get_title_font())
 	title.add_theme_font_size_override("font_size", 42)
 	title.add_theme_color_override("font_color", Color(0.6, 0.9, 1.0))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -428,6 +441,7 @@ func _build_splash() -> void:
 
 	var title := Label.new()
 	title.text = "XSpaceWar-AI"
+	title.add_theme_font_override("font", _get_title_font())
 	title.add_theme_font_size_override("font_size", 46)
 	title.add_theme_color_override("font_color", Color(0.6, 0.9, 1.0))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -521,6 +535,7 @@ func _build_credits() -> void:
 		match int(entry[2]):
 			0:
 				l.add_theme_color_override("font_color", Color(0.6, 0.9, 1.0))
+				l.add_theme_font_override("font", _get_title_font())
 			1:
 				l.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
 			2:
