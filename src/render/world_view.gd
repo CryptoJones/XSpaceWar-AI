@@ -221,6 +221,8 @@ func _physics_process(dt: float) -> void:
 				_add_shake(ev["pos"], 1.4)
 			"hyperspace":
 				_spawn_burst(ev["pos"], Color(0.7, 1.2, 2.4), 28, 240.0)
+			"wrap":
+				_spawn_burst(ev["pos"], Color(0.4, 1.6, 2.0), 20, 360.0)
 			"rock_break":
 				_spawn_burst(ev["pos"], Color(0.9, 0.85, 0.75), 30, 260.0)
 			"pickup":

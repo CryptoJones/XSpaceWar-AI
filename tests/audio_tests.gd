@@ -15,7 +15,7 @@ func _initialize() -> void:
 	var hyper := SoundForge.hyperspace()
 	var thrust := SoundForge.thrust_loop()
 
-	for pair in [["fire", fire], ["explosion", boom], ["hyperspace", hyper], ["thrust", thrust]]:
+	for pair in [["fire", fire], ["explosion", boom], ["hyperspace", hyper], ["thrust", thrust], ["wrap_zip", SoundForge.wrap_zip()]]:
 		var wav: AudioStreamWAV = pair[1]
 		_check("%s: synthesized non-trivial PCM" % pair[0],
 			wav != null and wav.data.size() > 2000 and wav.mix_rate == SoundForge.RATE,

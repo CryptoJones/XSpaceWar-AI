@@ -15,6 +15,7 @@ var _arrows: Control
 var _respawn_label: Label
 var _final_board: Label
 var _debug_label: Label
+var _edge_warn: Label
 var _feed: Array[Dictionary] = []   ## {"t": text, "ttl": seconds}
 var _seen_tick := -1
 var _seen_gen := -1
@@ -63,6 +64,16 @@ func _ready() -> void:
 	_debug_label.visible = false
 	add_child(_debug_label)
 
+	# Lethal-boundary proximity warning, center-bottom, red and pulsing.
+	_edge_warn = _make_label(30, Color(1.0, 0.25, 0.2))
+	_edge_warn.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_edge_warn.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_edge_warn.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_edge_warn.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_edge_warn.position.y = -120
+	_edge_warn.visible = false
+	add_child(_edge_warn)
+
 	_arrows = Control.new()
 	_arrows.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_arrows.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -107,6 +118,22 @@ func radar_visible() -> bool:
 	return _radar.visible
 
 ## BBCode label for color-coded HUD text (scoreboard, kill feed).
+## Lethal-edge mode: shout when the wall of death is close (and closing).
+func _update_edge_warning(human: SimShip) -> void:
+	var w := session.world
+	if w == null or not w.config.lethal_edges or human == null or not human.alive:
+		_edge_warn.visible = false
+		return
+	var half := w.config.arena_size * 0.5
+	var d := half - maxf(absf(human.pos.x), absf(human.pos.y))
+	if d < 2500.0:
+		_edge_warn.visible = true
+		_edge_warn.text = "⚠ BOUNDARY  %d" % int(d)
+		var pulse := 0.55 + 0.45 * absf(sin(Time.get_ticks_msec() / 1000.0 * 6.0))
+		_edge_warn.modulate.a = pulse
+	else:
+		_edge_warn.visible = false
+
 func _make_rich(size: int) -> RichTextLabel:
 	var r := RichTextLabel.new()
 	r.bbcode_enabled = true
@@ -153,6 +180,7 @@ func _process(dt: float) -> void:
 	_radar.queue_redraw()
 	_arrows.queue_redraw()
 	var human := session.human_ship()
+	_update_edge_warning(human)
 	_bars.visible = human != null
 	if human != null:
 		_bars.queue_redraw()

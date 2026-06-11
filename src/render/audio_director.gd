@@ -10,6 +10,7 @@ const THRUST_HOLD := 0.12          ## seconds a thrust event keeps the loop aliv
 
 var _fire_s: AudioStreamWAV
 var _boom_s: AudioStreamWAV
+var _zip_s: AudioStreamWAV
 var _hyper_s: AudioStreamWAV
 var _thrust_s: AudioStreamWAV
 var _fanfare_s: AudioStreamWAV
@@ -25,6 +26,7 @@ func _ready() -> void:
 	_fire_s = SoundForge.fire()
 	_boom_s = SoundForge.explosion()
 	_hyper_s = SoundForge.hyperspace()
+	_zip_s = SoundForge.wrap_zip()
 	_thrust_s = SoundForge.thrust_loop()
 	_fanfare_s = SoundForge.fanfare()
 	_ui_player = AudioStreamPlayer.new()
@@ -52,6 +54,8 @@ func play_event(ev: Dictionary) -> void:
 			_play_at(_boom_s, pos, -1.0, _rng.randf_range(0.85, 1.10))
 		"hyperspace":
 			_play_at(_hyper_s, pos, -5.0, _rng.randf_range(0.95, 1.05))
+		"wrap":
+			_play_at(_zip_s, pos, -8.0, _rng.randf_range(0.9, 1.1))
 		"mine":
 			_play_at(_fire_s, pos, -14.0, 0.55)  # low soft clunk on drop
 		"mine_explode":

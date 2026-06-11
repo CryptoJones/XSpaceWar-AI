@@ -553,6 +553,7 @@ func _wrap_positions() -> void:
 		if wrapped != s.pos:
 			s.pos = wrapped
 			s.vel = (s.vel * WRAP_BOOST).limit_length(WRAP_SPEED_CAP)
+			events.append({"type": "wrap", "ship": s.id, "pos": s.pos})
 
 ## Lethal-edge mode: the border is a wall of death. Ships crossing it are
 ## destroyed (environmental, no score penalty — like flying into a rock);

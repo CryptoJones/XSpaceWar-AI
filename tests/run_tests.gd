@@ -329,6 +329,8 @@ func _test_lethal_edges() -> void:
 	h2.spawn_grace = 0.0
 	var v_before := h2.vel.length()
 	s2.update(1.0 / 60.0)
+	_check("edges: wrap emits a slingshot event",
+		s2.world.events.any(func(e): return e.get("type", "") == "wrap"))
 	_check("edges: wrapping doubles the object's speed",
 		h2.alive and absf(h2.vel.length() - v_before * 2.0) < 5.0
 		and h2.pos.x < 0.0,

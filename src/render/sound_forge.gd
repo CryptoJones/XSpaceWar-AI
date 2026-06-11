@@ -45,6 +45,20 @@ static func explosion() -> AudioStreamWAV:
 	return _to_wav(s)
 
 ## Hyperspace: rising shimmer sweep that thins out as it climbs.
+## Wrap slingshot: a quick rising doppler zip.
+static func wrap_zip() -> AudioStreamWAV:
+	var n := int(RATE * 0.28)
+	var data := PackedFloat32Array()
+	data.resize(n)
+	for i in range(n):
+		var t := float(i) / float(RATE)
+		var k := float(i) / float(n)
+		var f := lerpf(220.0, 1400.0, k * k)
+		var env := (1.0 - k) * minf(1.0, k * 14.0)
+		data[i] = sin(TAU * f * t) * 0.5 * env \
+			+ sin(TAU * f * 2.01 * t) * 0.18 * env
+	return _to_wav(data)
+
 static func hyperspace() -> AudioStreamWAV:
 	var n := int(0.55 * RATE)
 	var s := PackedFloat32Array()
