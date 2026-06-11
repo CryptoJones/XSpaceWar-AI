@@ -78,16 +78,48 @@ The simulation in `src/sim/` is **deterministic and headless** (no rendering
 deps, fixed timestep) so the authoritative host sim, client-side prediction,
 AI, and replay all share one codebase.
 
-## Building & running
+## Getting the game
 
-Requires **Godot 4.x** (standard build).
+**Prebuilt binaries (no engine needed):** grab the zip for your platform from
+the [Releases page](https://github.com/CryptoJones/XSpaceWar-AI/releases).
+Every push to `main` also uploads fresh builds as artifacts on the
+[Actions tab](https://github.com/CryptoJones/XSpaceWar-AI/actions) (sign-in
+required), e.g.:
+
+```bash
+gh run download --repo CryptoJones/XSpaceWar-AI -n xspacewar-ai-linux-x86_64
+chmod +x xspacewar-ai.x86_64 && ./xspacewar-ai.x86_64
+```
+
+## Running from source
+
+The repo ships no engine binary — install **Godot 4.6.x** (standard build,
+not .NET) from the
+[official releases](https://github.com/godotengine/godot/releases/tag/4.6.3-stable):
+
+```bash
+# Linux example
+mkdir -p ~/tools/godot && cd ~/tools/godot
+curl -LO https://github.com/godotengine/godot/releases/download/4.6.3-stable/Godot_v4.6.3-stable_linux.x86_64.zip
+unzip Godot_v4.6.3-stable_linux.x86_64.zip && mv Godot_v4.6.3-stable_linux.x86_64 godot
+```
+
+(Windows: `Godot_v4.6.3-stable_win64.exe.zip` · macOS:
+`Godot_v4.6.3-stable_macos.universal.zip` — same page.)
 
 ```bash
 # Run the game
 godot --path .
 
-# Run headless simulation tests
-godot --headless --path . --script res://tests/run_tests.gd
+# Run the headless test suites
+godot --headless --path . --script res://tests/run_tests.gd     # sim
+godot --headless --path . --script res://tests/net_tests.gd     # LAN netcode
+godot --headless --path . --script res://tests/relay_tests.gd   # online relay
+godot --headless --path . --script res://tests/audio_tests.gd   # synthesis
+godot --headless --path . --script res://tests/scene_smoke.gd   # scene boot
+
+# Export release builds locally (needs export templates installed)
+build/export_all.sh
 ```
 
 ## Dedication
