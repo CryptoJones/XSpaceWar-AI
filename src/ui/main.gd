@@ -42,6 +42,19 @@ var _credits_y := 0.0
 var _credits_from_boot := false
 var _replays_panel: CanvasLayer
 var _replays_list: ItemList
+var _keys_panel: CanvasLayer
+var _keybind_value_labels := {}    ## action -> Label showing the bound key
+var _keys_status: Label
+var _awaiting_rebind := ""
+
+const BINDABLE := [
+	["turn_left", "Turn left"],
+	["turn_right", "Turn right"],
+	["thrust", "Thrust"],
+	["fire", "Fire torpedo"],
+	["mine", "Drop mine"],
+	["hyper", "Hyperspace"],
+]
 
 ## OPENING credits — the lineage this game stands on, rolled flat (no Star
 ## Wars tilt) at boot and replayable via the CREDITS button. The title leads
@@ -117,6 +130,7 @@ func _ready() -> void:
 	_build_splash()
 	_build_credits()
 	_build_replays_panel()
+	_build_keys_panel()
 	_load_settings()
 	var user := OS.get_environment("USER")
 	_player_name = user.to_upper().left(12) if user != "" else "PILOT"
@@ -324,6 +338,10 @@ func _build_menu() -> void:
 	_fullscreen_check.text = "Fullscreen"
 	_fullscreen_check.toggled.connect(_on_fullscreen_toggled)
 	settings_row.add_child(_fullscreen_check)
+	var keys_btn := Button.new()
+	keys_btn.text = "KEYS…"
+	keys_btn.pressed.connect(_on_keys_pressed)
+	settings_row.add_child(keys_btn)
 	box.add_child(settings_row)
 
 	# Sky preferences — every backdrop layer is the player's call.
@@ -468,11 +486,11 @@ func _build_controls_panel() -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 30)
 	row.add_child(_controls_column("KEYBOARD", [
-		["A / D  or  ◄ ►", "turn"],
-		["W  or  ▲", "thrust"],
-		["SPACE", "fire torpedo"],
-		["S  or  ▼", "drop mine"],
-		["SHIFT or ENTER", "hyperspace"],
+		["%s / %s  or  ◄ ►" % [_key_name("turn_left"), _key_name("turn_right")], "turn"],
+		["%s  or  ▲" % _key_name("thrust"), "thrust"],
+		[_key_name("fire"), "fire torpedo"],
+		["%s  or  ▼" % _key_name("mine"), "drop mine"],
+		["%s or ENTER" % _key_name("hyper"), "hyperspace"],
 		["ESC", "menu"],
 	]))
 	row.add_child(VSeparator.new())
@@ -485,6 +503,9 @@ func _build_controls_panel() -> HBoxContainer:
 		["START", "menu"],
 	]))
 	return row
+
+func _key_name(action: String) -> String:
+	return OS.get_keycode_string(int(view.key_binds[action]))
 
 func _controls_column(header: String, rows: Array) -> VBoxContainer:
 	var v := VBoxContainer.new()
@@ -593,6 +614,10 @@ func set_menu_visible(v: bool) -> void:
 	_menu.visible = v
 	# Human input only flows when the menu is closed during a skirmish.
 	view.input_enabled = not v and session.human_ship_id >= 0
+	# Opening the menu pauses SOLO skirmishes only — Movie Mode keeps playing
+	# as the attract backdrop, and net/replay sessions own their own time.
+	view.sim_paused = v and session.human_ship_id >= 0 \
+		and net_host == null and net_client == null and replay_player == null
 
 func _on_play_pressed() -> void:
 	_teardown_net()
@@ -618,6 +643,18 @@ func _on_quit_pressed() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	var key_pressed: bool = event is InputEventKey and event.pressed and not event.echo
 	var pad_pressed: bool = event is InputEventJoypadButton and event.pressed
+	# Key-rebind panel: capture the next keypress for the awaited action.
+	if _keys_panel != null and _keys_panel.visible:
+		if key_pressed:
+			if _awaiting_rebind != "":
+				if event.physical_keycode != KEY_ESCAPE:
+					view.key_binds[_awaiting_rebind] = event.physical_keycode
+				_awaiting_rebind = ""
+				_keys_status.text = ""
+				_refresh_keybind_labels()
+			elif event.physical_keycode == KEY_ESCAPE:
+				_close_keys_panel()
+		return
 	# Credits roll: SPACE (or ESC/ENTER/pad A/START) skips.
 	if _credits.visible:
 		if (key_pressed and event.physical_keycode in [KEY_SPACE, KEY_ESCAPE, KEY_ENTER]) \
@@ -849,6 +886,15 @@ func _load_settings() -> void:
 		_stars_slider.set_value_no_signal(float(cfg.get_value("display", "stars", 50.0)))
 		_far_check.set_pressed_no_signal(bool(cfg.get_value("display", "far_stars", false)))
 		_record_check.set_pressed_no_signal(bool(cfg.get_value("replay", "record", false)))
+		var binds_changed := false
+		for pair in BINDABLE:
+			var action := String(pair[0])
+			var saved := int(cfg.get_value("keys", action, int(view.key_binds[action])))
+			if saved != int(view.key_binds[action]):
+				view.key_binds[action] = saved
+				binds_changed = true
+		if binds_changed:
+			_rebuild_splash()
 	# Apply whatever we ended up with (defaults or loaded).
 	var v := _vol_slider.value
 	AudioServer.set_bus_volume_db(0, linear_to_db(maxf(0.0001, v / 100.0)) if v > 0.0 else -80.0)
@@ -865,6 +911,8 @@ func _save_settings() -> void:
 	cfg.set_value("display", "stars", _stars_slider.value)
 	cfg.set_value("display", "far_stars", _far_check.button_pressed)
 	cfg.set_value("replay", "record", _record_check.button_pressed)
+	for pair in BINDABLE:
+		cfg.set_value("keys", String(pair[0]), int(view.key_binds[String(pair[0])]))
 	cfg.save(SETTINGS_PATH)
 
 func _teardown_net() -> void:
@@ -907,6 +955,91 @@ func _finalize_recording() -> void:
 		f.store_buffer(r.to_bytes())
 		f.close()
 		_net_status.text = "Replay saved (%.0fs): %s" % [r.duration_sec(1.0 / 60.0), path.get_file()]
+
+func _build_keys_panel() -> void:
+	_keys_panel = CanvasLayer.new()
+	_keys_panel.layer = 26
+	_keys_panel.visible = false
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_keys_panel.add_child(center)
+	var panel := PanelContainer.new()
+	center.add_child(panel)
+	var margin := MarginContainer.new()
+	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
+		margin.add_theme_constant_override(side, 24)
+	panel.add_child(margin)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 8)
+	margin.add_child(v)
+	var title := Label.new()
+	title.text = "KEY BINDINGS"
+	title.add_theme_font_size_override("font_size", 24)
+	title.add_theme_color_override("font_color", Color(0.6, 0.9, 1.0))
+	v.add_child(title)
+	var grid := GridContainer.new()
+	grid.columns = 3
+	grid.add_theme_constant_override("h_separation", 20)
+	grid.add_theme_constant_override("v_separation", 6)
+	for pair in BINDABLE:
+		var action := String(pair[0])
+		var name_l := Label.new()
+		name_l.text = String(pair[1])
+		name_l.custom_minimum_size.x = 130
+		grid.add_child(name_l)
+		var key_l := Label.new()
+		key_l.add_theme_color_override("font_color", Color(0.85, 0.95, 1.0))
+		grid.add_child(key_l)
+		_keybind_value_labels[action] = key_l
+		var btn := Button.new()
+		btn.text = "REBIND"
+		btn.pressed.connect(func():
+			_awaiting_rebind = action
+			_keys_status.text = "Press a key for %s… (ESC cancels)" % String(pair[1])
+			btn.release_focus())
+		grid.add_child(btn)
+	v.add_child(grid)
+	_keys_status = Label.new()
+	_keys_status.add_theme_font_size_override("font_size", 14)
+	_keys_status.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
+	v.add_child(_keys_status)
+	var note := Label.new()
+	note.text = "Arrows / Enter always work as alternates."
+	note.add_theme_font_size_override("font_size", 13)
+	note.add_theme_color_override("font_color", Color(0.6, 0.7, 0.85, 0.7))
+	v.add_child(note)
+	var close := Button.new()
+	close.text = "DONE"
+	close.pressed.connect(_close_keys_panel)
+	v.add_child(close)
+	add_child(_keys_panel)
+	_refresh_keybind_labels()
+
+func _refresh_keybind_labels() -> void:
+	for action in _keybind_value_labels:
+		(_keybind_value_labels[action] as Label).text = \
+			OS.get_keycode_string(int(view.key_binds[action]))
+
+func _on_keys_pressed() -> void:
+	_refresh_keybind_labels()
+	_keys_status.text = ""
+	_awaiting_rebind = ""
+	set_menu_visible(false)
+	_keys_panel.visible = true
+
+func _close_keys_panel() -> void:
+	_keys_panel.visible = false
+	_awaiting_rebind = ""
+	_save_settings()
+	_rebuild_splash()
+	set_menu_visible(true)
+
+## Splash shows live binds, so rebuild it after they change.
+func _rebuild_splash() -> void:
+	var was_visible := _splash.visible
+	_splash.queue_free()
+	_build_splash()
+	_splash.visible = was_visible
 
 func _build_replays_panel() -> void:
 	_replays_panel = CanvasLayer.new()

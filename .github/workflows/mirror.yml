@@ -1,0 +1,21 @@
+name: Mirror
+
+# Keep the Codeberg mirror in sync on every push (branches and tags).
+on:
+  push:
+    branches: ["**"]
+    tags: ["**"]
+
+jobs:
+  codeberg:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Push to Codeberg
+        run: |
+          REMOTE="https://CryptoJones:${{ secrets.CODEBERG_TOKEN }}@codeberg.org/CryptoJones/XSpaceWar-AI.git"
+          git push --force "$REMOTE" --all
+          git push --force "$REMOTE" --tags

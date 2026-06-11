@@ -146,6 +146,11 @@ build/export_all.sh
 Thank You to "JVL / Boxest" for all the nights we stayed up playing Ron Fredrick's game
 in 90s-era Dickinson, Texas. HTMFPWGCBNOTDOD!
 
+## Mirrors
+
+- GitHub: https://github.com/CryptoJones/XSpaceWar-AI
+- Codeberg: https://codeberg.org/CryptoJones/XSpaceWar-AI (auto-synced)
+
 ## License
 
 Apache License 2.0 — see [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE).

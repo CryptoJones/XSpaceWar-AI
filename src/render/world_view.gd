@@ -20,6 +20,21 @@ const TEAM_COLORS: Array[Color] = [
 var session: GameSession
 var input_enabled := false
 
+## Freeze the local sim (solo skirmish behind an open menu). Networked and
+## replay sessions never set this — their drivers own time.
+var sim_paused := false
+
+## Rebindable primary keys (physical keycodes; arrows/Enter stay as fixed
+## alternates). main.gd persists and edits these via the KEYS panel.
+var key_binds := {
+	"turn_left": KEY_A,
+	"turn_right": KEY_D,
+	"thrust": KEY_W,
+	"fire": KEY_SPACE,
+	"mine": KEY_S,
+	"hyper": KEY_SHIFT,
+}
+
 ## When valid, replaces the built-in input+update drive each physics step —
 ## set by main.gd to a net host/client pump. Signature: f(dt: float).
 var external_driver: Callable = Callable()
@@ -85,8 +100,11 @@ func _physics_process(dt: float) -> void:
 	if external_driver.is_valid():
 		external_driver.call(dt)
 	elif session.world != null:
-		_read_human_input()
-		session.update(dt)
+		if sim_paused:
+			session.world.events.clear()  # don't re-fire last step's fx/audio
+		else:
+			_read_human_input()
+			session.update(dt)
 	if session.world == null:
 		return
 	if session.generation != _seen_generation:
@@ -158,14 +176,14 @@ func set_background_prefs(nebula: float, stars: float, far: bool) -> void:
 ## X or RB = fire, Y or LB = hyperspace.
 func gather_local_input() -> Dictionary:
 	var turn := 0.0
-	if Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT):
+	if _bind_down("turn_left") or Input.is_physical_key_pressed(KEY_LEFT):
 		turn -= 1.0
-	if Input.is_physical_key_pressed(KEY_D) or Input.is_physical_key_pressed(KEY_RIGHT):
+	if _bind_down("turn_right") or Input.is_physical_key_pressed(KEY_RIGHT):
 		turn += 1.0
-	var thrust := Input.is_physical_key_pressed(KEY_W) or Input.is_physical_key_pressed(KEY_UP)
-	var fire := Input.is_physical_key_pressed(KEY_SPACE)
-	var hyper := Input.is_physical_key_pressed(KEY_ENTER) or Input.is_physical_key_pressed(KEY_SHIFT)
-	var mine := Input.is_physical_key_pressed(KEY_S) or Input.is_physical_key_pressed(KEY_DOWN)
+	var thrust := _bind_down("thrust") or Input.is_physical_key_pressed(KEY_UP)
+	var fire := _bind_down("fire")
+	var hyper := _bind_down("hyper") or Input.is_physical_key_pressed(KEY_ENTER)
+	var mine := _bind_down("mine") or Input.is_physical_key_pressed(KEY_DOWN)
 
 	var pads := Input.get_connected_joypads()
 	if not pads.is_empty():
@@ -183,6 +201,9 @@ func gather_local_input() -> Dictionary:
 			or Input.get_joy_axis(pad, JOY_AXIS_TRIGGER_LEFT) > 0.4
 
 	return {"u": turn, "t": thrust, "f": fire, "h": hyper, "m": mine}
+
+func _bind_down(action: String) -> bool:
+	return Input.is_physical_key_pressed(int(key_binds[action]))
 
 func _read_human_input() -> void:
 	if not input_enabled:

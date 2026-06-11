@@ -14,6 +14,7 @@ var _feed_label: Label
 var _radar: Control
 var _arrows: Control
 var _respawn_label: Label
+var _final_board: Label
 var _feed: Array[Dictionary] = []   ## {"t": text, "ttl": seconds}
 var _seen_tick := -1
 var _seen_gen := -1
@@ -75,6 +76,16 @@ func _ready() -> void:
 	_respawn_label.visible = false
 	add_child(_respawn_label)
 
+	# Final standings shown during the win screen.
+	_final_board = _make_label(20, Color(0.9, 0.95, 1.0, 0.95))
+	_final_board.set_anchors_preset(Control.PRESET_CENTER)
+	_final_board.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_final_board.grow_vertical = Control.GROW_DIRECTION_BOTH
+	_final_board.position.y += 60
+	_final_board.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_final_board.visible = false
+	add_child(_final_board)
+
 	_radar = Control.new()
 	_radar.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
 	_radar.grow_horizontal = Control.GROW_DIRECTION_BEGIN
@@ -116,6 +127,24 @@ func _process(dt: float) -> void:
 		_respawn_label.modulate.a = 0.65 + 0.35 * sin(Time.get_ticks_msec() / 1000.0 * 6.0)
 	else:
 		_respawn_label.visible = false
+	# Final standings under the winner banner during the victory lap.
+	_final_board.visible = session.match_over
+	if session.match_over:
+		var lines: Array[String] = ["FINAL STANDINGS", ""]
+		if session.mode == GameSession.Mode.TEAM:
+			var totals := session.team_scores()
+			var keys := totals.keys()
+			keys.sort()
+			for k in keys:
+				if int(k) >= 0:
+					lines.append("TEAM %d  —  %d" % [int(k) + 1, int(totals[k])])
+			lines.append("")
+		var rank := 1
+		for s in session.leaderboard():
+			lines.append("%d.  %s%s   %d   (%d kills / %d deaths)" % [rank, _ship_name(s.id),
+				"" if s.team < 0 else "  [T%d]" % (s.team + 1), s.score, s.kills, s.deaths])
+			rank += 1
+		_final_board.text = "\n".join(lines)
 
 ## Resolve a ship id to what the local player should read.
 func _ship_name(id: int) -> String:
