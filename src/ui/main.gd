@@ -52,6 +52,11 @@ var _keys_panel: CanvasLayer
 var _keybind_value_labels := {}    ## action -> Label showing the bound key
 var _keys_status: Label
 var _awaiting_rebind := ""
+var _stats_panel: CanvasLayer
+var _stats_list: ItemList
+var _stats_detail: Label
+var _stats_career: Label
+var _stats_gen := -1               ## last generation written to match history
 
 const BINDABLE := [
 	["turn_left", "Turn left"],
@@ -149,6 +154,7 @@ func _ready() -> void:
 	_build_splash()
 	_build_credits()
 	_build_replays_panel()
+	_build_stats_panel()
 	_build_keys_panel()
 	_load_settings()
 	var user := OS.get_environment("USER")
@@ -169,6 +175,14 @@ func _process(dt: float) -> void:
 			_end_credits()
 	if _splash.visible:
 		_splash_prompt.modulate.a = 0.55 + 0.45 * sin(Time.get_ticks_msec() / 1000.0 * 4.0)
+	# Record finished matches to the history (once per match, authoritative
+	# or synced view alike — but only matches we actually flew in).
+	var active := view.session
+	if active.match_over and replay_player == null and active.human_ship_id >= 0 \
+			and _stats_gen != active.generation:
+		_stats_gen = active.generation
+		MatchStats.append_entry(MatchStats.entry_from_session(active,
+			Time.get_datetime_string_from_system(false, true)))
 	# Rotate recordings across auto-restarts; bounce to menu when a replay ends.
 	if session.recorder != null and session.generation != _recorded_gen:
 		_finalize_recording()
@@ -509,10 +523,17 @@ func _build_options_tab() -> Control:
 	stretch.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(stretch)
 
+	var buttons := HBoxContainer.new()
+	buttons.add_theme_constant_override("separation", 10)
 	var replay_btn := Button.new()
 	replay_btn.text = "REPLAYS\u2026"
 	replay_btn.pressed.connect(_on_replays_browse_pressed)
-	v.add_child(replay_btn)
+	buttons.add_child(replay_btn)
+	var stats_btn := Button.new()
+	stats_btn.text = "MATCH HISTORY\u2026"
+	stats_btn.pressed.connect(_on_stats_pressed)
+	buttons.add_child(stats_btn)
+	v.add_child(buttons)
 	return parts[0]
 
 func _apply_button_border(btn: Button, width: int, bright: bool) -> void:
@@ -757,11 +778,12 @@ func _unhandled_input(event: InputEvent) -> void:
 				or (pad_pressed and event.button_index in [JOY_BUTTON_A, JOY_BUTTON_START]):
 			_dismiss_splash()
 		return
-	# Replay browser: ESC backs out to the menu.
-	if _replays_panel.visible:
+	# Replay browser / match history: ESC backs out to the menu.
+	if _replays_panel.visible or _stats_panel.visible:
 		if (key_pressed and event.physical_keycode == KEY_ESCAPE) \
 				or (pad_pressed and event.button_index == JOY_BUTTON_START):
 			_replays_panel.visible = false
+			_stats_panel.visible = false
 			set_menu_visible(true)
 		return
 	if key_pressed and event.physical_keycode == KEY_F3:
@@ -1182,6 +1204,80 @@ func _rebuild_splash() -> void:
 	_splash.queue_free()
 	_build_splash()
 	_splash.visible = was_visible
+
+func _build_stats_panel() -> void:
+	_stats_panel = CanvasLayer.new()
+	_stats_panel.layer = 25
+	_stats_panel.visible = false
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_stats_panel.add_child(center)
+	var panel := PanelContainer.new()
+	center.add_child(panel)
+	var margin := MarginContainer.new()
+	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
+		margin.add_theme_constant_override(side, 24)
+	panel.add_child(margin)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 10)
+	v.custom_minimum_size = Vector2(560, 0)
+	margin.add_child(v)
+	var title := Label.new()
+	title.text = "MATCH HISTORY"
+	title.add_theme_font_size_override("font_size", 24)
+	title.add_theme_color_override("font_color", Color(0.6, 0.9, 1.0))
+	v.add_child(title)
+	_stats_career = Label.new()
+	_stats_career.add_theme_font_size_override("font_size", 15)
+	_stats_career.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
+	v.add_child(_stats_career)
+	_stats_list = ItemList.new()
+	_stats_list.custom_minimum_size = Vector2(0, 180)
+	_stats_list.item_selected.connect(_on_stats_selected)
+	v.add_child(_stats_list)
+	_stats_detail = Label.new()
+	_stats_detail.add_theme_font_size_override("font_size", 14)
+	_stats_detail.add_theme_color_override("font_color", Color(0.85, 0.92, 1.0, 0.9))
+	_stats_detail.custom_minimum_size = Vector2(0, 120)
+	v.add_child(_stats_detail)
+	var back := Button.new()
+	back.text = "BACK"
+	back.pressed.connect(func(): _stats_panel.visible = false; set_menu_visible(true))
+	v.add_child(back)
+	add_child(_stats_panel)
+
+func _on_stats_pressed() -> void:
+	var career := MatchStats.career()
+	_stats_career.text = "Career:  %d matches  ·  %d wins  ·  %d kills / %d deaths" \
+		% [career["matches"], career["wins"], career["kills"], career["deaths"]]
+	_stats_list.clear()
+	_stats_detail.text = ""
+	var recent := MatchStats.load_recent(50)
+	if recent.is_empty():
+		_stats_list.add_item("(no finished matches yet — set a score or time limit and play)", null, false)
+	for e in recent:
+		var idx := _stats_list.add_item("%s   %s   %d:%02d   winner: %s%s" % [
+			String(e.get("when", "?")), String(e.get("mode", "?")),
+			int(e.get("dur", 0)) / 60, int(e.get("dur", 0)) % 60,
+			String(e.get("winner", "?")),
+			"   ★" if bool(e.get("won", false)) else ""])
+		_stats_list.set_item_metadata(idx, e)
+	set_menu_visible(false)
+	_stats_panel.visible = true
+
+func _on_stats_selected(idx: int) -> void:
+	var e: Variant = _stats_list.get_item_metadata(idx)
+	if typeof(e) != TYPE_DICTIONARY:
+		return
+	var lines: Array[String] = []
+	var rank := 1
+	for p in e.get("players", []):
+		lines.append("%d.  %s%s   %d   (%d/%d)%s" % [rank, String(p.get("n", "?")),
+			"" if int(p.get("t", -1)) < 0 else " [T%d]" % (int(p["t"]) + 1),
+			int(p.get("s", 0)), int(p.get("k", 0)), int(p.get("d", 0)),
+			"   ← you" if bool(p.get("you", false)) else ""])
+		rank += 1
+	_stats_detail.text = "\n".join(lines)
 
 func _build_replays_panel() -> void:
 	_replays_panel = CanvasLayer.new()

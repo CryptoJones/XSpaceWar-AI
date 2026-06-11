@@ -27,6 +27,7 @@ func _initialize() -> void:
 	_test_bot_character()
 	_test_mines()
 	_test_pickups()
+	_test_match_stats()
 	_test_replay()
 	print("=== %d passed, %d failed ===" % [_passed, _failed])
 	quit(1 if _failed > 0 else 0)
@@ -494,6 +495,31 @@ func _test_pickups() -> void:
 			granted = ship.mines > 0
 	_check("pickup: touching it grants the cargo and consumes it",
 		granted and w.pickups.is_empty())
+
+func _test_match_stats() -> void:
+	var s := GameSession.new()
+	s.score_limit = 1
+	s.start_skirmish(2, GameSession.Mode.FFA, BotController.Difficulty.ROOKIE)
+	s.human_ship().score = 1
+	s.update(1.0 / 60.0)
+	var entry := MatchStats.entry_from_session(s, "2026-06-11 19:55")
+	_check("stats: finished match snapshots correctly",
+		entry["mode"] == "FFA" and bool(entry["won"])
+		and (entry["players"] as Array).size() == 2
+		and String(entry["winner"]).ends_with("(you)"))
+
+	var path := "user://test_stats.jsonl"
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(path)
+	MatchStats.append_entry(entry, path)
+	MatchStats.append_entry(entry, path)
+	var recent := MatchStats.load_recent(10, path)
+	var career := MatchStats.career(path)
+	_check("stats: append + load round-trips",
+		recent.size() == 2 and String(recent[0]["mode"]) == "FFA")
+	_check("stats: career aggregates",
+		career["matches"] == 2 and career["wins"] == 2)
+	DirAccess.remove_absolute(path)
 
 func _test_replay() -> void:
 	# Record a real match (ACE bots + scripted human), then play the tape into

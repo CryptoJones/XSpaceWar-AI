@@ -229,6 +229,18 @@ func _draw_radar() -> void:
 					_radar.draw_circle(mp, 1.5, Color(1.0, 0.4, 0.4, 0.8))
 			_:
 				pass  # moons/asteroids are clutter at this scale
+	# Armed mines blink red; supply drops show in their kind's color.
+	for m in world.mines:
+		if m.age < world.config.mine_arm_time:
+			continue
+		var mmp := _radar_map(m.pos, center, size)
+		if _radar_in_view(mmp, size):
+			var blink := 0.4 + 0.6 * maxf(0.0, sin(Time.get_ticks_msec() / 1000.0 * 6.0 + float(m.id)))
+			_radar.draw_circle(mmp, 1.6, Color(1.0, 0.2, 0.15, blink))
+	for p in world.pickups:
+		var pmp := _radar_map(p.pos, center, size)
+		if _radar_in_view(pmp, size):
+			_radar.draw_circle(pmp, 1.6, WorldView.PICKUP_COLORS[p.kind % WorldView.PICKUP_COLORS.size()])
 	for s in world.ships:
 		if not s.alive:
 			continue
