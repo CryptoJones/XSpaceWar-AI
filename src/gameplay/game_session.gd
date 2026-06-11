@@ -41,6 +41,7 @@ var time_limit := 0.0              ## seconds; 0 = no clock
 var hazard := 0.3                  ## asteroid slider 0..1 (1 = every 3rd cell)
 var respawn_seconds := 6.0         ## death cooldown (player-configurable)
 var lethal_edges := false          ## border kills instead of wrapping
+var star_scale := 1.0              ## star size+gravity multiplier (slider 25 = 1.0)
 var net_rtt_ms := -1               ## display-only: client's measured ping
 var watch_ship_id := -1            ## spectator/replay follow-cam target (-1 = director)
 var match_time := 0.0              ## seconds elapsed this match
@@ -79,6 +80,7 @@ func start_skirmish(p_num_ships: int, p_mode: int, p_difficulty: int) -> void:
 func _randomize_match_params() -> void:
 	num_ships = _rng.randi_range(6, 16)
 	hazard = _rng.randf_range(0.1, 0.6)
+	star_scale = _rng.randf_range(0.5, 2.5)
 	mode = Mode.TEAM if _rng.randf() < 0.5 else Mode.FFA
 	num_teams = _rng.randi_range(2, 3) if mode == Mode.TEAM else 1
 	difficulty = _rng.randi_range(BotController.Difficulty.VETERAN, BotController.Difficulty.INSANE)
@@ -96,6 +98,7 @@ func _build(seed: int) -> void:
 	# space should read as mostly empty with hazards, not an obstacle course.
 	arena_params = ArenaGen.populate(world, {
 		"star_count": 1,  # exactly one gravity well per map
+		"star_scale": clampf(star_scale, 0.2, 4.0),
 		"planets": _rng.randi_range(1, 2),
 		"hazard": clampf(hazard, 0.0, 1.0),
 		"satellites": _rng.randi_range(0, 2),

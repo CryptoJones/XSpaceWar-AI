@@ -13,6 +13,7 @@ extends RefCounted
 const DEFAULTS := {
 	"star_count": 1,          # 0 = no sun, 1 = single, 2 = binary
 	"star_mass": 1000.0,
+	"star_scale": 1.0,        # multiplies mass (gravity) and size together
 	"planets": 2,             # planets orbiting the primary
 	"moons_max": 2,           # max moons per planet
 	"asteroid_belts": 1,
@@ -41,7 +42,7 @@ static func populate(world: SimWorld, params: Dictionary = {}) -> Dictionary:
 			pass
 		2:
 			var sep := arena * 0.10
-			var m := float(p["star_mass"]) * 0.6
+			var m := float(p["star_mass"]) * float(p["star_scale"]) * 0.6
 			primary = _make_star(world, center + Vector2(-sep, 0), m, rng)
 			var s2 := _make_star(world, center + Vector2(sep, 0), m, rng)
 			# Make them orbit the barycenter.
@@ -50,7 +51,7 @@ static func populate(world: SimWorld, params: Dictionary = {}) -> Dictionary:
 			s2.orbit_angle = 0.0
 			s2.orbit_speed = 0.10
 		_:
-			primary = _make_star(world, center, float(p["star_mass"]), rng)
+			primary = _make_star(world, center, float(p["star_mass"]) * float(p["star_scale"]), rng)
 
 	# --- Planets (+ moons) ---
 	if primary != null:
@@ -129,7 +130,9 @@ static func _make_star(world: SimWorld, pos: Vector2, mass: float, rng: RandomNu
 	b.kind = SimBody.Kind.STAR
 	b.pos = pos
 	b.mass = mass
-	b.radius = clampf(mass * 0.08, 60.0, 160.0)
+	# Radius tracks mass so a heavy star LOOKS heavy (and its kill zone and
+	# gravity grow together); wide clamps allow dwarfs through giants.
+	b.radius = clampf(mass * 0.08, 30.0, 480.0)
 	b.gravity = true
 	b.lethal = true
 	b.seed = rng.randi()

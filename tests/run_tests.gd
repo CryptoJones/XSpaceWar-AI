@@ -21,6 +21,7 @@ func _initialize() -> void:
 	_test_match_flow()
 	_test_hazard_slider()
 	_test_ship_colors()
+	_test_star_scale()
 	_test_lethal_edges()
 	_test_team_spawns()
 	_test_sim_performance()
@@ -282,6 +283,22 @@ func _test_ship_colors() -> void:
 		seen[WorldView.ship_color(ship)] = true
 	_check("colors: 16 FFA ships get 16 distinct colors", seen.size() == 16,
 		"distinct=%d" % seen.size())
+
+func _test_star_scale() -> void:
+	var w1 := SimWorld.new(SimConfig.from_seed(61))
+	ArenaGen.populate(w1, {"hazard": 0.0, "star_scale": 1.0})
+	var w4 := SimWorld.new(SimConfig.from_seed(61))
+	ArenaGen.populate(w4, {"hazard": 0.0, "star_scale": 4.0})
+	var p1 := w1.primary_body()
+	var p4 := w4.primary_body()
+	_check("star: scale multiplies mass (gravity) and size",
+		is_equal_approx(p4.mass, p1.mass * 4.0) and p4.radius > p1.radius,
+		"m %0.f/%0.f r %.0f/%.0f" % [p1.mass, p4.mass, p1.radius, p4.radius])
+	var probe := Vector2(1500, 0)
+	var g1 := w1.gravity_accel(probe).length()
+	var g4 := w4.gravity_accel(probe).length()
+	_check("star: bigger star pulls 4x harder", is_equal_approx(g4, g1 * 4.0),
+		"g %.2f vs %.2f" % [g1, g4])
 
 func _test_lethal_edges() -> void:
 	var s := GameSession.new()
