@@ -169,6 +169,9 @@ func _on_packet(peer, bytes: PackedByteArray) -> void:
 	match int(msg["type"]):
 		NetProtocol.MSG_HELLO:
 			_on_hello(peer, data)
+		NetProtocol.MSG_PING:
+			_t.send(peer, NetProtocol.pack(NetProtocol.MSG_PONG, data),
+				false, NetProtocol.CH_STATE)
 		NetProtocol.MSG_INPUT:
 			if _peers.has(peer):
 				var sid: int = _peers[peer]

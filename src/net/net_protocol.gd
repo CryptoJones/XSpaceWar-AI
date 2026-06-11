@@ -20,6 +20,8 @@ enum {
 	MSG_REJECT = 3,     ## host -> client: {why}
 	MSG_INPUT = 4,      ## client -> host: {q, u, t, f, h, m} (q = input sequence)
 	MSG_SNAPSHOT = 5,   ## host -> client: see snapshot_of()
+	MSG_PING = 6,       ## client -> host: {t} (sender's ticks_msec, echoed back)
+	MSG_PONG = 7,       ## host -> client: {t} (echo)
 }
 
 const CH_CONTROL := 0

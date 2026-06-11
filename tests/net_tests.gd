@@ -140,6 +140,8 @@ func _test_host_join_sync() -> void:
 	_check("net: torpedoes replicate down to the client", saw_torpedo_on_client)
 	_check("net: client mine input produced mines on the host", saw_client_mine_on_host)
 	_check("net: mines replicate down to the client", saw_mine_on_client)
+	_check("net: ping round-trip measured", client.rtt_ms >= 0,
+		"rtt=%d" % client.rtt_ms)
 
 	# Match restart: the host rebuilds and re-welcomes the client into the
 	# NEW arena (fresh ship ids, names preserved).

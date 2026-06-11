@@ -1071,8 +1071,9 @@ func _debug_text() -> String:
 		role = "host: %d players%s" % [net_host.player_count(),
 			"" if net_host.room_code() == "" else "  room " + net_host.room_code()]
 	elif net_client != null:
-		role = "client: state %d%s" % [net_client.state,
-			"  (spectator)" if net_client.spectate else ""]
+		role = "client: state %d%s%s" % [net_client.state,
+			"  (spectator)" if net_client.spectate else "",
+			"" if net_client.rtt_ms < 0 else "  rtt %dms" % net_client.rtt_ms]
 	elif replay_player != null:
 		role = "replay: tick %d / %d  speed %.0fx" % [replay_player.session.world.tick,
 			replay_player.replay.final_tick, replay_player.speed]

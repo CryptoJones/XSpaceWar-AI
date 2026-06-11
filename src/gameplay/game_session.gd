@@ -40,6 +40,7 @@ var score_limit := 10              ## 0 = endless
 var time_limit := 0.0              ## seconds; 0 = no clock
 var hazard := 0.3                  ## asteroid slider 0..1 (1 = every 3rd cell)
 var respawn_seconds := 6.0         ## death cooldown (player-configurable)
+var net_rtt_ms := -1               ## display-only: client's measured ping
 var match_time := 0.0              ## seconds elapsed this match
 var match_over := false
 var winner_ship := -1              ## FFA winner's ship id

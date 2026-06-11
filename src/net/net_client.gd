@@ -32,6 +32,8 @@ var _pending_events: Array = []    ## one-shots from snapshots, drained per fram
 var _last_thrusting: Array = []    ## ship ids thrusting per the latest snapshot
 var _input_seq := 0                ## sequence number of the last input sent
 var _pending_inputs: Array = []    ## sent-but-unacked inputs, for replay
+var rtt_ms := -1                   ## measured round-trip, -1 until first pong
+var _ping_accum := 0.0
 
 ## Join a LAN / direct-IP game.
 func open(ip: String, port := 24642, p_name := "PILOT", p_spectate := false) -> Error:
@@ -104,6 +106,13 @@ func update(dt: float, local_input: Dictionary) -> void:
 		world.step_ship_kinematics(own, float(inp.get("u", 0.0)), bool(inp.get("t", false)), dt)
 
 	_extrapolate(world, dt, own)
+
+	# Latency probe every 2s (the host echoes our clock back).
+	_ping_accum += dt
+	if _ping_accum >= 2.0:
+		_ping_accum = 0.0
+		_t.send(NetProtocol.pack(NetProtocol.MSG_PING,
+			{"t": Time.get_ticks_msec()}), false, NetProtocol.CH_STATE)
 
 	# Smoothing offsets glide out over ~100ms.
 	var decay := exp(-10.0 * dt)
@@ -192,6 +201,10 @@ func _on_packet(bytes: PackedByteArray) -> void:
 			_on_welcome(data)
 		NetProtocol.MSG_REJECT:
 			_fail(String(data.get("why", "rejected")))
+		NetProtocol.MSG_PONG:
+			var sample := int(Time.get_ticks_msec() - int(data.get("t", 0)))
+			rtt_ms = sample if rtt_ms < 0 else int(lerpf(float(rtt_ms), float(sample), 0.3))
+			session.net_rtt_ms = rtt_ms
 		NetProtocol.MSG_SNAPSHOT:
 			if session.world != null:
 				var old_vis := {}
