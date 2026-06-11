@@ -2,6 +2,23 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [1.4.0] — 2026-06-11
+
+### Fixed
+- **Ships no longer jump from point to point.** The sim runs at a fixed
+  60Hz and the renderer drew raw tick positions; now every entity AND
+  the camera render at positions interpolated between sim ticks, every
+  display frame — silky motion at any refresh rate.
+
+### Added
+- **Star size slider** (MATCH, 25 = classic): 0.2×–4× — mass, gravity,
+  kill zone, and visual size scale together.
+- **Planets control** (0–6, default 2): 0 = no planets at all.
+- **Wrap slingshot**: with lethal edges off, crossing the map seam
+  doubles your speed (ships, torpedoes, mines, pickups — capped).
+- README badges (CI, release, license, Godot, platforms, Codeberg
+  mirror).
+
 ## [1.3.0] — 2026-06-11
 
 ### Added
