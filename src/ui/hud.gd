@@ -7,9 +7,9 @@ extends CanvasLayer
 var session: GameSession
 
 var _banner: Label
-var _score: Label
+var _score: RichTextLabel
 var _bars: Control
-var _feed_label: Label
+var _feed_label: RichTextLabel
 var _radar: Control
 var _arrows: Control
 var _respawn_label: Label
@@ -33,11 +33,11 @@ func _ready() -> void:
 	_banner.position.y = 14
 	add_child(_banner)
 
-	_score = _make_label(17, Color(0.85, 0.92, 1.0, 0.85))
+	_score = _make_rich(17)
 	_score.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	_score.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	_score.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	_score.position = Vector2(-16, 14)
+	_score.position = Vector2(-16 - 320, 14)
+	_score.custom_minimum_size = Vector2(320, 0)
 	add_child(_score)
 
 	# The three gauges (fuel / ammo / mines) sit top-center under the banner.
@@ -50,9 +50,10 @@ func _ready() -> void:
 	_bars.draw.connect(_draw_bars)
 	add_child(_bars)
 
-	_feed_label = _make_label(15, Color(0.95, 0.85, 0.75, 0.9))
+	_feed_label = _make_rich(15)
 	_feed_label.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	_feed_label.position = Vector2(16, 14)
+	_feed_label.custom_minimum_size = Vector2(360, 0)
 	add_child(_feed_label)
 
 	_debug_label = _make_label(14, Color(0.5, 1.0, 0.6, 0.9))
@@ -104,6 +105,32 @@ func set_radar_visible(v: bool) -> void:
 
 func radar_visible() -> bool:
 	return _radar.visible
+
+## BBCode label for color-coded HUD text (scoreboard, kill feed).
+func _make_rich(size: int) -> RichTextLabel:
+	var r := RichTextLabel.new()
+	r.bbcode_enabled = true
+	r.fit_content = true
+	r.scroll_active = false
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	r.autowrap_mode = TextServer.AUTOWRAP_OFF
+	r.add_theme_font_size_override("normal_font_size", size)
+	r.add_theme_color_override("default_color", Color(0.85, 0.92, 1.0, 0.85))
+	r.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.7))
+	r.add_theme_constant_override("outline_size", 4)
+	return r
+
+## A pilot's name wrapped in their ship color (dark red minimap identity
+## stays on the map; here YOUR line is bold instead).
+func _ship_bb(id: int) -> String:
+	var ship := session.world.ship_by_id(id) if session.world != null else null
+	var col := "#d8e6ff"
+	if ship != null:
+		col = "#" + WorldView.ship_color(ship).to_html(false)
+	var nm := _ship_name(id)
+	if id == session.human_ship_id:
+		return "[b][color=%s]%s[/color][/b]" % [col, nm]
+	return "[color=%s]%s[/color]" % [col, nm]
 
 func _make_label(size: int, color: Color) -> Label:
 	var l := Label.new()
@@ -169,15 +196,15 @@ func _update_feed(dt: float) -> void:
 		for ev in session.world.events:
 			match String(ev.get("type", "")):
 				"kill":
-					_push_feed("%s  ▸☠  %s" % [_ship_name(int(ev["killer"])), _ship_name(int(ev["victim"]))])
+					_push_feed("%s  ▸☠  %s" % [_ship_bb(int(ev["killer"])), _ship_bb(int(ev["victim"]))])
 				"explosion":
 					match String(ev.get("cause", "")):
 						"body":
-							_push_feed("%s  ✕  crashed" % _ship_name(int(ev["ship"])))
+							_push_feed("%s  ✕  crashed" % _ship_bb(int(ev["ship"])))
 						"ram":
-							_push_feed("%s  ✕  collision" % _ship_name(int(ev["ship"])))
+							_push_feed("%s  ✕  collision" % _ship_bb(int(ev["ship"])))
 						"hyperspace":
-							_push_feed("%s  ✕  misjump" % _ship_name(int(ev["ship"])))
+							_push_feed("%s  ✕  misjump" % _ship_bb(int(ev["ship"])))
 	for e in _feed:
 		e["ttl"] = float(e["ttl"]) - dt
 	while not _feed.is_empty() and float(_feed[0]["ttl"]) <= 0.0:
@@ -321,21 +348,22 @@ func _update_banner() -> void:
 		_banner.text = mode_name if session.human_ship_id >= 0 else "SPECTATING — " + mode_name
 
 func _update_scoreboard() -> void:
-	var lines: Array[String] = ["  SCORE  K  D"]
+	var lines: Array[String] = ["[right]  SCORE  K  D"]
 	if session.mode == GameSession.Mode.TEAM:
 		var totals := session.team_scores()
 		var keys := totals.keys()
 		keys.sort()
 		var team_bits: Array[String] = []
 		for k in keys:
-			team_bits.append("Team %d: %d" % [int(k) + 1, totals[k]])
+			if int(k) >= 0:
+				var tc := "#" + WorldView.TEAM_COLORS[int(k) % WorldView.TEAM_COLORS.size()].to_html(false)
+				team_bits.append("[color=%s]Team %d: %d[/color]" % [tc, int(k) + 1, totals[k]])
 		lines.append("  ".join(team_bits))
 	for s in session.leaderboard():
-		var name := _ship_name(s.id)
 		var team_tag := "" if s.team < 0 else " [T%d]" % (s.team + 1)
 		var dead := "" if s.alive else " †"
-		lines.append("%s%s  %d  %d/%d%s" % [name, team_tag, s.score, s.kills, s.deaths, dead])
-	_score.text = "\n".join(lines)
+		lines.append("%s%s  %d  %d/%d%s" % [_ship_bb(s.id), team_tag, s.score, s.kills, s.deaths, dead])
+	_score.text = "\n".join(lines) + "[/right]"
 
 func _draw_bars() -> void:
 	var human := session.human_ship() if session != null else null
