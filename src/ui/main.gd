@@ -272,6 +272,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo \
 			and event.physical_keycode == KEY_ESCAPE:
 		set_menu_visible(not _menu.visible)
+	elif event is InputEventJoypadButton and event.pressed \
+			and event.button_index == JOY_BUTTON_START:
+		set_menu_visible(not _menu.visible)
 
 # --------------------------------------------------------------------------
 # Networking (M3: LAN host / join / discovery)

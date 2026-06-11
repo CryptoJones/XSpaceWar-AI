@@ -131,20 +131,34 @@ func _on_new_generation() -> void:
 # Input
 # --------------------------------------------------------------------------
 
-## Read the local keyboard into a NetProtocol input payload ({u, t, f, h}).
-## Used directly for solo play and forwarded over the wire for net play.
+## Read the local keyboard + first gamepad into a NetProtocol input payload
+## ({u, t, f, h}). Used directly for solo play and forwarded for net play.
+## Pad mapping: left stick = turn (analog), A or right trigger = thrust,
+## X or RB = fire, Y or LB = hyperspace.
 func gather_local_input() -> Dictionary:
 	var turn := 0.0
 	if Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT):
 		turn -= 1.0
 	if Input.is_physical_key_pressed(KEY_D) or Input.is_physical_key_pressed(KEY_RIGHT):
 		turn += 1.0
-	return {
-		"u": turn,
-		"t": Input.is_physical_key_pressed(KEY_W) or Input.is_physical_key_pressed(KEY_UP),
-		"f": Input.is_physical_key_pressed(KEY_SPACE),
-		"h": Input.is_physical_key_pressed(KEY_ENTER) or Input.is_physical_key_pressed(KEY_SHIFT),
-	}
+	var thrust := Input.is_physical_key_pressed(KEY_W) or Input.is_physical_key_pressed(KEY_UP)
+	var fire := Input.is_physical_key_pressed(KEY_SPACE)
+	var hyper := Input.is_physical_key_pressed(KEY_ENTER) or Input.is_physical_key_pressed(KEY_SHIFT)
+
+	var pads := Input.get_connected_joypads()
+	if not pads.is_empty():
+		var pad: int = pads[0]
+		var ax := Input.get_joy_axis(pad, JOY_AXIS_LEFT_X)
+		if absf(ax) > 0.25:
+			turn = clampf(turn + ax, -1.0, 1.0)
+		thrust = thrust or Input.is_joy_button_pressed(pad, JOY_BUTTON_A) \
+			or Input.get_joy_axis(pad, JOY_AXIS_TRIGGER_RIGHT) > 0.4
+		fire = fire or Input.is_joy_button_pressed(pad, JOY_BUTTON_X) \
+			or Input.is_joy_button_pressed(pad, JOY_BUTTON_RIGHT_SHOULDER)
+		hyper = hyper or Input.is_joy_button_pressed(pad, JOY_BUTTON_Y) \
+			or Input.is_joy_button_pressed(pad, JOY_BUTTON_LEFT_SHOULDER)
+
+	return {"u": turn, "t": thrust, "f": fire, "h": hyper}
 
 func _read_human_input() -> void:
 	if not input_enabled:

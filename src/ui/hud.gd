@@ -42,7 +42,8 @@ func _ready() -> void:
 	_hint.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	_hint.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	_hint.position = Vector2(-16, -14)
-	_hint.text = "A/D turn   W thrust   SPACE fire   SHIFT hyperspace   ESC menu"
+	_hint.text = "A/D turn   W thrust   SPACE fire   SHIFT hyperspace   ESC menu\nPad: stick turn   A/RT thrust   X/RB fire   Y/LB hyper   START menu"
+	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	add_child(_hint)
 
 	_bars = Control.new()
