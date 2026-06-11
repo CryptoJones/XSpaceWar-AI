@@ -378,10 +378,12 @@ func _test_mines() -> void:
 
 	# Torpedo counterplay: shooting a mine detonates it.
 	owner.mines = 1
+	owner.mine_cooldown = 0.0  # still ticking from the first drop
 	owner.pos = Vector2.ZERO
 	owner.angle = 0.0
 	owner.in_mine = true
 	w.step()
+	_check("mine: second drop works once the cooldown clears", w.mines.size() == 1)
 	owner.pos = Vector2(800, 0)
 	var torp := SimTorpedo.new()
 	torp.id = w.alloc_id()

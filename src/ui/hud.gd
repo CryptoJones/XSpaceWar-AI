@@ -62,16 +62,6 @@ func _ready() -> void:
 	_debug_label.visible = false
 	add_child(_debug_label)
 
-func set_debug(text: String) -> void:
-	_debug_label.visible = text != ""
-	_debug_label.text = text
-
-func set_radar_visible(v: bool) -> void:
-	_radar.visible = v
-
-func radar_visible() -> bool:
-	return _radar.visible
-
 	_arrows = Control.new()
 	_arrows.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_arrows.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -104,6 +94,16 @@ func radar_visible() -> bool:
 	_radar.size = Vector2(RADAR_SIZE, RADAR_SIZE)
 	_radar.draw.connect(_draw_radar)
 	add_child(_radar)
+
+func set_debug(text: String) -> void:
+	_debug_label.visible = text != ""
+	_debug_label.text = text
+
+func set_radar_visible(v: bool) -> void:
+	_radar.visible = v
+
+func radar_visible() -> bool:
+	return _radar.visible
 
 func _make_label(size: int, color: Color) -> Label:
 	var l := Label.new()

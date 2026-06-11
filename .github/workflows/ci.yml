@@ -25,16 +25,28 @@ jobs:
       - name: Import project
         run: godot --headless --path . --import || true
 
+      # Each suite must exit 0 AND emit no SCRIPT ERROR — a runtime error
+      # aborts a test function silently, skipping its remaining checks.
       - name: Sim tests
-        run: godot --headless --path . --script res://tests/run_tests.gd
+        run: |
+          godot --headless --path . --script res://tests/run_tests.gd 2>&1 | tee /tmp/t.log
+          ! grep -q "SCRIPT ERROR" /tmp/t.log
       - name: Net tests
-        run: godot --headless --path . --script res://tests/net_tests.gd
+        run: |
+          godot --headless --path . --script res://tests/net_tests.gd 2>&1 | tee /tmp/t.log
+          ! grep -q "SCRIPT ERROR" /tmp/t.log
       - name: Relay tests
-        run: godot --headless --path . --script res://tests/relay_tests.gd
+        run: |
+          godot --headless --path . --script res://tests/relay_tests.gd 2>&1 | tee /tmp/t.log
+          ! grep -q "SCRIPT ERROR" /tmp/t.log
       - name: Audio tests
-        run: godot --headless --path . --script res://tests/audio_tests.gd
+        run: |
+          godot --headless --path . --script res://tests/audio_tests.gd 2>&1 | tee /tmp/t.log
+          ! grep -q "SCRIPT ERROR" /tmp/t.log
       - name: Scene smoke test
-        run: godot --headless --path . --script res://tests/scene_smoke.gd
+        run: |
+          godot --headless --path . --script res://tests/scene_smoke.gd 2>&1 | tee /tmp/t.log
+          ! grep -q "SCRIPT ERROR" /tmp/t.log
 
   build:
     name: Export ${{ matrix.preset }}
