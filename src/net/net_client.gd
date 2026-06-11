@@ -229,6 +229,8 @@ func _on_welcome(data: Dictionary) -> void:
 	session.winner_team = -1
 	var cfg := SimConfig.from_seed(int(data["seed"]))
 	cfg.respawn_time = float(data.get("rs", cfg.respawn_time))
+	cfg.lethal_edges = bool(data.get("le", false))
+	cfg.wrap_edges = not cfg.lethal_edges
 	var world := SimWorld.new(cfg)
 	ArenaGen.populate(world, data.get("prm", {}))
 	for entry in data.get("ros", []):

@@ -21,6 +21,7 @@ func _initialize() -> void:
 	_test_match_flow()
 	_test_hazard_slider()
 	_test_ship_colors()
+	_test_lethal_edges()
 	_test_team_spawns()
 	_test_sim_performance()
 	_test_hull_generation()
@@ -281,6 +282,27 @@ func _test_ship_colors() -> void:
 		seen[WorldView.ship_color(ship)] = true
 	_check("colors: 16 FFA ships get 16 distinct colors", seen.size() == 16,
 		"distinct=%d" % seen.size())
+
+func _test_lethal_edges() -> void:
+	var s := GameSession.new()
+	s.lethal_edges = true
+	s.score_limit = 0
+	s.start_skirmish(2, GameSession.Mode.FFA, BotController.Difficulty.ROOKIE)
+	_check("edges: lethal mode disables wrap",
+		s.world.config.lethal_edges and not s.world.config.wrap_edges)
+	var human := s.human_ship()
+	human.pos = Vector2(s.world.config.arena_size * 0.5 - 10.0, 0.0)
+	human.vel = Vector2(900, 0)
+	human.spawn_grace = 0.0
+	for _i in range(10):
+		s.update(1.0 / 60.0)
+		if not human.alive:
+			break
+	_check("edges: crossing the border destroys the ship", not human.alive)
+
+	var s2 := GameSession.new()
+	s2.start_skirmish(2, GameSession.Mode.FFA, BotController.Difficulty.ROOKIE)
+	_check("edges: toroidal wrap remains the default", s2.world.config.wrap_edges)
 
 func _test_team_spawns() -> void:
 	var s := GameSession.new()

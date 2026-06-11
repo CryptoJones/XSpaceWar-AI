@@ -214,6 +214,16 @@ func _decide(ship: SimShip) -> void:
 	# Refresh aim jitter for this decision window.
 	_aim_noise = _rng.randf_range(-1.0, 1.0) * float(_p["aim_error"])
 
+	# 0.5) Lethal boundary: never fly off the map. Burn back toward the well
+	# the moment our heading would carry us into the wall.
+	if world.config.lethal_edges:
+		var half := world.config.arena_size * 0.5
+		var ahead := ship.pos + ship.vel * 1.5
+		if absf(ahead.x) > half - 300.0 or absf(ahead.y) > half - 300.0:
+			_want_angle = (star_pos - ship.pos).angle()
+			_want_thrust = true
+			return
+
 	# 1) Survival. Veteran+ pilots dodge whatever they're about to hit by
 	# burning perpendicular to the collision course (bodies and armed enemy
 	# mines alike); everyone burns away from the star's kill zone.

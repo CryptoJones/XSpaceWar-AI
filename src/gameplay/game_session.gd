@@ -40,6 +40,7 @@ var score_limit := 10              ## 0 = endless
 var time_limit := 0.0              ## seconds; 0 = no clock
 var hazard := 0.3                  ## asteroid slider 0..1 (1 = every 3rd cell)
 var respawn_seconds := 6.0         ## death cooldown (player-configurable)
+var lethal_edges := false          ## border kills instead of wrapping
 var net_rtt_ms := -1               ## display-only: client's measured ping
 var watch_ship_id := -1            ## spectator/replay follow-cam target (-1 = director)
 var match_time := 0.0              ## seconds elapsed this match
@@ -85,6 +86,8 @@ func _randomize_match_params() -> void:
 func _build(seed: int) -> void:
 	var cfg := SimConfig.from_seed(seed)
 	cfg.respawn_time = clampf(respawn_seconds, 1.0, 15.0)
+	cfg.lethal_edges = lethal_edges
+	cfg.wrap_edges = not lethal_edges
 	world = SimWorld.new(cfg)
 	bots.clear()
 	ship_names.clear()

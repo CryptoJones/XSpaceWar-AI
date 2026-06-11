@@ -18,6 +18,7 @@ var _limit_spin: SpinBox
 var _time_spin: SpinBox
 var _respawn_spin: SpinBox
 var _hazard_slider: HSlider
+var _edge_check: CheckButton
 var _ip_edit: LineEdit
 var _server_list: ItemList
 var _net_status: Label
@@ -381,6 +382,11 @@ func _build_match_tab() -> Control:
 	_hazard_slider.tooltip_text = "0 = clean space \u00b7 100 = every 3rd cell is a rock"
 	_grid_row(grid, "Asteroids", _hazard_slider)
 
+	_edge_check = CheckButton.new()
+	_edge_check.text = "Lethal map edge"
+	_edge_check.tooltip_text = "Off: the map wraps around \u00b7 On: the border destroys ships"
+	_grid_row(grid, "Boundary", _edge_check)
+
 	var stretch := Control.new()
 	stretch.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(stretch)
@@ -735,6 +741,7 @@ func _on_play_pressed() -> void:
 	session.time_limit = _time_spin.value * 60.0
 	session.hazard = _hazard_slider.value / 100.0
 	session.respawn_seconds = _respawn_spin.value
+	session.lethal_edges = _edge_check.button_pressed
 	session.host_name = _player_name
 	session.start_skirmish(int(_ships_spin.value), mode, _diff_btn.selected)
 	_maybe_start_recording()
@@ -823,6 +830,7 @@ func _on_host_pressed() -> void:
 	session.time_limit = _time_spin.value * 60.0
 	session.hazard = _hazard_slider.value / 100.0
 	session.respawn_seconds = _respawn_spin.value
+	session.lethal_edges = _edge_check.button_pressed
 	session.host_name = _player_name
 	session.start_skirmish(int(_ships_spin.value), mode, _diff_btn.selected)
 	net_host = NetHost.new(session)
@@ -932,6 +940,7 @@ func _on_host_online_pressed() -> void:
 	session.time_limit = _time_spin.value * 60.0
 	session.hazard = _hazard_slider.value / 100.0
 	session.respawn_seconds = _respawn_spin.value
+	session.lethal_edges = _edge_check.button_pressed
 	session.host_name = _player_name
 	session.start_skirmish(int(_ships_spin.value), mode, _diff_btn.selected)
 	net_host = NetHost.new(session)

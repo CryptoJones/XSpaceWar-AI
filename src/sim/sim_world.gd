@@ -148,6 +148,8 @@ func step(dt: float = -1.0) -> void:
 
 	if config.wrap_edges:
 		_wrap_positions()
+	elif config.lethal_edges:
+		_enforce_lethal_edges()
 
 	time += dt
 	tick += 1
@@ -530,6 +532,30 @@ func _destroy_ship(s: SimShip, killer_id: int, cause: String) -> void:
 func _wrap_positions() -> void:
 	for s in ships:
 		s.pos = _wrap_point(s.pos)
+
+## Lethal-edge mode: the border is a wall of death. Ships crossing it are
+## destroyed (environmental, no score penalty — like flying into a rock);
+## loose ordnance and cargo simply leave the field.
+func _enforce_lethal_edges() -> void:
+	var half := config.arena_size * 0.5
+	for s in ships:
+		if s.alive and (absf(s.pos.x) > half or absf(s.pos.y) > half):
+			_destroy_ship(s, -1, "edge")
+	var t_keep: Array[SimTorpedo] = []
+	for t in torpedoes:
+		if absf(t.pos.x) <= half and absf(t.pos.y) <= half:
+			t_keep.append(t)
+	torpedoes = t_keep
+	var m_keep: Array[SimMine] = []
+	for m in mines:
+		if absf(m.pos.x) <= half and absf(m.pos.y) <= half:
+			m_keep.append(m)
+	mines = m_keep
+	var p_keep: Array[SimPickup] = []
+	for p in pickups:
+		if absf(p.pos.x) <= half and absf(p.pos.y) <= half:
+			p_keep.append(p)
+	pickups = p_keep
 
 func _wrap_point(p: Vector2) -> Vector2:
 	var half := config.arena_size * 0.5

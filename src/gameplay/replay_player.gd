@@ -23,6 +23,8 @@ func load_replay(r: Replay) -> bool:
 	var h := r.header
 	var cfg := SimConfig.from_seed(int(h.get("seed", 0)))
 	cfg.respawn_time = float(h.get("rs", cfg.respawn_time))
+	cfg.lethal_edges = bool(h.get("le", false))
+	cfg.wrap_edges = not cfg.lethal_edges
 	var world := SimWorld.new(cfg)
 	ArenaGen.populate(world, h.get("prm", {}))
 	for entry in h.get("ros", []):

@@ -12,6 +12,7 @@ var seed: int = 0
 # --- Arena ---
 var arena_size: float = 40000.0         ## square arena edge length (world units)
 var wrap_edges: bool = true             ## toroidal wrap at the (distant) edges
+var lethal_edges: bool = false          ## alternative: the border destroys ships
 
 # --- Physics ---
 var gravity_constant: float = 6.0e5     ## tuned so star gravity reads well on-screen

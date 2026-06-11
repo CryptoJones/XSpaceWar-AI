@@ -406,8 +406,14 @@ func _ghost_offsets(p: Vector2, wrap: bool, half: float, margin: float) -> Array
 
 func _draw_arena_bounds(world: SimWorld) -> void:
 	var half := world.config.arena_size * 0.5
-	draw_rect(Rect2(-half, -half, world.config.arena_size, world.config.arena_size),
-		Color(0.4, 0.6, 1.0, 0.08), false, 3.0)
+	if world.config.lethal_edges:
+		# The wall of death announces itself: thick, red, pulsing.
+		var pulse := 0.35 + 0.25 * sin(world.time * 4.0)
+		draw_rect(Rect2(-half, -half, world.config.arena_size, world.config.arena_size),
+			Color(1.6, 0.2, 0.15, pulse), false, 16.0)
+	else:
+		draw_rect(Rect2(-half, -half, world.config.arena_size, world.config.arena_size),
+			Color(0.4, 0.6, 1.0, 0.08), false, 3.0)
 
 func _draw_star(b: SimBody, t: float) -> void:
 	var pulse := 1.0 + 0.04 * sin(t * 3.1 + float(b.seed % 7))

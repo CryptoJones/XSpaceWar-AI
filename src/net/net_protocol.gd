@@ -69,6 +69,7 @@ static func welcome_of(session: GameSession, your_ship_id: int) -> Dictionary:
 		"id": your_ship_id,
 		"seed": session.world.config.seed,
 		"rs": session.world.config.respawn_time,
+		"le": session.world.config.lethal_edges,
 		"prm": session.arena_params,
 		"mode": session.mode,
 		"dif": session.difficulty,

@@ -205,6 +205,8 @@ func _update_feed(dt: float) -> void:
 							_push_feed("%s  ✕  collision" % _ship_bb(int(ev["ship"])))
 						"hyperspace":
 							_push_feed("%s  ✕  misjump" % _ship_bb(int(ev["ship"])))
+						"edge":
+							_push_feed("%s  ✕  hit the boundary" % _ship_bb(int(ev["ship"])))
 	for e in _feed:
 		e["ttl"] = float(e["ttl"]) - dt
 	while not _feed.is_empty() and float(_feed[0]["ttl"]) <= 0.0:
