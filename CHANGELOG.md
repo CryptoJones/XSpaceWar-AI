@@ -2,6 +2,31 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [0.8.0] — 2026-06-11
+
+### Added
+- **Asteroid busting**: torpedoes shatter asteroids; ~⅓ drop a drifting
+  supply pickup — **F**uel cell, **A**mmo crate, or **M**ine rack — that
+  coasts under gravity, expires in 20s, and grants cargo on contact. Bots
+  detour for supplies they're short on (but never abandon an enemy in
+  firing range). Fully replicated online and replay-safe.
+- **Up to 16 ships** (was 12) everywhere: skirmish, Movie Mode rosters,
+  online rooms.
+- **Procedural ambient music** — a 16s evolving space drone, synthesized
+  like everything else; Music toggle in settings.
+- **F3 diagnostics overlay**: fps, tick, ship/camera state, session role.
+- Camera failsafe breadcrumb logging.
+
+### Fixed
+- **The ship could outrun its own camera** on long straight burns (follow
+  lag grows with speed and beat the visible half-screen past ~700 u/s).
+  Fixed with the bleed-zone rule, designed by Aaron: the ship may never
+  leave the screen — entering the outer 28% of the view pushes the map
+  instead. The regression probe now asserts that exact invariant.
+- Radar going empty far from home after the ship-centered change — the
+  star (and planets) now pin to the radar's edge so the way home is
+  always visible.
+
 ## [0.7.0] — 2026-06-11
 
 ### Added

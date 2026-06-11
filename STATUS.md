@@ -208,11 +208,34 @@ networked *Spacewar!* / `xspacewar`. Godot 4.6, Apache 2.0. Plan file:
 - **v0.6.0 tagged** (replays/mines/arena/indicators/hash fix) — release
   notes to be curated once CI publishes.
 
+## DONE (v0.7.0 → v0.8.0, 2026-06-11 evening — continued live session)
+- **v0.7.0 RELEASED**: boot experience (cinema opening credits w/ full
+  lineage + Trevor Flurry EP credit, 3x controls splash w/ press-space),
+  Orbitron titles (OFL, bundled+credited), key rebinding, replay
+  browser + bit-exact scrubbing, spectator joins (protocol v4), final
+  scoreboard, solo pause, juice pass (shake/popups/warnings/respawn),
+  relay deploy guide, menu button hierarchy (QUIT/CREDITS/PLAY bordered).
+- **Codeberg mirror**: codeberg.org/CryptoJones/XSpaceWar-AI, auto-synced
+  via GitHub Action (token in repo secret CODEBERG_TOKEN, from pass
+  codeberg_YOLO/api-token; codeberg_scoped token is DEAD/auth-fails).
+- **Git identity globally**: CryptoJones <aaron.clark@milcyber.org>.
+- **Camera saga RESOLVED**: ship outran the follow-lerp past ~700 u/s on
+  straight burns (lag > visible half-screen). Fixed with Aaron's
+  bleed-zone design (hard clamp keeping ship in inner 72% of view);
+  camera_probe.gd asserts the true on-screen invariant incl. burns.
+- **Asteroid pickups** (protocol v5): shootable rocks drop FUEL/AMMO/MINES
+  drops; bots detour when short; removed rocks replicate cumulatively.
+- 16-ship cap, procedural ambient music + Music toggle, F3 diagnostics
+  overlay, radar landmarks pin to edges (ship-centered map).
+- Suites: 42 sim / 30 net / 15 relay / 9 audio / smoke / camera probe.
+- **v0.8.0 tagged** (camera fix + pickups + 16 ships + music + F3).
+
 ## NEXT
-- Curate v0.6.0 release notes after CI publishes (changelog excerpt + tagline).
-- Replay browser (list all recordings, not just last) if Aaron wants it.
-- Ideas backlog: spectator join for net games, PlatformServices stub,
-  relay deployment guide in server/README.
+- Curate v0.8.0 release notes after CI publishes.
+- Await Aaron's verdict on the camera feel (bleed-zone width 28% is
+  tunable) and the pickup loop.
+- Backlog: hole-punch direct online, PlatformServices stub (Steam path),
+  match time-limit option, performance pass on weak GPUs.
 - M4 online: `server/` master/relay (hole-punch + relay), server browser, `PlatformServices`
   (steam/null) so non-Steam builds compile without GodotSteam.
 - M5 wire procedural map params + difficulty into a real lobby; M6 polish/audio (procedural);
