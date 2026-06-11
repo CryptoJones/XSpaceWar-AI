@@ -282,6 +282,13 @@ func _update_camera(dt: float) -> void:
 			push_warning("camera failsafe: snapped %s -> ship %s (gen %d tick %d)"
 				% [_camera.position, target_pos, session.generation, session.world.tick])
 			_camera.position = target_pos
+	elif session.watch_ship_id >= 0 \
+			and session.world.ship_by_id(session.watch_ship_id) != null \
+			and session.world.ship_by_id(session.watch_ship_id).alive:
+		# Spectator/replay follow-cam: locked onto a chosen pilot (TAB cycles).
+		var watched := session.world.ship_by_id(session.watch_ship_id)
+		target_pos = watched.pos + watched.render_pos_offset
+		target_zoom = 1.0
 	else:
 		# Movie Mode action camera: frame the closest hostile pair (a duel)
 		# and recut to a fresh fight every few seconds or when one dies.

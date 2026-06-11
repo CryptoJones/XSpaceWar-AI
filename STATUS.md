@@ -249,11 +249,26 @@ networked *Spacewar!* / `xspacewar`. Godot 4.6, Apache 2.0. Plan file:
 - Suites: 48 sim / 30 net / 15 relay / 9 audio / smoke / camera probe,
   all zero-script-error enforced.
 
+## DONE (v1.1.0 → v1.2.0+, 2026-06-11 night)
+- **v1.1.0 + v1.2.0 RELEASED** (notes curated). v1.2.0 = AI temperament
+  (per-pilot roam 1-100 + aggression 1-100, deterministic rolls — fixes
+  star-swarming with hunter-killer spread), 16 distinct FFA colors +
+  color-coded scoreboard/kill feed + dark-red own minimap dot, match
+  history & career stats (MATCH HISTORY… panel), team-sector spawns,
+  mixed-skill movie rosters, minimap mine/pickup markers, rebindable
+  minimap toggle, perf regression guard (<4ms/step worst case), README
+  gameplay screenshots (fetched from hermes@ronin28 — Aaron's playtest
+  box; ssh as hermes, NOT akclark), Thanks section, play-tester credits
+  (Flurry/Hannah/Testagrossa, alphabetical by last name).
+- Post-1.2.0 on main: client ping/RTT in banner + F3 (net test covers),
+  TAB follow-cam cycling for spectators and replays (banner shows who).
+- Suites: 58 sim / 31 net / 15 relay / 9 audio / smoke / camera probe.
+
 ## NEXT
-- Curate v1.1.0 release notes after CI publishes.
-- Real-hardware feedback loop continues with Aaron (+ Patrick/Adam).
-- Backlog: hole-punch direct online, PlatformServices stub (Steam path),
-  perf pass on weak GPUs, match stats history.
+- Multi-machine relay session with the play testers is the highest-value
+  input now (hole-punch, Steam stub, weak-GPU perf all want real data).
+- Keep folding in Aaron's live feedback; tag v1.3.0 when the next batch
+  accumulates.
 - M4 online: `server/` master/relay (hole-punch + relay), server browser, `PlatformServices`
   (steam/null) so non-Steam builds compile without GodotSteam.
 - M5 wire procedural map params + difficulty into a real lobby; M6 polish/audio (procedural);

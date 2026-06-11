@@ -797,6 +797,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		set_menu_visible(not _menu.visible)
 	elif pad_pressed and event.button_index == JOY_BUTTON_START:
 		set_menu_visible(not _menu.visible)
+	elif key_pressed and event.physical_keycode == KEY_TAB \
+			and (replay_player != null or (net_client != null and net_client.spectate)):
+		_cycle_watch_target()
 	elif replay_player != null and key_pressed:
 		if event.physical_keycode == KEY_P:
 			replay_player.paused = not replay_player.paused
@@ -1079,6 +1082,31 @@ func _debug_text() -> String:
 			replay_player.replay.final_tick, replay_player.speed]
 	lines.append(role + ("  paused" if view.sim_paused else ""))
 	return "\n".join(lines)
+
+## TAB while spectating or in a replay: lock the camera to each pilot in
+## turn, then hand back to the action director after the last.
+func _cycle_watch_target() -> void:
+	var s := view.session
+	if s.world == null:
+		return
+	var ids: Array[int] = []
+	for ship in s.world.ships:
+		if ship.alive:
+			ids.append(ship.id)
+	if ids.is_empty():
+		s.watch_ship_id = -1
+		return
+	ids.sort()
+	var pos := ids.find(s.watch_ship_id)
+	if pos == -1 or pos == ids.size() - 1:
+		s.watch_ship_id = -1 if pos == ids.size() - 1 else ids[0]
+	else:
+		s.watch_ship_id = ids[pos + 1]
+	if s.watch_ship_id < 0:
+		_net_status.text = "Camera: action director"
+	else:
+		var nm: String = s.ship_names.get(s.watch_ship_id, "BOT-%d" % s.watch_ship_id)
+		_net_status.text = "Camera: following %s (TAB cycles)" % nm
 
 func _teardown_net() -> void:
 	if net_host != null:

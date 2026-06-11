@@ -347,7 +347,13 @@ func _update_banner() -> void:
 			mode_name += "  —  %d:%02d" % [int(left) / 60, int(left) % 60]
 		if session.net_rtt_ms >= 0:
 			mode_name += "  ·  %d ms" % session.net_rtt_ms
-		_banner.text = mode_name if session.human_ship_id >= 0 else "SPECTATING — " + mode_name
+		if session.human_ship_id >= 0:
+			_banner.text = mode_name
+		else:
+			var spec := "SPECTATING — " + mode_name
+			if session.watch_ship_id >= 0:
+				spec += "  ·  following " + _ship_name(session.watch_ship_id)
+			_banner.text = spec
 
 func _update_scoreboard() -> void:
 	var lines: Array[String] = ["[right]  SCORE  K  D"]
