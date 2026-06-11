@@ -160,6 +160,20 @@ godot --headless --path . --script res://tests/scene_smoke.gd   # scene boot
 build/export_all.sh
 ```
 
+## Performance on weak GPUs
+
+On bottom-tier integrated graphics (e.g. Intel UHD GT1) the default
+Vulkan renderer can stall — the window freezes while the process lives.
+The game auto-disables its HDR glow on such adapters, but the robust fix
+is the lightweight OpenGL renderer:
+
+```bash
+godot --path . --rendering-method gl_compatibility
+```
+
+Keeping the OPTIONS → Nebula slider at 0 also helps — the nebula is the
+most expensive pixel work in the game.
+
 ## Thanks
 
 To our play testers, who flew the rough builds and filed the truth:

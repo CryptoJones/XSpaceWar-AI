@@ -108,7 +108,16 @@ func _ready() -> void:
 	# Only on Forward+: on the compatibility/mobile renderers (e.g. launched
 	# with --rendering-method gl_compatibility on boxes without Vulkan) the
 	# game runs fine without bloom, so skip the environment entirely.
-	if RenderingServer.get_current_rendering_method() == "forward_plus":
+	# Weak iGPUs (bottom-tier Intel UHD, software rasterizers) stall under
+	# HDR glow — the driver parks the game in GPU fence waits and the window
+	# freezes — so skip it there too.
+	var adapter := RenderingServer.get_video_adapter_name().to_lower()
+	var weak_gpu := adapter.contains("uhd graphics") or adapter.contains("llvmpipe") \
+		or adapter.contains("gt1")
+	if weak_gpu:
+		push_warning("weak GPU detected (%s) — HDR glow disabled; consider --rendering-method gl_compatibility"
+			% RenderingServer.get_video_adapter_name())
+	if RenderingServer.get_current_rendering_method() == "forward_plus" and not weak_gpu:
 		var env := Environment.new()
 		env.background_mode = Environment.BG_CANVAS
 		env.glow_enabled = true
