@@ -701,6 +701,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		_debug_overlay = not _debug_overlay
 		if not _debug_overlay:
 			hud.set_debug("")
+	elif key_pressed and event.physical_keycode == KEY_M:
+		hud.set_radar_visible(not hud.radar_visible())
+		_save_settings()
 	elif key_pressed and event.physical_keycode == KEY_ESCAPE:
 		set_menu_visible(not _menu.visible)
 	elif pad_pressed and event.button_index == JOY_BUTTON_START:
@@ -918,6 +921,7 @@ func _load_settings() -> void:
 		_far_check.set_pressed_no_signal(bool(cfg.get_value("display", "far_stars", false)))
 		_record_check.set_pressed_no_signal(bool(cfg.get_value("replay", "record", false)))
 		_music_check.set_pressed_no_signal(bool(cfg.get_value("audio", "music", true)))
+		hud.set_radar_visible(bool(cfg.get_value("display", "minimap", true)))
 		var binds_changed := false
 		for pair in BINDABLE:
 			var action := String(pair[0])
@@ -945,6 +949,7 @@ func _save_settings() -> void:
 	cfg.set_value("display", "far_stars", _far_check.button_pressed)
 	cfg.set_value("replay", "record", _record_check.button_pressed)
 	cfg.set_value("audio", "music", _music_check.button_pressed)
+	cfg.set_value("display", "minimap", hud.radar_visible())
 	for pair in BINDABLE:
 		cfg.set_value("keys", String(pair[0]), int(view.key_binds[String(pair[0])]))
 	cfg.save(SETTINGS_PATH)

@@ -46,14 +46,15 @@ func _ready() -> void:
 	_hint.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	_hint.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	_hint.position = Vector2(-16, -14)
-	_hint.text = "A/D turn   W thrust   SPACE fire   S mine   SHIFT hyperspace   ESC menu\nPad: stick turn   A/RT thrust   X/RB fire   B/LT mine   Y/LB hyper   START menu"
+	_hint.text = "A/D turn   W thrust   SPACE fire   S mine   SHIFT hyperspace   M map   ESC menu\nPad: stick turn   A/RT thrust   X/RB fire   B/LT mine   Y/LB hyper   START menu"
 	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	add_child(_hint)
 
+	# Bars sit above the minimap in the bottom-left stack.
 	_bars = Control.new()
 	_bars.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
 	_bars.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	_bars.position = Vector2(16, -88)
+	_bars.position = Vector2(16, -RADAR_SIZE - 32 - 74)
 	_bars.size = Vector2(300, 74)
 	_bars.draw.connect(_draw_bars)
 	add_child(_bars)
@@ -73,6 +74,12 @@ func _ready() -> void:
 func set_debug(text: String) -> void:
 	_debug_label.visible = text != ""
 	_debug_label.text = text
+
+func set_radar_visible(v: bool) -> void:
+	_radar.visible = v
+
+func radar_visible() -> bool:
+	return _radar.visible
 
 	_arrows = Control.new()
 	_arrows.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -98,11 +105,11 @@ func set_debug(text: String) -> void:
 	_final_board.visible = false
 	add_child(_final_board)
 
+	# The classic minimap: bottom-left corner, fixed star-centered overview.
 	_radar = Control.new()
-	_radar.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	_radar.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_radar.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
 	_radar.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	_radar.position = Vector2(-16 - RADAR_SIZE, -44 - RADAR_SIZE)
+	_radar.position = Vector2(16, -16 - RADAR_SIZE)
 	_radar.size = Vector2(RADAR_SIZE, RADAR_SIZE)
 	_radar.draw.connect(_draw_radar)
 	add_child(_radar)
@@ -206,15 +213,11 @@ func _draw_radar() -> void:
 	var size := _radar.size
 	_radar.draw_rect(Rect2(Vector2.ZERO, size), Color(0.04, 0.07, 0.12, 0.55))
 	_radar.draw_rect(Rect2(Vector2.ZERO, size), Color(0.4, 0.6, 1.0, 0.35), false, 1.0)
-	# Center the radar on YOUR ship when you have one (so your icon can never
-	# pin to the map's edge); fall back to the star for movie/spectator views.
-	var human := session.human_ship()
-	var center: Vector2
-	if human != null:
-		center = human.pos
-	else:
-		var primary := world.primary_body()
-		center = primary.pos if primary != null else Vector2.ZERO
+	# The classic fixed overview: centered on the star (the combat zone).
+	# Anything outside the window — including YOUR ship — pins to the rim,
+	# so the map is a stable picture of home and everyone's bearing from it.
+	var primary := world.primary_body()
+	var center := primary.pos if primary != null else Vector2.ZERO
 	for b in world.bodies:
 		var mp := _radar_map(b.pos, center, size)
 		var off_map := not _radar_in_view(mp, size)
