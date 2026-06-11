@@ -16,6 +16,7 @@ var _diff_btn: OptionButton
 var _ships_spin: SpinBox
 var _limit_spin: SpinBox
 var _time_spin: SpinBox
+var _respawn_spin: SpinBox
 var _hazard_slider: HSlider
 var _ip_edit: LineEdit
 var _server_list: ItemList
@@ -221,7 +222,7 @@ func _build_menu() -> void:
 	panel.add_child(margin)
 
 	var outer := VBoxContainer.new()
-	outer.add_theme_constant_override("separation", 10)
+	outer.add_theme_constant_override("separation", 12)
 	margin.add_child(outer)
 
 	var title := Label.new()
@@ -240,199 +241,21 @@ func _build_menu() -> void:
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	outer.add_child(subtitle)
 
-	outer.add_child(HSeparator.new())
-
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 10)
-	box.custom_minimum_size.x = 380
-	outer.add_child(box)
-
-	_mode_btn = OptionButton.new()
-	_mode_btn.add_item("Free-for-all")
-	_mode_btn.add_item("Team battle")
-	box.add_child(_labelled("Mode", _mode_btn))
-
-	_diff_btn = OptionButton.new()
-	for n in ["Rookie", "Veteran", "Ace", "Insane"]:
-		_diff_btn.add_item(n)
-	_diff_btn.select(BotController.Difficulty.VETERAN)
-	box.add_child(_labelled("AI difficulty", _diff_btn))
-
-	_ships_spin = SpinBox.new()
-	_ships_spin.min_value = 2
-	_ships_spin.max_value = 16
-	_ships_spin.value = 8
-	box.add_child(_labelled("Ships", _ships_spin))
-
-	_limit_spin = SpinBox.new()
-	_limit_spin.min_value = 0
-	_limit_spin.max_value = 50
-	_limit_spin.value = 10
-	_limit_spin.tooltip_text = "First to this score wins (0 = endless)"
-	box.add_child(_labelled("Score limit", _limit_spin))
-
-	_time_spin = SpinBox.new()
-	_time_spin.min_value = 0
-	_time_spin.max_value = 30
-	_time_spin.value = 0
-	_time_spin.suffix = "min"
-	_time_spin.tooltip_text = "Match clock — leader wins at zero (0 = no clock)"
-	box.add_child(_labelled("Time limit", _time_spin))
-
-	_hazard_slider = HSlider.new()
-	_hazard_slider.min_value = 0
-	_hazard_slider.max_value = 100
-	_hazard_slider.value = 30
-	_hazard_slider.tooltip_text = "0 = clean space · 100 = every 3rd cell is a rock"
-	box.add_child(_labelled("Asteroids", _hazard_slider))
-
-	var movie := Button.new()
-	movie.text = "WATCH — Movie Mode"
-	movie.pressed.connect(_on_movie_pressed)
-	box.add_child(movie)
-
-	box.add_child(HSeparator.new())
-
-	var host_btn := Button.new()
-	host_btn.text = "HOST — LAN skirmish"
-	host_btn.pressed.connect(_on_host_pressed)
-	box.add_child(host_btn)
-
-	var join_row := HBoxContainer.new()
-	_ip_edit = LineEdit.new()
-	_ip_edit.placeholder_text = "host ip (or ip:port)"
-	_ip_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	join_row.add_child(_ip_edit)
-	var join_btn := Button.new()
-	join_btn.text = "JOIN IP"
-	join_btn.pressed.connect(_on_join_ip_pressed)
-	join_row.add_child(join_btn)
-	_spec_check = CheckButton.new()
-	_spec_check.text = "Spectate"
-	_spec_check.tooltip_text = "Join without taking a ship — the action camera directs"
-	join_row.add_child(_spec_check)
-	box.add_child(join_row)
-
-	var online_row := HBoxContainer.new()
-	_relay_edit = LineEdit.new()
-	var env_relay := OS.get_environment("XSW_RELAY")
-	_relay_edit.text = env_relay if env_relay != "" else ""
-	_relay_edit.placeholder_text = "relay address (ip[:port])"
-	_relay_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	online_row.add_child(_relay_edit)
-	var host_online_btn := Button.new()
-	host_online_btn.text = "HOST ONLINE"
-	host_online_btn.pressed.connect(_on_host_online_pressed)
-	online_row.add_child(host_online_btn)
-	var browse_btn := Button.new()
-	browse_btn.text = "BROWSE"
-	browse_btn.pressed.connect(_on_browse_pressed)
-	online_row.add_child(browse_btn)
-	box.add_child(online_row)
-
-	var code_row := HBoxContainer.new()
-	_code_edit = LineEdit.new()
-	_code_edit.placeholder_text = "room code"
-	_code_edit.max_length = RelayProtocol.CODE_LEN
-	_code_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	code_row.add_child(_code_edit)
-	var join_code_btn := Button.new()
-	join_code_btn.text = "JOIN CODE"
-	join_code_btn.pressed.connect(_on_join_code_pressed)
-	code_row.add_child(join_code_btn)
-	box.add_child(code_row)
-
-	var lan_label := Label.new()
-	lan_label.text = "Servers — LAN auto-discovered + online via BROWSE (double-click to join):"
-	lan_label.add_theme_font_size_override("font_size", 13)
-	lan_label.add_theme_color_override("font_color", Color(0.6, 0.7, 0.85, 0.8))
-	box.add_child(lan_label)
-
-	_server_list = ItemList.new()
-	_server_list.custom_minimum_size = Vector2(0, 84)
-	_server_list.item_activated.connect(_on_server_activated)
-	box.add_child(_server_list)
+	# Three calm tabs instead of one crowded column.
+	var tabs := TabContainer.new()
+	tabs.custom_minimum_size = Vector2(580, 420)
+	outer.add_child(tabs)
+	tabs.add_child(_build_match_tab())
+	tabs.add_child(_build_net_tab())
+	tabs.add_child(_build_options_tab())
 
 	_net_status = Label.new()
 	_net_status.add_theme_font_size_override("font_size", 13)
 	_net_status.add_theme_color_override("font_color", Color(1.0, 0.5, 0.4))
 	_net_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	box.add_child(_net_status)
+	outer.add_child(_net_status)
 
-	var settings_row := HBoxContainer.new()
-	var vol_label := Label.new()
-	vol_label.text = "Volume"
-	settings_row.add_child(vol_label)
-	_vol_slider = HSlider.new()
-	_vol_slider.min_value = 0
-	_vol_slider.max_value = 100
-	_vol_slider.value = 80
-	_vol_slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_vol_slider.value_changed.connect(_on_volume_changed)
-	settings_row.add_child(_vol_slider)
-	_fullscreen_check = CheckButton.new()
-	_fullscreen_check.text = "Fullscreen"
-	_fullscreen_check.toggled.connect(_on_fullscreen_toggled)
-	settings_row.add_child(_fullscreen_check)
-	_music_check = CheckButton.new()
-	_music_check.text = "Music"
-	_music_check.set_pressed_no_signal(true)
-	_music_check.toggled.connect(func(on: bool): view.set_music_enabled(on); _save_settings())
-	settings_row.add_child(_music_check)
-	var keys_btn := Button.new()
-	keys_btn.text = "KEYS…"
-	keys_btn.pressed.connect(_on_keys_pressed)
-	settings_row.add_child(keys_btn)
-	box.add_child(settings_row)
-
-	# Sky preferences — every backdrop layer is the player's call.
-	var sky_row := HBoxContainer.new()
-	var neb_label := Label.new()
-	neb_label.text = "Nebula"
-	sky_row.add_child(neb_label)
-	_nebula_slider = HSlider.new()
-	_nebula_slider.min_value = 0
-	_nebula_slider.max_value = 100
-	_nebula_slider.value = 0
-	_nebula_slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_nebula_slider.tooltip_text = "Colored nebula wisps (0 = pure black space)"
-	_nebula_slider.value_changed.connect(func(_v: float): _apply_sky(); _save_settings())
-	sky_row.add_child(_nebula_slider)
-	var stars_label := Label.new()
-	stars_label.text = "Stars"
-	sky_row.add_child(stars_label)
-	_stars_slider = HSlider.new()
-	_stars_slider.min_value = 0
-	_stars_slider.max_value = 100
-	_stars_slider.value = 50
-	_stars_slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_stars_slider.tooltip_text = "Background star brightness"
-	_stars_slider.value_changed.connect(func(_v: float): _apply_sky(); _save_settings())
-	sky_row.add_child(_stars_slider)
-	_far_check = CheckButton.new()
-	_far_check.text = "Far stars"
-	_far_check.tooltip_text = "Extra layer of large, slow distant stars"
-	_far_check.toggled.connect(func(_on: bool): _apply_sky(); _save_settings())
-	sky_row.add_child(_far_check)
-	box.add_child(sky_row)
-
-	var replay_row := HBoxContainer.new()
-	_record_check = CheckButton.new()
-	_record_check.text = "Record matches"
-	_record_check.tooltip_text = "Save input recordings of your matches (tiny files; bit-exact playback)"
-	_record_check.toggled.connect(func(_on: bool): _save_settings())
-	replay_row.add_child(_record_check)
-	var spacer2 := Control.new()
-	spacer2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	replay_row.add_child(spacer2)
-	var replay_btn := Button.new()
-	replay_btn.text = "REPLAYS…"
-	replay_btn.pressed.connect(_on_replays_browse_pressed)
-	replay_row.add_child(replay_btn)
-	box.add_child(replay_row)
-
-	# Bottom row: QUIT left, CREDITS centered, PLAY right. All three wear
-	# borders; PLAY's is thickest and brightest so it owns the eye.
+	# Bottom row, always visible: QUIT and CREDITS left/center, PLAY right.
 	var bottom_row := HBoxContainer.new()
 	var quit := Button.new()
 	quit.text = "QUIT"
@@ -451,14 +274,244 @@ func _build_menu() -> void:
 	spacer_r.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	bottom_row.add_child(spacer_r)
 	var play := Button.new()
-	play.text = "PLAY — Skirmish vs AI"
+	play.text = "PLAY \u2014 Skirmish vs AI"
 	play.pressed.connect(_on_play_pressed)
 	play.add_theme_font_size_override("font_size", 18)
 	_apply_button_border(play, 4, true)
 	bottom_row.add_child(play)
-	box.add_child(bottom_row)
+	outer.add_child(bottom_row)
 
 	add_child(_menu)
+
+## One labelled row in a settings grid: fixed label column, control expands.
+func _grid_row(grid: GridContainer, text: String, control: Control) -> void:
+	var l := Label.new()
+	l.text = text
+	l.custom_minimum_size.x = 150
+	grid.add_child(l)
+	control.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid.add_child(control)
+
+func _tab_page(tab_name: String) -> Array:
+	var page := MarginContainer.new()
+	page.name = tab_name
+	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
+		page.add_theme_constant_override(side, 18)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 12)
+	page.add_child(v)
+	return [page, v]
+
+func _build_match_tab() -> Control:
+	var parts := _tab_page("MATCH")
+	var v: VBoxContainer = parts[1]
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 18)
+	grid.add_theme_constant_override("v_separation", 14)
+	v.add_child(grid)
+
+	_mode_btn = OptionButton.new()
+	_mode_btn.add_item("Free-for-all")
+	_mode_btn.add_item("Team battle")
+	_grid_row(grid, "Mode", _mode_btn)
+
+	_diff_btn = OptionButton.new()
+	for n in ["Rookie", "Veteran", "Ace", "Insane"]:
+		_diff_btn.add_item(n)
+	_diff_btn.select(BotController.Difficulty.VETERAN)
+	_grid_row(grid, "AI difficulty", _diff_btn)
+
+	_ships_spin = SpinBox.new()
+	_ships_spin.min_value = 2
+	_ships_spin.max_value = 16
+	_ships_spin.value = 8
+	_grid_row(grid, "Ships", _ships_spin)
+
+	_limit_spin = SpinBox.new()
+	_limit_spin.min_value = 0
+	_limit_spin.max_value = 50
+	_limit_spin.value = 10
+	_limit_spin.tooltip_text = "First to this score wins (0 = endless)"
+	_grid_row(grid, "Score limit", _limit_spin)
+
+	_time_spin = SpinBox.new()
+	_time_spin.min_value = 0
+	_time_spin.max_value = 30
+	_time_spin.value = 0
+	_time_spin.suffix = "min"
+	_time_spin.tooltip_text = "Match clock \u2014 leader wins at zero (0 = no clock)"
+	_grid_row(grid, "Time limit", _time_spin)
+
+	_respawn_spin = SpinBox.new()
+	_respawn_spin.min_value = 1
+	_respawn_spin.max_value = 15
+	_respawn_spin.value = 6
+	_respawn_spin.suffix = "s"
+	_respawn_spin.tooltip_text = "Cooldown before you respawn after dying"
+	_grid_row(grid, "Respawn", _respawn_spin)
+
+	_hazard_slider = HSlider.new()
+	_hazard_slider.min_value = 0
+	_hazard_slider.max_value = 100
+	_hazard_slider.value = 30
+	_hazard_slider.tooltip_text = "0 = clean space \u00b7 100 = every 3rd cell is a rock"
+	_grid_row(grid, "Asteroids", _hazard_slider)
+
+	var stretch := Control.new()
+	stretch.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	v.add_child(stretch)
+
+	var movie := Button.new()
+	movie.text = "WATCH \u2014 Movie Mode"
+	movie.pressed.connect(_on_movie_pressed)
+	v.add_child(movie)
+	return parts[0]
+
+func _build_net_tab() -> Control:
+	var parts := _tab_page("MULTIPLAYER")
+	var v: VBoxContainer = parts[1]
+
+	var host_btn := Button.new()
+	host_btn.text = "HOST \u2014 LAN skirmish"
+	host_btn.pressed.connect(_on_host_pressed)
+	v.add_child(host_btn)
+
+	var join_row := HBoxContainer.new()
+	join_row.add_theme_constant_override("separation", 8)
+	_ip_edit = LineEdit.new()
+	_ip_edit.placeholder_text = "host ip (or ip:port)"
+	_ip_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	join_row.add_child(_ip_edit)
+	var join_btn := Button.new()
+	join_btn.text = "JOIN IP"
+	join_btn.pressed.connect(_on_join_ip_pressed)
+	join_row.add_child(join_btn)
+	_spec_check = CheckButton.new()
+	_spec_check.text = "Spectate"
+	_spec_check.tooltip_text = "Join without taking a ship \u2014 the action camera directs"
+	join_row.add_child(_spec_check)
+	v.add_child(join_row)
+
+	v.add_child(HSeparator.new())
+
+	var online_row := HBoxContainer.new()
+	online_row.add_theme_constant_override("separation", 8)
+	_relay_edit = LineEdit.new()
+	var env_relay := OS.get_environment("XSW_RELAY")
+	_relay_edit.text = env_relay if env_relay != "" else ""
+	_relay_edit.placeholder_text = "relay address (ip[:port])"
+	_relay_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	online_row.add_child(_relay_edit)
+	var host_online_btn := Button.new()
+	host_online_btn.text = "HOST ONLINE"
+	host_online_btn.pressed.connect(_on_host_online_pressed)
+	online_row.add_child(host_online_btn)
+	var browse_btn := Button.new()
+	browse_btn.text = "BROWSE"
+	browse_btn.pressed.connect(_on_browse_pressed)
+	online_row.add_child(browse_btn)
+	v.add_child(online_row)
+
+	var code_row := HBoxContainer.new()
+	code_row.add_theme_constant_override("separation", 8)
+	_code_edit = LineEdit.new()
+	_code_edit.placeholder_text = "room code"
+	_code_edit.max_length = RelayProtocol.CODE_LEN
+	_code_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	code_row.add_child(_code_edit)
+	var join_code_btn := Button.new()
+	join_code_btn.text = "JOIN CODE"
+	join_code_btn.pressed.connect(_on_join_code_pressed)
+	code_row.add_child(join_code_btn)
+	v.add_child(code_row)
+
+	var lan_label := Label.new()
+	lan_label.text = "Servers \u2014 LAN auto-discovered + online via BROWSE (double-click to join):"
+	lan_label.add_theme_font_size_override("font_size", 13)
+	lan_label.add_theme_color_override("font_color", Color(0.6, 0.7, 0.85, 0.8))
+	v.add_child(lan_label)
+
+	_server_list = ItemList.new()
+	_server_list.custom_minimum_size = Vector2(0, 120)
+	_server_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_server_list.item_activated.connect(_on_server_activated)
+	v.add_child(_server_list)
+	return parts[0]
+
+func _build_options_tab() -> Control:
+	var parts := _tab_page("OPTIONS")
+	var v: VBoxContainer = parts[1]
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 18)
+	grid.add_theme_constant_override("v_separation", 14)
+	v.add_child(grid)
+
+	_vol_slider = HSlider.new()
+	_vol_slider.min_value = 0
+	_vol_slider.max_value = 100
+	_vol_slider.value = 80
+	_vol_slider.value_changed.connect(_on_volume_changed)
+	_grid_row(grid, "Volume", _vol_slider)
+
+	_nebula_slider = HSlider.new()
+	_nebula_slider.min_value = 0
+	_nebula_slider.max_value = 100
+	_nebula_slider.value = 0
+	_nebula_slider.tooltip_text = "Colored nebula wisps (0 = pure black space)"
+	_nebula_slider.value_changed.connect(func(_v: float): _apply_sky(); _save_settings())
+	_grid_row(grid, "Nebula", _nebula_slider)
+
+	_stars_slider = HSlider.new()
+	_stars_slider.min_value = 0
+	_stars_slider.max_value = 100
+	_stars_slider.value = 50
+	_stars_slider.tooltip_text = "Background star brightness"
+	_stars_slider.value_changed.connect(func(_v: float): _apply_sky(); _save_settings())
+	_grid_row(grid, "Stars", _stars_slider)
+
+	v.add_child(HSeparator.new())
+
+	var toggles := HBoxContainer.new()
+	toggles.add_theme_constant_override("separation", 14)
+	_music_check = CheckButton.new()
+	_music_check.text = "Music"
+	_music_check.set_pressed_no_signal(true)
+	_music_check.toggled.connect(func(on: bool): view.set_music_enabled(on); _save_settings())
+	toggles.add_child(_music_check)
+	_fullscreen_check = CheckButton.new()
+	_fullscreen_check.text = "Fullscreen"
+	_fullscreen_check.toggled.connect(_on_fullscreen_toggled)
+	toggles.add_child(_fullscreen_check)
+	_far_check = CheckButton.new()
+	_far_check.text = "Far stars"
+	_far_check.tooltip_text = "Extra layer of large, slow distant stars"
+	_far_check.toggled.connect(func(_on: bool): _apply_sky(); _save_settings())
+	toggles.add_child(_far_check)
+	_record_check = CheckButton.new()
+	_record_check.text = "Record matches"
+	_record_check.tooltip_text = "Save input recordings (tiny files; bit-exact playback)"
+	_record_check.toggled.connect(func(_on: bool): _save_settings())
+	toggles.add_child(_record_check)
+	v.add_child(toggles)
+
+	var stretch := Control.new()
+	stretch.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	v.add_child(stretch)
+
+	var buttons := HBoxContainer.new()
+	buttons.add_theme_constant_override("separation", 10)
+	var keys_btn := Button.new()
+	keys_btn.text = "KEYS\u2026"
+	keys_btn.pressed.connect(_on_keys_pressed)
+	buttons.add_child(keys_btn)
+	var replay_btn := Button.new()
+	replay_btn.text = "REPLAYS\u2026"
+	replay_btn.pressed.connect(_on_replays_browse_pressed)
+	buttons.add_child(replay_btn)
+	v.add_child(buttons)
+	return parts[0]
 
 func _apply_button_border(btn: Button, width: int, bright: bool) -> void:
 	for state in ["normal", "hover", "pressed", "focus"]:
@@ -641,16 +694,6 @@ func _on_credits_pressed() -> void:
 	set_menu_visible(false)
 	_start_credits(false)
 
-func _labelled(text: String, control: Control) -> HBoxContainer:
-	var row := HBoxContainer.new()
-	var l := Label.new()
-	l.text = text
-	l.custom_minimum_size.x = 130
-	row.add_child(l)
-	control.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(control)
-	return row
-
 func set_menu_visible(v: bool) -> void:
 	_menu.visible = v
 	# Human input only flows when the menu is closed during a skirmish.
@@ -667,6 +710,7 @@ func _on_play_pressed() -> void:
 	session.score_limit = int(_limit_spin.value)
 	session.time_limit = _time_spin.value * 60.0
 	session.hazard = _hazard_slider.value / 100.0
+	session.respawn_seconds = _respawn_spin.value
 	session.host_name = _player_name
 	session.start_skirmish(int(_ships_spin.value), mode, _diff_btn.selected)
 	_maybe_start_recording()
@@ -750,6 +794,7 @@ func _on_host_pressed() -> void:
 	session.score_limit = int(_limit_spin.value)
 	session.time_limit = _time_spin.value * 60.0
 	session.hazard = _hazard_slider.value / 100.0
+	session.respawn_seconds = _respawn_spin.value
 	session.host_name = _player_name
 	session.start_skirmish(int(_ships_spin.value), mode, _diff_btn.selected)
 	net_host = NetHost.new(session)
@@ -858,6 +903,7 @@ func _on_host_online_pressed() -> void:
 	session.score_limit = int(_limit_spin.value)
 	session.time_limit = _time_spin.value * 60.0
 	session.hazard = _hazard_slider.value / 100.0
+	session.respawn_seconds = _respawn_spin.value
 	session.host_name = _player_name
 	session.start_skirmish(int(_ships_spin.value), mode, _diff_btn.selected)
 	net_host = NetHost.new(session)

@@ -215,6 +215,7 @@ func _on_welcome(data: Dictionary) -> void:
 	session.winner_ship = -1
 	session.winner_team = -1
 	var cfg := SimConfig.from_seed(int(data["seed"]))
+	cfg.respawn_time = float(data.get("rs", cfg.respawn_time))
 	var world := SimWorld.new(cfg)
 	ArenaGen.populate(world, data.get("prm", {}))
 	for entry in data.get("ros", []):

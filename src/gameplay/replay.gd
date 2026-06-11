@@ -26,6 +26,7 @@ static func begin(session: GameSession) -> Replay:
 	r.header = {
 		"v": VERSION,
 		"seed": session.world.config.seed,
+		"rs": session.world.config.respawn_time,
 		"prm": session.arena_params,
 		"mode": session.mode,
 		"ros": roster,

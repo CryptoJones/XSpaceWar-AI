@@ -39,6 +39,7 @@ const RESTART_DELAY := 8.0
 var score_limit := 10              ## 0 = endless
 var time_limit := 0.0              ## seconds; 0 = no clock
 var hazard := 0.3                  ## asteroid slider 0..1 (1 = every 3rd cell)
+var respawn_seconds := 6.0         ## death cooldown (player-configurable)
 var match_time := 0.0              ## seconds elapsed this match
 var match_over := false
 var winner_ship := -1              ## FFA winner's ship id
@@ -81,6 +82,7 @@ func _randomize_match_params() -> void:
 
 func _build(seed: int) -> void:
 	var cfg := SimConfig.from_seed(seed)
+	cfg.respawn_time = clampf(respawn_seconds, 1.0, 15.0)
 	world = SimWorld.new(cfg)
 	bots.clear()
 	ship_names.clear()

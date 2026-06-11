@@ -22,6 +22,7 @@ func load_replay(r: Replay) -> bool:
 	replay = r
 	var h := r.header
 	var cfg := SimConfig.from_seed(int(h.get("seed", 0)))
+	cfg.respawn_time = float(h.get("rs", cfg.respawn_time))
 	var world := SimWorld.new(cfg)
 	ArenaGen.populate(world, h.get("prm", {}))
 	for entry in h.get("ros", []):
