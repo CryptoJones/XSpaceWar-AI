@@ -153,6 +153,11 @@ godot --headless --path . --script res://tests/scene_smoke.gd   # scene boot
 build/export_all.sh
 ```
 
+## Thanks
+
+To our play testers, who flew the rough builds and filed the truth:
+**Trevor Flurry**, **Patrick Hannah**, and **Adam Testagrossa**.
+
 ## Dedication
 
 Thank You to "JVL / Boxest" for all the nights we stayed up playing Ron Fredrick's game
