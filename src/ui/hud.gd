@@ -194,8 +194,15 @@ func _draw_radar() -> void:
 	var size := _radar.size
 	_radar.draw_rect(Rect2(Vector2.ZERO, size), Color(0.04, 0.07, 0.12, 0.55))
 	_radar.draw_rect(Rect2(Vector2.ZERO, size), Color(0.4, 0.6, 1.0, 0.35), false, 1.0)
-	var primary := world.primary_body()
-	var center := primary.pos if primary != null else Vector2.ZERO
+	# Center the radar on YOUR ship when you have one (so your icon can never
+	# pin to the map's edge); fall back to the star for movie/spectator views.
+	var human := session.human_ship()
+	var center: Vector2
+	if human != null:
+		center = human.pos
+	else:
+		var primary := world.primary_body()
+		center = primary.pos if primary != null else Vector2.ZERO
 	for b in world.bodies:
 		var mp := _radar_map(b.pos, center, size)
 		if not _radar_in_view(mp, size):

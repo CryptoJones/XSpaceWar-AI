@@ -236,6 +236,10 @@ func _update_camera(dt: float) -> void:
 		_follow_pos = human.pos
 		target_pos = human.pos + human.render_pos_offset
 		target_zoom = 1.15
+		# Failsafe: whatever else happens, never let the player lose their own
+		# ship — if the camera is absurdly far from it, snap instead of pan.
+		if _camera.position.distance_to(target_pos) > 6000.0:
+			_camera.position = target_pos
 	else:
 		# Movie Mode action camera: frame the closest hostile pair (a duel)
 		# and recut to a fresh fight every few seconds or when one dies.
