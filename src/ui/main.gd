@@ -34,6 +34,53 @@ var _far_check: CheckButton
 var _record_check: CheckButton
 var replay_player: ReplayPlayer
 var _recorded_gen := -1
+var _splash: CanvasLayer
+var _splash_prompt: Label
+var _credits: CanvasLayer
+var _credits_box: VBoxContainer
+var _credits_y := 0.0
+var _credits_from_boot := false
+
+## OPENING credits — the lineage this game stands on, rolled flat (no Star
+## Wars tilt) at boot and replayable via the CREDITS button.
+## Format: [text, font_size, tier] — tier 0 title / 1 header / 2 name / 3 dim.
+const CREDITS_LINES := [
+	["XSPACEWAR-AI", 40, 0],
+	["a 2026 reimagining", 14, 3],
+	["", 20, 3],
+	["— STANDING ON THE SHOULDERS OF —", 20, 1],
+	["", 8, 3],
+	["SPACEWAR!   (1962, MIT PDP-1)", 22, 1],
+	["Steve Russell · Martin Graetz · Wayne Wiitanen", 18, 2],
+	["Peter Samson · Dan Edwards · Alan Kotok", 18, 2],
+	["", 12, 3],
+	["PDP-11 NETWORKED PORT   (1974)", 22, 1],
+	["Bill Seiler · Larry Bryant", 18, 2],
+	["", 12, 3],
+	["XSPACEWAR 1.2   (1992, X11)", 22, 1],
+	["Ron Frederick", 18, 2],
+	["an early serverless networked multiplayer game", 14, 3],
+	["github.com/ronf  ·  timeheart.net/spacewar", 14, 3],
+	["", 20, 3],
+	["— THIS GAME —", 20, 1],
+	["ARCHITECTURE & DESIGN", 22, 1],
+	["Aaron K. Clark (CryptoJones)", 18, 2],
+	["", 12, 3],
+	["PROGRAMMING", 22, 1],
+	["Claude Fable 5", 18, 2],
+	["", 12, 3],
+	["engine: Godot 4 — every pixel and sound procedurally generated", 14, 3],
+	["", 20, 3],
+	["SPECIAL THANKS", 22, 1],
+	["John Van Lowe (JVL)", 18, 2],
+	["for all the nights in 90s-era Dickinson, Texas", 14, 3],
+	["HTMFPWGCBNOTDOD!", 14, 3],
+	["", 20, 3],
+	["Source Code Available At:", 14, 3],
+	["https://github.com/CryptoJones/XSpaceWar-AI", 16, 2],
+	["", 8, 3],
+	["Apache 2.0 License", 14, 3],
+]
 
 const SETTINGS_PATH := "user://settings.cfg"
 const REPLAY_DIR := "user://replays"
@@ -48,14 +95,27 @@ func _ready() -> void:
 	add_child(hud)
 
 	_build_menu()
+	_build_splash()
+	_build_credits()
 	_load_settings()
 	var user := OS.get_environment("USER")
 	_player_name = user.to_upper().left(12) if user != "" else "PILOT"
 	_lan = LanDiscovery.listener()
 	session.start_movie()
-	set_menu_visible(true)
+	# Boot sequence: credits roll -> splash (controls, press SPACE) -> menu.
+	set_menu_visible(false)
+	_start_credits(true)
 
 func _process(dt: float) -> void:
+	# Credits roll scrolls up and ends past its own height; splash prompt blinks.
+	if _credits.visible:
+		var vp := get_viewport().get_visible_rect().size
+		_credits_y -= 62.0 * dt
+		_credits_box.position = Vector2((vp.x - _credits_box.size.x) * 0.5, _credits_y)
+		if _credits_y < -_credits_box.size.y - 40.0:
+			_end_credits()
+	if _splash.visible:
+		_splash_prompt.modulate.a = 0.55 + 0.45 * sin(Time.get_ticks_msec() / 1000.0 * 4.0)
 	# Rotate recordings across auto-restarts; bounce to menu when a replay ends.
 	if session.recorder != null and session.generation != _recorded_gen:
 		_finalize_recording()
@@ -109,26 +169,31 @@ func _build_menu() -> void:
 	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
 		margin.add_theme_constant_override(side, 28)
 	panel.add_child(margin)
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 10)
-	box.custom_minimum_size.x = 380
-	margin.add_child(box)
+
+	var outer := VBoxContainer.new()
+	outer.add_theme_constant_override("separation", 10)
+	margin.add_child(outer)
 
 	var title := Label.new()
 	title.text = "XSPACEWAR-AI"
 	title.add_theme_font_size_override("font_size", 42)
 	title.add_theme_color_override("font_color", Color(0.6, 0.9, 1.0))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(title)
+	outer.add_child(title)
 
 	var subtitle := Label.new()
 	subtitle.text = "a networked space-fighter, est. 1962"
 	subtitle.add_theme_font_size_override("font_size", 14)
 	subtitle.add_theme_color_override("font_color", Color(0.6, 0.7, 0.85, 0.7))
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(subtitle)
+	outer.add_child(subtitle)
 
-	box.add_child(HSeparator.new())
+	outer.add_child(HSeparator.new())
+
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 10)
+	box.custom_minimum_size.x = 380
+	outer.add_child(box)
 
 	_mode_btn = OptionButton.new()
 	_mode_btn.add_item("Free-for-all")
@@ -286,22 +351,198 @@ func _build_menu() -> void:
 	replay_row.add_child(replay_btn)
 	box.add_child(replay_row)
 
-	# Bottom row: QUIT on the left, PLAY (the primary action) on the right.
+	# Bottom row: QUIT and CREDITS on the left, PLAY (the primary action,
+	# dressed to draw the eye) on the right.
 	var bottom_row := HBoxContainer.new()
 	var quit := Button.new()
 	quit.text = "QUIT"
 	quit.pressed.connect(_on_quit_pressed)
 	bottom_row.add_child(quit)
+	var credits_btn := Button.new()
+	credits_btn.text = "CREDITS"
+	credits_btn.pressed.connect(_on_credits_pressed)
+	bottom_row.add_child(credits_btn)
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	bottom_row.add_child(spacer)
 	var play := Button.new()
 	play.text = "PLAY — Skirmish vs AI"
 	play.pressed.connect(_on_play_pressed)
+	play.add_theme_font_size_override("font_size", 18)
+	for state in ["normal", "hover", "pressed", "focus"]:
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(0.10, 0.22, 0.30) if state != "hover" else Color(0.14, 0.30, 0.40)
+		sb.border_color = Color(0.55, 0.95, 1.0) if state != "pressed" else Color(1.0, 1.0, 1.0)
+		sb.set_border_width_all(4)
+		sb.set_corner_radius_all(6)
+		sb.content_margin_left = 18.0
+		sb.content_margin_right = 18.0
+		sb.content_margin_top = 8.0
+		sb.content_margin_bottom = 8.0
+		play.add_theme_stylebox_override(state, sb)
 	bottom_row.add_child(play)
 	box.add_child(bottom_row)
 
 	add_child(_menu)
+
+# --------------------------------------------------------------------------
+# Splash + credits (boot: credits roll -> splash -> menu)
+# --------------------------------------------------------------------------
+
+func _build_splash() -> void:
+	_splash = CanvasLayer.new()
+	_splash.layer = 30
+	_splash.visible = false
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_splash.add_child(center)
+	var panel := PanelContainer.new()
+	center.add_child(panel)
+	var margin := MarginContainer.new()
+	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
+		margin.add_theme_constant_override(side, 32)
+	panel.add_child(margin)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 12)
+	margin.add_child(v)
+
+	var title := Label.new()
+	title.text = "XSPACEWAR-AI"
+	title.add_theme_font_size_override("font_size", 46)
+	title.add_theme_color_override("font_color", Color(0.6, 0.9, 1.0))
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(title)
+	var subtitle := Label.new()
+	subtitle.text = "a networked space-fighter, est. 1962"
+	subtitle.add_theme_font_size_override("font_size", 14)
+	subtitle.add_theme_color_override("font_color", Color(0.6, 0.7, 0.85, 0.7))
+	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(subtitle)
+	v.add_child(HSeparator.new())
+	v.add_child(_build_controls_panel())
+	v.add_child(HSeparator.new())
+	_splash_prompt = Label.new()
+	_splash_prompt.text = "PRESS SPACE BAR TO CONTINUE"
+	_splash_prompt.add_theme_font_size_override("font_size", 22)
+	_splash_prompt.add_theme_color_override("font_color", Color(1.0, 0.9, 0.4))
+	_splash_prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(_splash_prompt)
+	add_child(_splash)
+
+## Keyboard + gamepad reference, side by side (shown on the splash).
+func _build_controls_panel() -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 30)
+	row.add_child(_controls_column("KEYBOARD", [
+		["A / D  or  ◄ ►", "turn"],
+		["W  or  ▲", "thrust"],
+		["SPACE", "fire torpedo"],
+		["S  or  ▼", "drop mine"],
+		["SHIFT or ENTER", "hyperspace"],
+		["ESC", "menu"],
+	]))
+	row.add_child(VSeparator.new())
+	row.add_child(_controls_column("GAMEPAD", [
+		["LEFT STICK", "turn"],
+		["A / RT", "thrust"],
+		["X / RB", "fire torpedo"],
+		["B / LT", "drop mine"],
+		["Y / LB", "hyperspace"],
+		["START", "menu"],
+	]))
+	return row
+
+func _controls_column(header: String, rows: Array) -> VBoxContainer:
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 4)
+	var h := Label.new()
+	h.text = header
+	h.add_theme_font_size_override("font_size", 16)
+	h.add_theme_color_override("font_color", Color(0.55, 0.95, 1.0))
+	v.add_child(h)
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 18)
+	grid.add_theme_constant_override("v_separation", 3)
+	for r in rows:
+		var key := Label.new()
+		key.text = String(r[0])
+		key.add_theme_font_size_override("font_size", 15)
+		key.add_theme_color_override("font_color", Color(0.85, 0.95, 1.0))
+		grid.add_child(key)
+		var what := Label.new()
+		what.text = String(r[1])
+		what.add_theme_font_size_override("font_size", 15)
+		what.add_theme_color_override("font_color", Color(0.65, 0.7, 0.8, 0.9))
+		grid.add_child(what)
+	v.add_child(grid)
+	return v
+
+func _build_credits() -> void:
+	_credits = CanvasLayer.new()
+	_credits.layer = 35
+	_credits.visible = false
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.88)
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_credits.add_child(dim)
+	var clip := Control.new()
+	clip.set_anchors_preset(Control.PRESET_FULL_RECT)
+	clip.clip_contents = true
+	clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_credits.add_child(clip)
+	_credits_box = VBoxContainer.new()
+	_credits_box.add_theme_constant_override("separation", 8)
+	clip.add_child(_credits_box)
+	for entry in CREDITS_LINES:
+		var l := Label.new()
+		l.text = String(entry[0])
+		l.add_theme_font_size_override("font_size", int(entry[1]))
+		match int(entry[2]):
+			0:
+				l.add_theme_color_override("font_color", Color(0.6, 0.9, 1.0))
+			1:
+				l.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
+			2:
+				l.add_theme_color_override("font_color", Color(0.92, 0.95, 1.0))
+			_:
+				l.add_theme_color_override("font_color", Color(0.6, 0.68, 0.8, 0.85))
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_credits_box.add_child(l)
+	var skip := Label.new()
+	skip.text = "SPACE to skip"
+	skip.add_theme_font_size_override("font_size", 14)
+	skip.add_theme_color_override("font_color", Color(0.6, 0.7, 0.85, 0.6))
+	skip.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	skip.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	skip.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	skip.position = Vector2(-18, -14)
+	_credits.add_child(skip)
+	add_child(_credits)
+
+func _start_credits(from_boot: bool) -> void:
+	_credits_from_boot = from_boot
+	_credits_y = get_viewport().get_visible_rect().size.y + 30.0
+	_credits_box.position = Vector2(0.0, _credits_y)
+	_credits.visible = true
+
+func _end_credits() -> void:
+	if not _credits.visible:
+		return
+	_credits.visible = false
+	if _credits_from_boot:
+		_splash.visible = true
+	else:
+		set_menu_visible(true)
+
+func _dismiss_splash() -> void:
+	_splash.visible = false
+	set_menu_visible(true)
+
+func _on_credits_pressed() -> void:
+	set_menu_visible(false)
+	_start_credits(false)
 
 func _labelled(text: String, control: Control) -> HBoxContainer:
 	var row := HBoxContainer.new()
@@ -340,13 +581,25 @@ func _on_quit_pressed() -> void:
 	get_tree().quit()
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo \
-			and event.physical_keycode == KEY_ESCAPE:
+	var key_pressed: bool = event is InputEventKey and event.pressed and not event.echo
+	var pad_pressed: bool = event is InputEventJoypadButton and event.pressed
+	# Credits roll: SPACE (or ESC/ENTER/pad A/START) skips.
+	if _credits.visible:
+		if (key_pressed and event.physical_keycode in [KEY_SPACE, KEY_ESCAPE, KEY_ENTER]) \
+				or (pad_pressed and event.button_index in [JOY_BUTTON_A, JOY_BUTTON_START]):
+			_end_credits()
+		return
+	# Splash: stays up until SPACE (pad A/START also works).
+	if _splash.visible:
+		if (key_pressed and event.physical_keycode == KEY_SPACE) \
+				or (pad_pressed and event.button_index in [JOY_BUTTON_A, JOY_BUTTON_START]):
+			_dismiss_splash()
+		return
+	if key_pressed and event.physical_keycode == KEY_ESCAPE:
 		set_menu_visible(not _menu.visible)
-	elif event is InputEventJoypadButton and event.pressed \
-			and event.button_index == JOY_BUTTON_START:
+	elif pad_pressed and event.button_index == JOY_BUTTON_START:
 		set_menu_visible(not _menu.visible)
-	elif replay_player != null and event is InputEventKey and event.pressed and not event.echo:
+	elif replay_player != null and key_pressed:
 		if event.physical_keycode == KEY_P:
 			replay_player.paused = not replay_player.paused
 		elif event.physical_keycode == KEY_F:
