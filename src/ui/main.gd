@@ -761,6 +761,7 @@ func _on_play_pressed() -> void:
 	session.lethal_edges = _edge_check.button_pressed
 	session.star_scale = _star_slider.value / 25.0
 	session.planet_count = int(_planets_spin.value)
+	_save_settings()
 	session.host_name = _player_name
 	session.start_skirmish(int(_ships_spin.value), mode, _diff_btn.selected)
 	_maybe_start_recording()
@@ -852,6 +853,7 @@ func _on_host_pressed() -> void:
 	session.lethal_edges = _edge_check.button_pressed
 	session.star_scale = _star_slider.value / 25.0
 	session.planet_count = int(_planets_spin.value)
+	_save_settings()
 	session.host_name = _player_name
 	session.start_skirmish(int(_ships_spin.value), mode, _diff_btn.selected)
 	net_host = NetHost.new(session)
@@ -964,6 +966,7 @@ func _on_host_online_pressed() -> void:
 	session.lethal_edges = _edge_check.button_pressed
 	session.star_scale = _star_slider.value / 25.0
 	session.planet_count = int(_planets_spin.value)
+	_save_settings()
 	session.host_name = _player_name
 	session.start_skirmish(int(_ships_spin.value), mode, _diff_btn.selected)
 	net_host = NetHost.new(session)
@@ -1052,6 +1055,17 @@ func _load_settings() -> void:
 		_record_check.set_pressed_no_signal(bool(cfg.get_value("replay", "record", false)))
 		_music_check.set_pressed_no_signal(bool(cfg.get_value("audio", "music", true)))
 		hud.set_radar_visible(bool(cfg.get_value("display", "minimap", true)))
+		# Match setup: restore the player's favorite configuration.
+		_mode_btn.select(int(cfg.get_value("match", "mode", 0)))
+		_diff_btn.select(int(cfg.get_value("match", "difficulty", BotController.Difficulty.VETERAN)))
+		_ships_spin.set_value_no_signal(float(cfg.get_value("match", "ships", 8.0)))
+		_limit_spin.set_value_no_signal(float(cfg.get_value("match", "score_limit", 10.0)))
+		_time_spin.set_value_no_signal(float(cfg.get_value("match", "time_limit", 0.0)))
+		_respawn_spin.set_value_no_signal(float(cfg.get_value("match", "respawn", 6.0)))
+		_hazard_slider.set_value_no_signal(float(cfg.get_value("match", "hazard", 30.0)))
+		_star_slider.set_value_no_signal(float(cfg.get_value("match", "star_size", 25.0)))
+		_planets_spin.set_value_no_signal(float(cfg.get_value("match", "planets", 2.0)))
+		_edge_check.set_pressed_no_signal(bool(cfg.get_value("match", "lethal_edges", false)))
 		var binds_changed := false
 		for pair in BINDABLE:
 			var action := String(pair[0])
@@ -1082,6 +1096,16 @@ func _save_settings() -> void:
 	cfg.set_value("display", "minimap", hud.radar_visible())
 	for pair in BINDABLE:
 		cfg.set_value("keys", String(pair[0]), int(view.key_binds[String(pair[0])]))
+	cfg.set_value("match", "mode", _mode_btn.selected)
+	cfg.set_value("match", "difficulty", _diff_btn.selected)
+	cfg.set_value("match", "ships", _ships_spin.value)
+	cfg.set_value("match", "score_limit", _limit_spin.value)
+	cfg.set_value("match", "time_limit", _time_spin.value)
+	cfg.set_value("match", "respawn", _respawn_spin.value)
+	cfg.set_value("match", "hazard", _hazard_slider.value)
+	cfg.set_value("match", "star_size", _star_slider.value)
+	cfg.set_value("match", "planets", _planets_spin.value)
+	cfg.set_value("match", "lethal_edges", _edge_check.button_pressed)
 	cfg.save(SETTINGS_PATH)
 
 ## F3 diagnostics: everything needed to pin down a bug report in one glance.
