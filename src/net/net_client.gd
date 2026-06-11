@@ -122,6 +122,10 @@ func _extrapolate(world: SimWorld, dt: float, skip: SimShip) -> void:
 		if world.config.torpedo_gravity:
 			t.vel += world.gravity_accel(t.pos) * dt
 		t.pos += t.vel * dt
+	for m in world.mines:
+		m.vel += world.gravity_accel(m.pos) * dt
+		m.pos += m.vel * dt
+		m.age += dt
 
 ## Convert each ship's snapshot correction into a decaying render offset so
 ## the drawn position glides to the authoritative one instead of snapping.

@@ -46,6 +46,10 @@ func play_event(ev: Dictionary) -> void:
 			_play_at(_boom_s, pos, -1.0, _rng.randf_range(0.85, 1.10))
 		"hyperspace":
 			_play_at(_hyper_s, pos, -5.0, _rng.randf_range(0.95, 1.05))
+		"mine":
+			_play_at(_fire_s, pos, -14.0, 0.55)  # low soft clunk on drop
+		"mine_explode":
+			_play_at(_boom_s, pos, -1.0, _rng.randf_range(0.65, 0.75))
 		"thrust":
 			_hold_thrust(int(ev.get("ship", -1)), pos)
 

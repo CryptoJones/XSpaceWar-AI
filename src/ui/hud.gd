@@ -42,15 +42,15 @@ func _ready() -> void:
 	_hint.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	_hint.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	_hint.position = Vector2(-16, -14)
-	_hint.text = "A/D turn   W thrust   SPACE fire   SHIFT hyperspace   ESC menu\nPad: stick turn   A/RT thrust   X/RB fire   Y/LB hyper   START menu"
+	_hint.text = "A/D turn   W thrust   SPACE fire   S mine   SHIFT hyperspace   ESC menu\nPad: stick turn   A/RT thrust   X/RB fire   B/LT mine   Y/LB hyper   START menu"
 	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	add_child(_hint)
 
 	_bars = Control.new()
 	_bars.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
 	_bars.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	_bars.position = Vector2(16, -64)
-	_bars.size = Vector2(300, 50)
+	_bars.position = Vector2(16, -88)
+	_bars.size = Vector2(300, 74)
 	_bars.draw.connect(_draw_bars)
 	add_child(_bars)
 
@@ -130,6 +130,10 @@ func _push_feed(text: String) -> void:
 	while _feed.size() > FEED_MAX:
 		_feed.pop_front()
 
+## World units shown across the radar — the combat zone around the star, not
+## the whole (mostly empty) arena.
+const RADAR_WORLD_SPAN := 5200.0
+
 func _draw_radar() -> void:
 	var world := session.world if session != null else null
 	if world == null:
@@ -137,9 +141,12 @@ func _draw_radar() -> void:
 	var size := _radar.size
 	_radar.draw_rect(Rect2(Vector2.ZERO, size), Color(0.04, 0.07, 0.12, 0.55))
 	_radar.draw_rect(Rect2(Vector2.ZERO, size), Color(0.4, 0.6, 1.0, 0.35), false, 1.0)
-	var arena := world.config.arena_size
+	var primary := world.primary_body()
+	var center := primary.pos if primary != null else Vector2.ZERO
 	for b in world.bodies:
-		var mp := (b.pos / arena + Vector2(0.5, 0.5)) * size
+		var mp := _radar_map(b.pos, center, size)
+		if not _radar_in_view(mp, size):
+			continue
 		match b.kind:
 			SimBody.Kind.STAR:
 				_radar.draw_circle(mp, 4.0, Color(1.0, 0.85, 0.4))
@@ -152,12 +159,23 @@ func _draw_radar() -> void:
 	for s in world.ships:
 		if not s.alive:
 			continue
-		var mp := (s.pos / arena + Vector2(0.5, 0.5)) * size
+		var mp := _radar_map(s.pos, center, size)
+		# Ships beyond the window pin to the radar edge so you can still
+		# tell where everyone went in the big empty.
+		var off_view := not _radar_in_view(mp, size)
+		mp = mp.clamp(Vector2(3, 3), size - Vector2(3, 3))
 		if s.id == session.human_ship_id:
 			_radar.draw_circle(mp, 3.0, Color.WHITE)
 			_radar.draw_arc(mp, 5.5, 0.0, TAU, 12, Color(1, 1, 1, 0.6), 1.0)
 		else:
-			_radar.draw_circle(mp, 2.2, WorldView.ship_color(s))
+			var c := WorldView.ship_color(s)
+			_radar.draw_circle(mp, 2.2, Color(c.r, c.g, c.b, 0.5 if off_view else 1.0))
+
+func _radar_map(p: Vector2, center: Vector2, size: Vector2) -> Vector2:
+	return ((p - center) / RADAR_WORLD_SPAN + Vector2(0.5, 0.5)) * size
+
+func _radar_in_view(mp: Vector2, size: Vector2) -> bool:
+	return mp.x >= 0.0 and mp.y >= 0.0 and mp.x <= size.x and mp.y <= size.y
 
 func _update_banner() -> void:
 	if session.match_over:
@@ -218,3 +236,10 @@ func _draw_bars() -> void:
 	for i in range(cfg.max_ammo):
 		var c := Color(1.0, 0.9, 0.4) if i < human.ammo else Color(1, 1, 1, 0.10)
 		_bars.draw_rect(Rect2(50 + i * pip_w, 26, pip_w - 2.0, 12), c)
+	# Mine pips.
+	_bars.draw_string(ThemeDB.fallback_font, Vector2(0, 60), "MINE",
+		HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.7, 0.8, 0.9, 0.8))
+	var mine_w := 30.0
+	for i in range(cfg.max_mines):
+		var c2 := Color(1.0, 0.45, 0.25) if i < human.mines else Color(1, 1, 1, 0.10)
+		_bars.draw_rect(Rect2(50 + i * (mine_w + 4.0), 50, mine_w, 12), c2)

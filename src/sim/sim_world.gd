@@ -20,6 +20,7 @@ var rng := RandomNumberGenerator.new()
 var bodies: Array[SimBody] = []
 var ships: Array[SimShip] = []
 var torpedoes: Array[SimTorpedo] = []
+var mines: Array[SimMine] = []
 
 var time: float = 0.0
 var tick: int = 0
@@ -105,6 +106,9 @@ func place_in_orbit(s: SimShip) -> void:
 	s.fuel = config.max_fuel
 	s.ammo = config.max_ammo
 	s.ammo_timer = 0.0
+	s.mines = config.max_mines
+	s.mine_timer = 0.0
+	s.mine_cooldown = 0.0
 	s.alive = true
 	s.respawn_timer = 0.0
 	s.fire_cooldown = 0.0
@@ -126,6 +130,7 @@ func step(dt: float = -1.0) -> void:
 
 	_integrate_ships(dt)
 	_step_torpedoes(dt)
+	_step_mines(dt)
 	_resolve_collisions()
 
 	if config.wrap_edges:
@@ -158,11 +163,17 @@ func _step_ship(s: SimShip, dt: float) -> void:
 	s.spawn_grace = maxf(0.0, s.spawn_grace - dt)
 	s.fire_cooldown = maxf(0.0, s.fire_cooldown - dt)
 	s.hyperspace_cooldown = maxf(0.0, s.hyperspace_cooldown - dt)
+	s.mine_cooldown = maxf(0.0, s.mine_cooldown - dt)
 	if s.ammo < config.max_ammo:
 		s.ammo_timer += dt
 		while s.ammo_timer >= config.ammo_regen_interval and s.ammo < config.max_ammo:
 			s.ammo_timer -= config.ammo_regen_interval
 			s.ammo += 1
+	if s.mines < config.max_mines:
+		s.mine_timer += dt
+		while s.mine_timer >= config.mine_regen_interval and s.mines < config.max_mines:
+			s.mine_timer -= config.mine_regen_interval
+			s.mines += 1
 
 	# Rotation.
 	s.angle = wrapf(s.angle + s.in_turn * config.turn_rate * dt, -PI, PI)
@@ -179,6 +190,10 @@ func _step_ship(s: SimShip, dt: float) -> void:
 	# Fire.
 	if s.in_fire and s.fire_cooldown <= 0.0 and s.ammo > 0:
 		_fire_torpedo(s)
+
+	# Drop a mine behind us.
+	if s.in_mine and s.mine_cooldown <= 0.0 and s.mines > 0:
+		_drop_mine(s)
 
 	# Hyperspace.
 	if s.in_hyper and s.hyperspace_cooldown <= 0.0:
@@ -200,6 +215,20 @@ func _fire_torpedo(s: SimShip) -> void:
 	s.ammo -= 1
 	s.fire_cooldown = config.fire_cooldown
 	events.append({"type": "fire", "ship": s.id, "pos": t.pos})
+
+func _drop_mine(s: SimShip) -> void:
+	var m := SimMine.new()
+	m.id = alloc_id()
+	m.owner_id = s.id
+	m.team = s.team
+	m.radius = config.mine_radius
+	m.pos = s.pos - s.facing() * (s.radius + m.radius + 6.0)
+	m.vel = s.vel * 0.85  # sheds a little speed so it falls behind
+	m.life = config.mine_life
+	mines.append(m)
+	s.mines -= 1
+	s.mine_cooldown = config.mine_drop_cooldown
+	events.append({"type": "mine", "ship": s.id, "pos": m.pos})
 
 func _hyperspace(s: SimShip) -> void:
 	s.hyperspace_uses += 1
@@ -234,6 +263,20 @@ func _step_torpedoes(dt: float) -> void:
 			t.pos = _wrap_point(t.pos)
 		survivors.append(t)
 	torpedoes = survivors
+
+func _step_mines(dt: float) -> void:
+	var survivors: Array[SimMine] = []
+	for m in mines:
+		m.age += dt
+		m.life -= dt
+		if m.life <= 0.0:
+			continue
+		m.vel += gravity_accel(m.pos) * dt
+		m.pos += m.vel * dt
+		if config.wrap_edges:
+			m.pos = _wrap_point(m.pos)
+		survivors.append(m)
+	mines = survivors
 
 func gravity_accel(p: Vector2) -> Vector2:
 	var a := Vector2.ZERO
@@ -304,6 +347,8 @@ func _resolve_collisions() -> void:
 			remaining.append(t)
 	torpedoes = remaining
 
+	_resolve_mines()
+
 	# Ships vs bodies.
 	for s in ships:
 		if not s.alive:
@@ -334,6 +379,51 @@ func _resolve_collisions() -> void:
 			else:
 				_bounce(a, b)
 
+func _resolve_mines() -> void:
+	var survivors: Array[SimMine] = []
+	for m in mines:
+		var exploded := false
+		# Consumed (detonated) by lethal bodies.
+		for b in bodies:
+			if b.lethal and m.pos.distance_to(b.pos) <= b.radius + m.radius:
+				exploded = true
+				break
+		# Shot by a torpedo — detonates even unarmed. This is the counterplay.
+		if not exploded:
+			var remaining: Array[SimTorpedo] = []
+			for t in torpedoes:
+				if not exploded and m.pos.distance_to(t.pos) <= m.radius + t.radius + 4.0:
+					exploded = true
+					continue  # the torpedo is consumed by the blast
+				remaining.append(t)
+			torpedoes = remaining
+		# Proximity fuse once armed. The owner never trips the fuse (but is
+		# not safe from the blast itself).
+		if not exploded and m.age >= config.mine_arm_time:
+			for s in ships:
+				if not s.alive or s.spawn_grace > 0.0 or s.id == m.owner_id:
+					continue
+				if s.team == m.team and s.team != -1 and not config.friendly_fire:
+					continue
+				if m.pos.distance_to(s.pos) <= config.mine_trigger_radius + s.radius:
+					exploded = true
+					break
+		if exploded:
+			_explode_mine(m)
+		else:
+			survivors.append(m)
+	mines = survivors
+
+func _explode_mine(m: SimMine) -> void:
+	events.append({"type": "mine_explode", "pos": m.pos})
+	for s in ships:
+		if not s.alive or s.spawn_grace > 0.0:
+			continue
+		if s.team == m.team and s.team != -1 and not config.friendly_fire and s.id != m.owner_id:
+			continue
+		if m.pos.distance_to(s.pos) <= config.mine_blast_radius + s.radius:
+			_destroy_ship(s, m.owner_id if s.id != m.owner_id else -1, "mine")
+
 func _bounce(a: SimShip, b: SimShip) -> void:
 	# Equal-mass elastic bounce along the contact normal.
 	var n := (b.pos - a.pos)
@@ -363,7 +453,7 @@ func _destroy_ship(s: SimShip, killer_id: int, cause: String) -> void:
 			killer.kills += 1
 			killer.score += 1
 			events.append({"type": "kill", "killer": killer_id, "victim": s.id})
-	elif cause == "torpedo" or cause == "hyperspace":
+	elif cause == "torpedo" or cause == "hyperspace" or cause == "mine":
 		s.score -= 1  # suicide / self-destruct penalty
 
 # --------------------------------------------------------------------------

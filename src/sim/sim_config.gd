@@ -10,8 +10,8 @@ extends RefCounted
 var seed: int = 0
 
 # --- Arena ---
-var arena_size: float = 4000.0          ## square arena edge length (world units)
-var wrap_edges: bool = true             ## toroidal wrap like the original screen
+var arena_size: float = 40000.0         ## square arena edge length (world units)
+var wrap_edges: bool = true             ## toroidal wrap at the (distant) edges
 
 # --- Physics ---
 var gravity_constant: float = 6.0e5     ## tuned so star gravity reads well on-screen
@@ -36,6 +36,16 @@ var torpedo_radius: float = 4.0
 var torpedo_speed: float = 700.0        ## muzzle speed added to ship velocity
 var torpedo_life: float = 5.0           ## seconds before it deactivates
 var torpedo_gravity: bool = true        ## modern accuracy: gravity affects torpedoes too
+
+# --- Mines ---
+var max_mines: int = 3
+var mine_regen_interval: float = 9.0    ## seconds per +1 mine
+var mine_drop_cooldown: float = 1.0
+var mine_radius: float = 6.0
+var mine_life: float = 25.0
+var mine_arm_time: float = 0.7          ## proximity fuse inert before this age
+var mine_trigger_radius: float = 55.0
+var mine_blast_radius: float = 95.0
 
 # --- Hyperspace ---
 var hyperspace_cooldown: float = 4.0

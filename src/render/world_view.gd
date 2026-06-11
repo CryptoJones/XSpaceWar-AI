@@ -103,6 +103,8 @@ func _physics_process(dt: float) -> void:
 				_thrusting[ev["ship"]] = true
 			"explosion":
 				_spawn_burst(ev["pos"], Color(2.4, 1.5, 0.5), 56, 420.0)
+			"mine_explode":
+				_spawn_burst(ev["pos"], Color(2.6, 1.1, 0.25), 72, 520.0)
 			"hyperspace":
 				_spawn_burst(ev["pos"], Color(0.7, 1.2, 2.4), 28, 240.0)
 	_audio.update(dt, session.world)
@@ -156,6 +158,7 @@ func gather_local_input() -> Dictionary:
 	var thrust := Input.is_physical_key_pressed(KEY_W) or Input.is_physical_key_pressed(KEY_UP)
 	var fire := Input.is_physical_key_pressed(KEY_SPACE)
 	var hyper := Input.is_physical_key_pressed(KEY_ENTER) or Input.is_physical_key_pressed(KEY_SHIFT)
+	var mine := Input.is_physical_key_pressed(KEY_S) or Input.is_physical_key_pressed(KEY_DOWN)
 
 	var pads := Input.get_connected_joypads()
 	if not pads.is_empty():
@@ -169,8 +172,10 @@ func gather_local_input() -> Dictionary:
 			or Input.is_joy_button_pressed(pad, JOY_BUTTON_RIGHT_SHOULDER)
 		hyper = hyper or Input.is_joy_button_pressed(pad, JOY_BUTTON_Y) \
 			or Input.is_joy_button_pressed(pad, JOY_BUTTON_LEFT_SHOULDER)
+		mine = mine or Input.is_joy_button_pressed(pad, JOY_BUTTON_B) \
+			or Input.get_joy_axis(pad, JOY_AXIS_TRIGGER_LEFT) > 0.4
 
-	return {"u": turn, "t": thrust, "f": fire, "h": hyper}
+	return {"u": turn, "t": thrust, "f": fire, "h": hyper, "m": mine}
 
 func _read_human_input() -> void:
 	if not input_enabled:
@@ -260,6 +265,9 @@ func _draw() -> void:
 				_draw_asteroid(b, world.time)
 	var wrap := world.config.wrap_edges
 	var half := world.config.arena_size * 0.5
+	for m in world.mines:
+		for off in _ghost_offsets(m.pos, wrap, half, 100.0):
+			_draw_mine(m, world.time, off)
 	for t in world.torpedoes:
 		for off in _ghost_offsets(t.pos, wrap, half, 80.0):
 			_draw_torpedo(t, off)
@@ -343,6 +351,20 @@ func _draw_asteroid(b: SimBody, t: float) -> void:
 	var shade := 0.38 + 0.18 * (float(b.seed % 13) / 13.0)
 	draw_colored_polygon(poly, Color(shade, shade * 0.95, shade * 0.88))
 	draw_set_transform(Vector2.ZERO)
+
+func _draw_mine(m: SimMine, t: float, ghost: Vector2 = Vector2.ZERO) -> void:
+	var p := m.pos + ghost
+	var vis := clampf(_ship_vis_scale * 0.8, 1.0, 2.4)
+	var body_col := Color(0.55, 0.6, 0.65)
+	draw_circle(p, m.radius * vis, body_col)
+	for i in range(4):  # slowly rotating contact spikes
+		var a := TAU * float(i) / 4.0 + t * 0.8
+		var dir := Vector2(cos(a), sin(a))
+		draw_line(p + dir * m.radius * vis * 0.6, p + dir * m.radius * vis * 1.5,
+			body_col, 1.5)
+	if m.age >= session.world.config.mine_arm_time:
+		var blink := 0.4 + 0.6 * maxf(0.0, sin(t * 7.0 + float(m.id)))
+		draw_circle(p, m.radius * vis * 0.45, Color(2.0 * blink, 0.2, 0.15))
 
 func _draw_torpedo(t: SimTorpedo, ghost: Vector2 = Vector2.ZERO) -> void:
 	var p := t.pos + ghost

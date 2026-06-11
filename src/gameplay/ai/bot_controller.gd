@@ -150,6 +150,21 @@ func _imminent_hazard(ship: SimShip) -> SimBody:
 				return b
 	return null
 
+## An armed hostile mine we're drifting toward, or null.
+func _imminent_mine(ship: SimShip) -> SimMine:
+	var t_max := 1.0 + 0.2 * float(difficulty)
+	for m in world.mines:
+		if m.owner_id == ship_id or m.age < world.config.mine_arm_time:
+			continue
+		if m.team == ship.team and ship.team != -1:
+			continue
+		var margin := world.config.mine_trigger_radius + ship.radius + 30.0
+		for k in range(1, 5):
+			var t := t_max * float(k) * 0.25
+			if (ship.pos + ship.vel * t).distance_to(m.pos + m.vel * t) < margin:
+				return m
+	return null
+
 func _decide(ship: SimShip) -> void:
 	var primary := world.primary_body()
 	var star_pos := primary.pos if primary != null else Vector2.ZERO
@@ -160,13 +175,20 @@ func _decide(ship: SimShip) -> void:
 	_aim_noise = _rng.randf_range(-1.0, 1.0) * float(_p["aim_error"])
 
 	# 1) Survival. Veteran+ pilots dodge whatever they're about to hit by
-	# burning perpendicular to the collision course; everyone burns away
-	# from the star's kill zone.
+	# burning perpendicular to the collision course (bodies and armed enemy
+	# mines alike); everyone burns away from the star's kill zone.
 	if difficulty >= Difficulty.VETERAN:
+		var hz_pos := Vector2.INF
 		var hazard := _imminent_hazard(ship)
 		if hazard != null:
+			hz_pos = hazard.pos
+		else:
+			var mz := _imminent_mine(ship)
+			if mz != null:
+				hz_pos = mz.pos
+		if hz_pos.is_finite():
 			var lateral := Vector2(-ship.vel.y, ship.vel.x).normalized()
-			if lateral.dot(hazard.pos - ship.pos) > 0.0:
+			if lateral.dot(hz_pos - ship.pos) > 0.0:
 				lateral = -lateral
 			_want_angle = lateral.angle()
 			_want_thrust = true
@@ -216,6 +238,21 @@ func _apply(ship: SimShip, dt: float) -> void:
 		var dist := ship.pos.distance_to(target.pos)
 		if dist < _fire_range:
 			ship.in_fire = true
+
+	# Defensive mining: brawlers and opportunists drop one when an enemy is
+	# hot on their tail.
+	if ship.mines > 0 and ship.mine_cooldown <= 0.0 \
+			and (personality == Personality.BRAWLER or personality == Personality.OPPORTUNIST):
+		for other in world.ships:
+			if other.id == ship.id or not other.alive:
+				continue
+			if other.team == ship.team and ship.team != -1:
+				continue
+			var rel := other.pos - ship.pos
+			if rel.length() < 380.0 and rel.dot(ship.facing()) < -0.3 * rel.length():
+				if _rng.randf() < 0.04:
+					ship.in_mine = true
+				break
 
 	# Panic-hyperspace from a near, fast incoming torpedo.
 	if bool(_p["hyper"]) and ship.hyperspace_cooldown <= 0.0 and ship.spawn_grace <= 0.0:

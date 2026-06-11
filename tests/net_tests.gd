@@ -76,11 +76,13 @@ func _test_host_join_sync() -> void:
 	err = client.open("127.0.0.1", TEST_PORT, "JOINER")
 	_check("net: client opens", err == OK, "err=%d" % err)
 
-	# Pump both ends; once joined, the client holds the fire key.
-	var fire := {"u": 0.0, "t": false, "f": true, "h": false}
+	# Pump both ends; once joined, the client holds fire + mine drop.
+	var fire := {"u": 0.0, "t": false, "f": true, "h": false, "m": true}
 	var ticks_ready := -1
 	var saw_client_torpedo_on_host := false
 	var saw_torpedo_on_client := false
+	var saw_client_mine_on_host := false
+	var saw_mine_on_client := false
 	for i in range(1200):
 		host.update(DT, {})
 		var ready := client.state == NetClient.State.READY
@@ -92,8 +94,13 @@ func _test_host_join_sync() -> void:
 			for t in hsession.world.torpedoes:
 				if t.owner_id == sid:
 					saw_client_torpedo_on_host = true
+			for m in hsession.world.mines:
+				if m.owner_id == sid:
+					saw_client_mine_on_host = true
 			if not client.session.world.torpedoes.is_empty():
 				saw_torpedo_on_client = true
+			if not client.session.world.mines.is_empty():
+				saw_mine_on_client = true
 		if ticks_ready >= 0 and i > ticks_ready + 360:
 			break
 		OS.delay_msec(1)
@@ -130,6 +137,8 @@ func _test_host_join_sync() -> void:
 	_check("net: client ship tracks host within tolerance", dpos < 60.0, "delta=%.1f" % dpos)
 	_check("net: client fire input produced torpedoes on the host", saw_client_torpedo_on_host)
 	_check("net: torpedoes replicate down to the client", saw_torpedo_on_client)
+	_check("net: client mine input produced mines on the host", saw_client_mine_on_host)
+	_check("net: mines replicate down to the client", saw_mine_on_client)
 
 	# Match restart: the host rebuilds and re-welcomes the client into the
 	# NEW arena (fresh ship ids, names preserved).

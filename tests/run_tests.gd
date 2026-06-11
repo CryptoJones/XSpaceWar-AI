@@ -22,6 +22,7 @@ func _initialize() -> void:
 	_test_hull_generation()
 	_test_pick_duel()
 	_test_bot_character()
+	_test_mines()
 	print("=== %d passed, %d failed ===" % [_passed, _failed])
 	quit(1 if _failed > 0 else 0)
 
@@ -292,3 +293,63 @@ func _test_bot_character() -> void:
 	_check("avoidance: collision course is detected", hz == planet)
 	ship.vel = Vector2(-420, 0)
 	_check("avoidance: diverging course is clear", bot._imminent_hazard(ship) == null)
+
+func _test_mines() -> void:
+	var cfg := SimConfig.from_seed(11)
+	cfg.wrap_edges = false
+	var w := SimWorld.new(cfg)  # empty space: isolate mine mechanics
+
+	var owner := SimShip.new()
+	owner.id = w.alloc_id()
+	owner.radius = cfg.ship_radius
+	owner.fuel = cfg.max_fuel
+	owner.ammo = cfg.max_ammo
+	owner.mines = cfg.max_mines
+	owner.spawn_grace = 0.0
+	w.ships.append(owner)
+
+	owner.in_mine = true
+	w.step()
+	_check("mine: drop creates a mine and consumes supply",
+		w.mines.size() == 1 and owner.mines == cfg.max_mines - 1)
+	owner.pos = Vector2(600, 0)  # owner clears the area
+
+	var victim := SimShip.new()
+	victim.id = w.alloc_id()
+	victim.radius = cfg.ship_radius
+	victim.fuel = cfg.max_fuel
+	victim.spawn_grace = 0.0
+	victim.pos = w.mines[0].pos + Vector2(30, 0)  # inside the trigger radius
+	w.ships.append(victim)
+	w.step()
+	_check("mine: unarmed mine does not trigger",
+		victim.alive and w.mines.size() == 1)
+
+	for _i in range(int(cfg.mine_arm_time / cfg.fixed_dt) + 3):
+		w.step()
+	_check("mine: armed proximity kill credits the owner",
+		not victim.alive and owner.kills == 1 and w.mines.is_empty(),
+		"alive=%s kills=%d mines=%d" % [victim.alive, owner.kills, w.mines.size()])
+
+	# Torpedo counterplay: shooting a mine detonates it.
+	owner.mines = 1
+	owner.pos = Vector2.ZERO
+	owner.angle = 0.0
+	owner.in_mine = true
+	w.step()
+	owner.pos = Vector2(800, 0)
+	var torp := SimTorpedo.new()
+	torp.id = w.alloc_id()
+	torp.owner_id = owner.id
+	torp.radius = cfg.torpedo_radius
+	torp.pos = w.mines[0].pos + Vector2(120, 0)
+	torp.vel = Vector2(-400, 0)
+	torp.life = 5.0
+	torp.age = 1.0
+	w.torpedoes.append(torp)
+	for _i in range(40):
+		w.step()
+		if w.mines.is_empty():
+			break
+	_check("mine: torpedo detonates it (counterplay)",
+		w.mines.is_empty() and w.torpedoes.is_empty())

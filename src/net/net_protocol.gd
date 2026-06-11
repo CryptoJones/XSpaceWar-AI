@@ -12,13 +12,13 @@ extends RefCounted
 ## locally from the seed + params (ArenaGen is deterministic), then apply
 ## snapshots on top and dead-reckon between them.
 
-const VERSION := 2
+const VERSION := 3
 
 enum {
 	MSG_HELLO = 1,      ## client -> host: {v, name}
 	MSG_WELCOME = 2,    ## host -> client: {v, id, seed, prm, mode, dif, gen, ros}
 	MSG_REJECT = 3,     ## host -> client: {why}
-	MSG_INPUT = 4,      ## client -> host: {q, u, t, f, h} (q = input sequence)
+	MSG_INPUT = 4,      ## client -> host: {q, u, t, f, h, m} (q = input sequence)
 	MSG_SNAPSHOT = 5,   ## host -> client: see snapshot_of()
 }
 
@@ -52,6 +52,7 @@ static func apply_input(ship: SimShip, inp: Dictionary) -> void:
 	ship.in_thrust = bool(inp.get("t", false))
 	ship.in_fire = bool(inp.get("f", false))
 	ship.in_hyper = bool(inp.get("h", false))
+	ship.in_mine = bool(inp.get("m", false))
 
 # --------------------------------------------------------------------------
 # Welcome / roster
@@ -89,13 +90,16 @@ static func snapshot_of(world: SimWorld, thrust_ids: Array, events: Array,
 	var torps := []
 	for t in world.torpedoes:
 		torps.append([t.id, t.owner_id, t.team, t.pos, t.vel, t.age])
+	var mines := []
+	for m in world.mines:
+		mines.append([m.id, m.owner_id, m.team, m.pos, m.vel, m.age])
 	var bodies := []
 	for b in world.bodies:
 		if b.is_orbiting():
 			bodies.append([b.id, b.orbit_angle])
 	return {
 		"k": world.tick, "t": world.time,
-		"s": ships, "p": torps, "b": bodies,
+		"s": ships, "p": torps, "mn": mines, "b": bodies,
 		"e": events, "th": thrust_ids, "a": acks,
 	}
 
@@ -148,6 +152,19 @@ static func apply_snapshot(world: SimWorld, snap: Dictionary) -> Dictionary:
 		t.life = world.config.torpedo_life
 		t.radius = world.config.torpedo_radius
 		world.torpedoes.append(t)
+
+	world.mines.clear()
+	for entry in snap.get("mn", []):
+		var m := SimMine.new()
+		m.id = int(entry[0])
+		m.owner_id = int(entry[1])
+		m.team = int(entry[2])
+		m.pos = entry[3]
+		m.vel = entry[4]
+		m.age = float(entry[5])
+		m.life = world.config.mine_life
+		m.radius = world.config.mine_radius
+		world.mines.append(m)
 
 	for entry in snap.get("b", []):
 		var b := world.body_by_id(int(entry[0]))

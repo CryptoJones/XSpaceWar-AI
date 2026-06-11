@@ -19,6 +19,9 @@ var angle: float = 0.0                  ## facing, radians
 var fuel: float = 0.0
 var ammo: int = 0
 var ammo_timer: float = 0.0
+var mines: int = 0
+var mine_timer: float = 0.0
+var mine_cooldown: float = 0.0
 
 # --- Status / timers ---
 var alive: bool = true
@@ -44,6 +47,7 @@ var in_turn: float = 0.0                ## -1 (CCW) .. +1 (CW)
 var in_thrust: bool = false
 var in_fire: bool = false
 var in_hyper: bool = false
+var in_mine: bool = false
 
 func facing() -> Vector2:
 	return Vector2(cos(angle), sin(angle))
@@ -53,3 +57,4 @@ func clear_inputs() -> void:
 	in_thrust = false
 	in_fire = false
 	in_hyper = false
+	in_mine = false
