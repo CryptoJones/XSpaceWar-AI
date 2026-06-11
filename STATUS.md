@@ -230,12 +230,30 @@ networked *Spacewar!* / `xspacewar`. Godot 4.6, Apache 2.0. Plan file:
 - Suites: 42 sim / 30 net / 15 relay / 9 audio / smoke / camera probe.
 - **v0.8.0 tagged** (camera fix + pickups + 16 ships + music + F3).
 
+## DONE (v0.8.0 → v1.1.0, 2026-06-11 late evening)
+- **v1.0.0 RELEASED** (the original vision complete; 3-platform packages
+  guaranteed for every release). Hazard slider (0=clean, 100=every 3rd
+  cell), time-limit option w/ HUD clock, minimap restored bottom-left
+  (star-centered, landmarks pin to rim, M toggles), camera bleed-zone
+  fix confirmed by Aaron.
+- **v1.0.1 HOTFIX**: Hud._ready had been truncated by a misplace-edit —
+  minimap/arrows/respawn-countdown/final-scoreboard were NEVER created
+  (1.0.0 shipped that bug). CI now fails on any SCRIPT ERROR output;
+  that immediately resurrected a silently-skipped mine test.
+- Gauges top-center; key-hint text removed; version shown in menu
+  subtitle; credits fonts -1; respawn 6s.
+- **v1.1.0 tagged**: menu redesigned into MATCH/MULTIPLAYER/OPTIONS tabs
+  (panel 519x936 → 636x658, measured by headless layout dump); respawn
+  cooldown a match setting (1-15s, default 6) honored by net + replays;
+  credits add Play Testers Patrick Hannah & Adam Testagrossa.
+- Suites: 48 sim / 30 net / 15 relay / 9 audio / smoke / camera probe,
+  all zero-script-error enforced.
+
 ## NEXT
-- Curate v0.8.0 release notes after CI publishes.
-- Await Aaron's verdict on the camera feel (bleed-zone width 28% is
-  tunable) and the pickup loop.
+- Curate v1.1.0 release notes after CI publishes.
+- Real-hardware feedback loop continues with Aaron (+ Patrick/Adam).
 - Backlog: hole-punch direct online, PlatformServices stub (Steam path),
-  match time-limit option, performance pass on weak GPUs.
+  perf pass on weak GPUs, match stats history.
 - M4 online: `server/` master/relay (hole-punch + relay), server browser, `PlatformServices`
   (steam/null) so non-Steam builds compile without GodotSteam.
 - M5 wire procedural map params + difficulty into a real lobby; M6 polish/audio (procedural);

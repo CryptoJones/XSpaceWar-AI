@@ -2,6 +2,19 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [1.1.0] — 2026-06-11
+
+### Added
+- **Respawn cooldown is a match setting** (1–15s, default 6) — honored by
+  net clients and replays.
+- Credits: Play Testers — Patrick Hannah, Adam Testagrossa, Trevor Flurry.
+
+### Changed
+- **The menu is redesigned into tabs** — MATCH / MULTIPLAYER / OPTIONS —
+  replacing the single crowded column (panel went from 519×936 to
+  636×658). Title, status, and the QUIT/CREDITS/PLAY row stay always
+  visible; sliders get full width; the server list got taller.
+
 ## [1.0.1] — 2026-06-11
 
 ### Fixed
