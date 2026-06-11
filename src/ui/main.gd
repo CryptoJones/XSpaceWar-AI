@@ -19,6 +19,7 @@ var _time_spin: SpinBox
 var _respawn_spin: SpinBox
 var _hazard_slider: HSlider
 var _star_slider: HSlider
+var _planets_spin: SpinBox
 var _edge_check: CheckButton
 var _ip_edit: LineEdit
 var _server_list: ItemList
@@ -382,6 +383,13 @@ func _build_match_tab() -> Control:
 	_hazard_slider.value = 30
 	_hazard_slider.tooltip_text = "0 = clean space \u00b7 100 = every 3rd cell is a rock"
 	_grid_row(grid, "Asteroids", _hazard_slider)
+
+	_planets_spin = SpinBox.new()
+	_planets_spin.min_value = 0
+	_planets_spin.max_value = 6
+	_planets_spin.value = 2
+	_planets_spin.tooltip_text = "Planets orbiting the star (0 = none; moons follow)"
+	_grid_row(grid, "Planets", _planets_spin)
 
 	_star_slider = HSlider.new()
 	_star_slider.min_value = 5
@@ -751,6 +759,7 @@ func _on_play_pressed() -> void:
 	session.respawn_seconds = _respawn_spin.value
 	session.lethal_edges = _edge_check.button_pressed
 	session.star_scale = _star_slider.value / 25.0
+	session.planet_count = int(_planets_spin.value)
 	session.host_name = _player_name
 	session.start_skirmish(int(_ships_spin.value), mode, _diff_btn.selected)
 	_maybe_start_recording()
@@ -841,6 +850,7 @@ func _on_host_pressed() -> void:
 	session.respawn_seconds = _respawn_spin.value
 	session.lethal_edges = _edge_check.button_pressed
 	session.star_scale = _star_slider.value / 25.0
+	session.planet_count = int(_planets_spin.value)
 	session.host_name = _player_name
 	session.start_skirmish(int(_ships_spin.value), mode, _diff_btn.selected)
 	net_host = NetHost.new(session)
@@ -952,6 +962,7 @@ func _on_host_online_pressed() -> void:
 	session.respawn_seconds = _respawn_spin.value
 	session.lethal_edges = _edge_check.button_pressed
 	session.star_scale = _star_slider.value / 25.0
+	session.planet_count = int(_planets_spin.value)
 	session.host_name = _player_name
 	session.start_skirmish(int(_ships_spin.value), mode, _diff_btn.selected)
 	net_host = NetHost.new(session)

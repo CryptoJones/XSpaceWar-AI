@@ -285,10 +285,11 @@ func _test_ship_colors() -> void:
 		"distinct=%d" % seen.size())
 
 func _test_star_scale() -> void:
+	# Planets pull too — generate star-only worlds so the ratio is pure.
 	var w1 := SimWorld.new(SimConfig.from_seed(61))
-	ArenaGen.populate(w1, {"hazard": 0.0, "star_scale": 1.0})
+	ArenaGen.populate(w1, {"hazard": 0.0, "planets": 0, "satellites": 0, "star_scale": 1.0})
 	var w4 := SimWorld.new(SimConfig.from_seed(61))
-	ArenaGen.populate(w4, {"hazard": 0.0, "star_scale": 4.0})
+	ArenaGen.populate(w4, {"hazard": 0.0, "planets": 0, "satellites": 0, "star_scale": 4.0})
 	var p1 := w1.primary_body()
 	var p4 := w4.primary_body()
 	_check("star: scale multiplies mass (gravity) and size",
