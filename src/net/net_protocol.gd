@@ -111,7 +111,8 @@ static func snapshot_of(world: SimWorld, thrust_ids: Array, events: Array,
 ## SimWorld stays session-agnostic).
 static func match_state_of(session: GameSession) -> Array:
 	return [1 if session.match_over else 0, session.restart_timer,
-		session.winner_ship, session.winner_team]
+		session.winner_ship, session.winner_team,
+		session.match_time, session.time_limit]
 
 static func apply_match_state(session: GameSession, mo: Array) -> void:
 	if mo.size() < 4:
@@ -120,6 +121,9 @@ static func apply_match_state(session: GameSession, mo: Array) -> void:
 	session.restart_timer = float(mo[1])
 	session.winner_ship = int(mo[2])
 	session.winner_team = int(mo[3])
+	if mo.size() >= 6:
+		session.match_time = float(mo[4])
+		session.time_limit = float(mo[5])
 
 ## Apply a snapshot onto a client-side world. Returns the snapshot's one-shot
 ## events ("e") and thrusting ship ids ("th") for the renderer.

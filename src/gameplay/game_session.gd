@@ -37,6 +37,9 @@ var host_name := ""
 # arena with the same settings.
 const RESTART_DELAY := 8.0
 var score_limit := 10              ## 0 = endless
+var time_limit := 0.0              ## seconds; 0 = no clock
+var hazard := 0.3                  ## asteroid slider 0..1 (1 = every 3rd cell)
+var match_time := 0.0              ## seconds elapsed this match
 var match_over := false
 var winner_ship := -1              ## FFA winner's ship id
 var winner_team := -1              ## TEAM winner, -1 in FFA
@@ -71,6 +74,7 @@ func start_skirmish(p_num_ships: int, p_mode: int, p_difficulty: int) -> void:
 
 func _randomize_match_params() -> void:
 	num_ships = _rng.randi_range(6, 16)
+	hazard = _rng.randf_range(0.1, 0.6)
 	mode = Mode.TEAM if _rng.randf() < 0.5 else Mode.FFA
 	num_teams = _rng.randi_range(2, 3) if mode == Mode.TEAM else 1
 	difficulty = _rng.randi_range(BotController.Difficulty.VETERAN, BotController.Difficulty.INSANE)
@@ -86,7 +90,7 @@ func _build(seed: int) -> void:
 	arena_params = ArenaGen.populate(world, {
 		"star_count": 1,  # exactly one gravity well per map
 		"planets": _rng.randi_range(1, 2),
-		"asteroid_density": _rng.randi_range(16, 55),
+		"hazard": clampf(hazard, 0.0, 1.0),
 		"satellites": _rng.randi_range(0, 2),
 		"mirror": mode == Mode.TEAM,
 	})
@@ -107,6 +111,7 @@ func _build(seed: int) -> void:
 	winner_ship = -1
 	winner_team = -1
 	restart_timer = 0.0
+	match_time = 0.0
 	if host_name != "" and human_ship_id >= 0:
 		ship_names[human_ship_id] = host_name
 
@@ -145,8 +150,30 @@ func update(dt: float) -> void:
 		regen_timer -= dt
 		if regen_timer <= 0.0:
 			regenerate()
-	elif score_limit > 0:
-		_check_match_over()
+	else:
+		match_time += dt
+		if score_limit > 0:
+			_check_match_over()
+		if not match_over and time_limit > 0.0 and match_time >= time_limit:
+			_time_out()
+
+## Clock expired: whoever leads right now takes the match.
+func _time_out() -> void:
+	match_over = true
+	restart_timer = RESTART_DELAY
+	if mode == Mode.TEAM:
+		var totals := team_scores()
+		var best_team := -1
+		var best := -2147483648
+		for t in totals:
+			if int(t) >= 0 and int(totals[t]) > best:
+				best = int(totals[t])
+				best_team = int(t)
+		winner_team = best_team
+	else:
+		var lead := leaderboard()
+		if not lead.is_empty():
+			winner_ship = lead[0].id
 
 func _check_match_over() -> void:
 	if mode == Mode.TEAM:

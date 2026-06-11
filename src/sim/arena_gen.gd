@@ -72,25 +72,55 @@ static func populate(world: SimWorld, params: Dictionary = {}) -> Dictionary:
 				SimBody.Kind.SATELLITE, 0.0, rng.randf_range(5.0, 9.0))
 			sat.gravity = false  # too small to pull, but still a lethal hazard
 
-	# --- Asteroid belts ---
-	for belt in range(int(p["asteroid_belts"])):
-		var belt_r := world.config.spawn_orbit_radius * (1.3 + 0.5 * belt) + rng.randf_range(-80.0, 80.0)
-		var count := int(p["asteroid_density"])
-		for a in range(count):
-			var ang := rng.randf() * TAU
-			if bool(p["mirror"]) and a % 2 == 1:
-				ang = PI - ang  # mirror across the Y axis for symmetry
-			var jitter := rng.randf_range(-belt_r * 0.15, belt_r * 0.15)
-			var pos := center + Vector2(cos(ang), sin(ang)) * (belt_r + jitter)
-			var rock := SimBody.new()
-			rock.kind = SimBody.Kind.ASTEROID
-			rock.pos = pos
-			rock.mass = 0.0
-			rock.gravity = false
-			rock.lethal = true
-			rock.radius = rng.randf_range(6.0, 16.0)
-			rock.seed = rng.randi()
-			world.add_body(rock)
+	# --- Asteroids ---
+	var hazard := float(p.get("hazard", -1.0))
+	if hazard >= 0.0:
+		# Hazard-slider mode (Aaron's spec): scatter on a grid over the combat
+		# zone — at hazard 1.0 roughly every THIRD cell holds a randomized
+		# rock; at 0.0 space is clean. A clear disk around the star stays
+		# rock-free so spawning isn't a death sentence.
+		var cell := 240.0
+		var reach := world.config.spawn_orbit_radius * 2.0
+		var star_clear := (primary.radius + 280.0) if primary != null else 0.0
+		var yi := -reach
+		while yi <= reach:
+			var xi := -reach
+			while xi <= reach:
+				if rng.randf() < hazard / 3.0:
+					var pos := center + Vector2(xi, yi) \
+						+ Vector2(rng.randf_range(-90.0, 90.0), rng.randf_range(-90.0, 90.0))
+					if pos.distance_to(center) > star_clear:
+						var rock := SimBody.new()
+						rock.kind = SimBody.Kind.ASTEROID
+						rock.pos = pos
+						rock.mass = 0.0
+						rock.gravity = false
+						rock.lethal = true
+						rock.radius = rng.randf_range(6.0, 16.0)
+						rock.seed = rng.randi()
+						world.add_body(rock)
+				xi += cell
+			yi += cell
+	else:
+		# Legacy belt mode (used by older tests / direct callers).
+		for belt in range(int(p["asteroid_belts"])):
+			var belt_r := world.config.spawn_orbit_radius * (1.3 + 0.5 * belt) + rng.randf_range(-80.0, 80.0)
+			var count := int(p["asteroid_density"])
+			for a in range(count):
+				var ang := rng.randf() * TAU
+				if bool(p["mirror"]) and a % 2 == 1:
+					ang = PI - ang  # mirror across the Y axis for symmetry
+				var jitter := rng.randf_range(-belt_r * 0.15, belt_r * 0.15)
+				var pos := center + Vector2(cos(ang), sin(ang)) * (belt_r + jitter)
+				var rock := SimBody.new()
+				rock.kind = SimBody.Kind.ASTEROID
+				rock.pos = pos
+				rock.mass = 0.0
+				rock.gravity = false
+				rock.lethal = true
+				rock.radius = rng.randf_range(6.0, 16.0)
+				rock.seed = rng.randi()
+				world.add_body(rock)
 
 	return p
 

@@ -19,6 +19,7 @@ func _initialize() -> void:
 	_test_hyperspace_relocates()
 	_test_ai_combat()
 	_test_match_flow()
+	_test_hazard_slider()
 	_test_hull_generation()
 	_test_pick_duel()
 	_test_bot_character()
@@ -228,6 +229,44 @@ func _test_match_flow() -> void:
 	t.update(1.0 / 60.0)
 	_check("match: team totals trigger a team win",
 		t.match_over and t.winner_team == 0)
+
+	# Time limit: the clock expiring crowns the current leader.
+	var u := GameSession.new()
+	u.score_limit = 0
+	u.time_limit = 2.0
+	u.start_skirmish(2, GameSession.Mode.FFA, BotController.Difficulty.ROOKIE)
+	var leader := u.human_ship()
+	leader.score = 5
+	for _i in range(130):  # ~2.16s
+		u.update(1.0 / 60.0)
+	_check("match: clock expiry crowns the leader",
+		u.match_over and u.winner_ship == leader.id)
+
+func _test_hazard_slider() -> void:
+	var w0 := SimWorld.new(SimConfig.from_seed(31))
+	ArenaGen.populate(w0, {"hazard": 0.0})
+	var rocks0 := 0
+	for b in w0.bodies:
+		if b.kind == SimBody.Kind.ASTEROID:
+			rocks0 += 1
+	_check("hazard: 0 means clean space", rocks0 == 0)
+
+	var w1 := SimWorld.new(SimConfig.from_seed(31))
+	ArenaGen.populate(w1, {"hazard": 1.0})
+	var rocks1 := 0
+	for b in w1.bodies:
+		if b.kind == SimBody.Kind.ASTEROID:
+			rocks1 += 1
+	_check("hazard: 100 packs the zone (~every 3rd cell)", rocks1 > 70,
+		"rocks=%d" % rocks1)
+
+	var w2 := SimWorld.new(SimConfig.from_seed(31))
+	ArenaGen.populate(w2, {"hazard": 1.0})
+	var rocks2 := 0
+	for b in w2.bodies:
+		if b.kind == SimBody.Kind.ASTEROID:
+			rocks2 += 1
+	_check("hazard: deterministic per seed", rocks2 == rocks1)
 
 func _test_hull_generation() -> void:
 	var a: Dictionary = WorldView.hull_polygon(1234)

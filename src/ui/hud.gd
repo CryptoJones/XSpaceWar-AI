@@ -312,6 +312,9 @@ func _update_banner() -> void:
 	else:
 		# (The respawn countdown gets its own big center overlay.)
 		var mode_name := "TEAM BATTLE" if session.mode == GameSession.Mode.TEAM else "FREE-FOR-ALL"
+		if session.time_limit > 0.0:
+			var left := maxf(0.0, session.time_limit - session.match_time)
+			mode_name += "  —  %d:%02d" % [int(left) / 60, int(left) % 60]
 		_banner.text = mode_name if session.human_ship_id >= 0 else "SPECTATING — " + mode_name
 
 func _update_scoreboard() -> void:

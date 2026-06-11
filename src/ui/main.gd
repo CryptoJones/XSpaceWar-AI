@@ -15,6 +15,8 @@ var _mode_btn: OptionButton
 var _diff_btn: OptionButton
 var _ships_spin: SpinBox
 var _limit_spin: SpinBox
+var _time_spin: SpinBox
+var _hazard_slider: HSlider
 var _ip_edit: LineEdit
 var _server_list: ItemList
 var _net_status: Label
@@ -267,6 +269,21 @@ func _build_menu() -> void:
 	_limit_spin.value = 10
 	_limit_spin.tooltip_text = "First to this score wins (0 = endless)"
 	box.add_child(_labelled("Score limit", _limit_spin))
+
+	_time_spin = SpinBox.new()
+	_time_spin.min_value = 0
+	_time_spin.max_value = 30
+	_time_spin.value = 0
+	_time_spin.suffix = "min"
+	_time_spin.tooltip_text = "Match clock — leader wins at zero (0 = no clock)"
+	box.add_child(_labelled("Time limit", _time_spin))
+
+	_hazard_slider = HSlider.new()
+	_hazard_slider.min_value = 0
+	_hazard_slider.max_value = 100
+	_hazard_slider.value = 30
+	_hazard_slider.tooltip_text = "0 = clean space · 100 = every 3rd cell is a rock"
+	box.add_child(_labelled("Asteroids", _hazard_slider))
 
 	var movie := Button.new()
 	movie.text = "WATCH — Movie Mode"
@@ -647,6 +664,8 @@ func _on_play_pressed() -> void:
 	_finalize_recording()
 	var mode := GameSession.Mode.TEAM if _mode_btn.selected == 1 else GameSession.Mode.FFA
 	session.score_limit = int(_limit_spin.value)
+	session.time_limit = _time_spin.value * 60.0
+	session.hazard = _hazard_slider.value / 100.0
 	session.host_name = _player_name
 	session.start_skirmish(int(_ships_spin.value), mode, _diff_btn.selected)
 	_maybe_start_recording()
@@ -728,6 +747,8 @@ func _on_host_pressed() -> void:
 	_finalize_recording()
 	var mode := GameSession.Mode.TEAM if _mode_btn.selected == 1 else GameSession.Mode.FFA
 	session.score_limit = int(_limit_spin.value)
+	session.time_limit = _time_spin.value * 60.0
+	session.hazard = _hazard_slider.value / 100.0
 	session.host_name = _player_name
 	session.start_skirmish(int(_ships_spin.value), mode, _diff_btn.selected)
 	net_host = NetHost.new(session)
@@ -834,6 +855,8 @@ func _on_host_online_pressed() -> void:
 	_teardown_net()
 	var mode := GameSession.Mode.TEAM if _mode_btn.selected == 1 else GameSession.Mode.FFA
 	session.score_limit = int(_limit_spin.value)
+	session.time_limit = _time_spin.value * 60.0
+	session.hazard = _hazard_slider.value / 100.0
 	session.host_name = _player_name
 	session.start_skirmish(int(_ships_spin.value), mode, _diff_btn.selected)
 	net_host = NetHost.new(session)
