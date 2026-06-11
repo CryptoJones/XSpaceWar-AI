@@ -264,10 +264,30 @@ networked *Spacewar!* / `xspacewar`. Godot 4.6, Apache 2.0. Plan file:
   TAB follow-cam cycling for spectators and replays (banner shows who).
 - Suites: 58 sim / 31 net / 15 relay / 9 audio / smoke / camera probe.
 
+## DONE (v1.2.0 → v1.5.0, 2026-06-11 late night)
+- **v1.3.0**: lethal map edges (pulsing red wall, bots avoid, net+replay
+  honored), killcam, ping/RTT readout, TAB follow-cam.
+- **v1.4.0**: THE MOTION FIX — full render interpolation (entities +
+  camera, prev/curr per tick, blended per display frame; teleports
+  snap). Star size slider (25=classic, mass+radius together), planets
+  0-6, wrap slingshot (seam doubles speed, capped 20k), README badges.
+- **v1.5.0**: solo practice (Ships=1), boundary proximity warning,
+  slingshot zip+streaks, replay browser labels (mode·pilots·duration),
+  weak-GPU guard (UHD GT1/llvmpipe skip HDR glow + gl_compatibility
+  documented — diagnosis of Aaron's ronin28 "crash": process alive,
+  parked in drm_syncobj fence wait = GPU stall or occluded window; no
+  code crash; logs clean).
+- Match history + career stats; HUD color-coding; 16 distinct colors;
+  AI temperament (roam/aggression); team-sector spawns; mixed-skill
+  movie rosters; screenshots in README (scp'd from hermes@ronin28).
+- Suites: 66 sim / 31 net / 15 relay / 10 audio / smoke / camera probe,
+  zero-script-error enforced in CI (this gate caught 2 real bugs).
+
 ## NEXT
-- Multi-machine relay session with the play testers is the highest-value
-  input now (hole-punch, Steam stub, weak-GPU perf all want real data).
-- Keep folding in Aaron's live feedback; tag v1.3.0 when the next batch
+- Aaron's live playtest feedback drives everything now. Multi-machine
+  relay session with Patrick/Adam/Trevor = the next big data source
+  (hole-punch, Steam stub, perf tuning all want it).
+- Idle loop continues at a long cadence; tag v1.6.0 when the next batch
   accumulates.
 - M4 online: `server/` master/relay (hole-punch + relay), server browser, `PlatformServices`
   (steam/null) so non-Steam builds compile without GodotSteam.
