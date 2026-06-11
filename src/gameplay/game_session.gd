@@ -73,7 +73,7 @@ func start_movie() -> void:
 ## Start a skirmish with one human ship plus AI opponents.
 func start_skirmish(p_num_ships: int, p_mode: int, p_difficulty: int) -> void:
 	movie_mode = false
-	num_ships = clampi(p_num_ships, 2, 16)
+	num_ships = clampi(p_num_ships, 1, 16)  # 1 = solo practice
 	mode = p_mode
 	difficulty = p_difficulty
 	_build(_rng.randi())

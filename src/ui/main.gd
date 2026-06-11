@@ -349,7 +349,8 @@ func _build_match_tab() -> Control:
 	_grid_row(grid, "AI difficulty", _diff_btn)
 
 	_ships_spin = SpinBox.new()
-	_ships_spin.min_value = 2
+	_ships_spin.min_value = 1
+	_ships_spin.tooltip_text = "1 = solo practice flight (no opponents)"
 	_ships_spin.max_value = 16
 	_ships_spin.value = 8
 	_grid_row(grid, "Ships", _ships_spin)
@@ -1404,8 +1405,10 @@ func _refresh_replays_list() -> void:
 		var rec := Replay.from_bytes(FileAccess.get_file_as_bytes(path))
 		var label := fname.trim_suffix(".xsr")
 		if rec != null:
-			label += "   —   %ds, %d pilots" % [int(rec.duration_sec(1.0 / 60.0)),
-				(rec.header.get("ros", []) as Array).size()]
+			var secs := int(rec.duration_sec(1.0 / 60.0))
+			label += "   —   %s · %d pilots · %d:%02d" % [
+				"TEAM" if int(rec.header.get("mode", 0)) == GameSession.Mode.TEAM else "FFA",
+				(rec.header.get("ros", []) as Array).size(), secs / 60, secs % 60]
 		else:
 			label += "   —   (unreadable)"
 		var idx := _replays_list.add_item(label)

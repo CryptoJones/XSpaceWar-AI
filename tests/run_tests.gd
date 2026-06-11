@@ -22,6 +22,7 @@ func _initialize() -> void:
 	_test_hazard_slider()
 	_test_ship_colors()
 	_test_star_scale()
+	_test_solo_practice()
 	_test_lethal_edges()
 	_test_team_spawns()
 	_test_sim_performance()
@@ -335,6 +336,16 @@ func _test_lethal_edges() -> void:
 		h2.alive and absf(h2.vel.length() - v_before * 2.0) < 5.0
 		and h2.pos.x < 0.0,
 		"v %.0f -> %.0f x=%.0f" % [v_before, h2.vel.length(), h2.pos.x])
+
+func _test_solo_practice() -> void:
+	var s := GameSession.new()
+	s.score_limit = 0
+	s.start_skirmish(1, GameSession.Mode.FFA, BotController.Difficulty.ROOKIE)
+	for _i in range(120):
+		s.update(1.0 / 60.0)
+	_check("solo: one-ship practice flight runs (no bots, pilot alive)",
+		s.world.ships.size() == 1 and s.bots.is_empty()
+		and s.human_ship() != null and s.human_ship().alive)
 
 func _test_team_spawns() -> void:
 	var s := GameSession.new()
