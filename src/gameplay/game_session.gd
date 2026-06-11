@@ -103,10 +103,16 @@ func _build(seed: int) -> void:
 			team = i % num_teams
 		var ship := world.add_ship(team)
 		# In a skirmish the first ship is the human; everyone else is AI.
+		# Movie Mode mixes pilot skill (rookies crashing among aces makes
+		# better television than a uniform roster).
 		if not movie_mode and i == 0:
 			human_ship_id = ship.id
 		else:
-			bots[ship.id] = BotController.new(world, ship.id, difficulty)
+			var bot_diff := difficulty
+			if movie_mode:
+				bot_diff = _rng.randi_range(BotController.Difficulty.ROOKIE,
+					BotController.Difficulty.INSANE)
+			bots[ship.id] = BotController.new(world, ship.id, bot_diff)
 			ship_names[ship.id] = BotController.callsign(ship.hull_seed)
 
 	match_over = false

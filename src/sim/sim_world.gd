@@ -95,7 +95,14 @@ func place_in_orbit(s: SimShip) -> void:
 	if primary != null:
 		center = primary.pos
 		m = primary.mass
-	var ang := rng.randf() * TAU
+	# Teams spawn (and respawn) together in their own sector of the ring —
+	# golden-angle spacing keeps any team count spread apart. FFA ships use
+	# the whole circle.
+	var ang: float
+	if s.team >= 0:
+		ang = wrapf(float(s.team) * 2.399963 + rng.randf_range(-0.6, 0.6), 0.0, TAU)
+	else:
+		ang = rng.randf() * TAU
 	var r := config.spawn_orbit_radius
 	s.pos = center + Vector2(cos(ang), sin(ang)) * r
 	# Circular-orbit speed, perpendicular to the radius, random direction.

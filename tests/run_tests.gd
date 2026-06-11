@@ -20,6 +20,8 @@ func _initialize() -> void:
 	_test_ai_combat()
 	_test_match_flow()
 	_test_hazard_slider()
+	_test_team_spawns()
+	_test_sim_performance()
 	_test_hull_generation()
 	_test_pick_duel()
 	_test_bot_character()
@@ -267,6 +269,46 @@ func _test_hazard_slider() -> void:
 		if b.kind == SimBody.Kind.ASTEROID:
 			rocks2 += 1
 	_check("hazard: deterministic per seed", rocks2 == rocks1)
+
+func _test_team_spawns() -> void:
+	var s := GameSession.new()
+	s.start_skirmish(8, GameSession.Mode.TEAM, BotController.Difficulty.ROOKIE)
+	var primary := s.world.primary_body()
+	var mean0 := Vector2.ZERO
+	var mean1 := Vector2.ZERO
+	for ship in s.world.ships:
+		var dir := (ship.pos - primary.pos).normalized()
+		if ship.team == 0:
+			mean0 += dir
+		else:
+			mean1 += dir
+	_check("teams: each team spawns clustered in its own sector",
+		mean0.length() > 2.0 and mean1.length() > 2.0,
+		"m0=%.2f m1=%.2f" % [mean0.length(), mean1.length()])
+	_check("teams: the two sectors are apart",
+		mean0.normalized().angle_to(mean1.normalized()) > 0.8
+		or mean0.normalized().angle_to(mean1.normalized()) < -0.8,
+		"angle=%.2f" % mean0.normalized().angle_to(mean1.normalized()))
+
+func _test_sim_performance() -> void:
+	# Worst case the menu allows: 16 ACE bots, hazard 1.0 (dense rocks),
+	# everything firing and mining. 60 sim seconds must run far faster than
+	# real time headless — guard against sim-cost regressions.
+	var s := GameSession.new()
+	s.score_limit = 0
+	s.hazard = 1.0
+	s.movie_mode = true  # all bots
+	s.num_ships = 16
+	s.difficulty = BotController.Difficulty.ACE
+	s.mode = GameSession.Mode.FFA
+	s._build(424242)
+	var t0 := Time.get_ticks_usec()
+	for _i in range(3600):
+		s.update(1.0 / 60.0)
+	var ms := float(Time.get_ticks_usec() - t0) / 1000.0
+	var per_step := ms / 3600.0
+	_check("perf: worst-case step budget (<4ms/step, 60Hz budget is 16.6)",
+		per_step < 4.0, "%.3f ms/step (%.0f ms total)" % [per_step, ms])
 
 func _test_hull_generation() -> void:
 	var a: Dictionary = WorldView.hull_polygon(1234)
