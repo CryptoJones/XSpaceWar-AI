@@ -106,15 +106,24 @@ const CREDITS_LINES := [
 const SETTINGS_PATH := "user://settings.cfg"
 const REPLAY_DIR := "user://replays"
 
-var _title_font: FontVariation
+var _title_font: Font
 
 ## Orbitron at bold weight — the futuristic display face used for titles
-## (OFL-licensed; see assets/fonts/ and NOTICE).
-func _get_title_font() -> FontVariation:
+## (OFL-licensed; see assets/fonts/ and NOTICE). Falls back loudly to the
+## default font if the import cache is missing the asset.
+func _get_title_font() -> Font:
 	if _title_font == null:
-		_title_font = FontVariation.new()
-		_title_font.base_font = load("res://assets/fonts/Orbitron.ttf")
-		_title_font.variation_opentype = {"wght": 700}
+		var base: FontFile = load("res://assets/fonts/Orbitron.ttf")
+		if base == null:
+			push_warning("Orbitron not imported — run: godot --headless --path . --import")
+			_title_font = ThemeDB.fallback_font
+		else:
+			var fv := FontVariation.new()
+			fv.base_font = base
+			# The variation dict is keyed by OpenType tag, not name.
+			var ts := TextServerManager.get_primary_interface()
+			fv.variation_opentype = {ts.name_to_tag("wght"): 700}
+			_title_font = fv
 	return _title_font
 
 func _ready() -> void:
@@ -684,6 +693,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.physical_keycode == KEY_F:
 			replay_player.speed = 2.0 if replay_player.speed == 1.0 \
 				else (4.0 if replay_player.speed == 2.0 else 1.0)
+		elif event.physical_keycode == KEY_LEFT:
+			replay_player.seek_relative(-600)  # 10s back
+		elif event.physical_keycode == KEY_RIGHT:
+			replay_player.seek_relative(600)   # 10s ahead
 
 # --------------------------------------------------------------------------
 # Networking (M3: LAN host / join / discovery)
@@ -1160,5 +1173,5 @@ func _watch_replay(path: String) -> void:
 	hud.session = replay_player.session
 	var rp := replay_player
 	view.external_driver = func(dt: float): rp.update(dt)
-	_net_status.text = "Replaying %s — P pause, F speed, ESC menu" % path.get_file()
+	_net_status.text = "Replaying %s — P pause, F speed, ◄/► seek 10s, ESC menu" % path.get_file()
 	set_menu_visible(false)

@@ -397,3 +397,18 @@ func _test_replay() -> void:
 				exact = false
 				break
 	_check("replay: playback is bit-exact (positions, scores, kills, alive)", exact)
+
+	# Scrubbing: rewind to an exact tick, then back to the end — still exact.
+	rp.seek(60)
+	_check("replay: backward seek lands on the exact tick",
+		rp.session.world.tick == 60 and not rp.finished)
+	rp.seek(loaded.final_tick)
+	rp.update(1.0 / 60.0)  # the final step
+	var exact2 := true
+	for i in range(s.world.ships.size()):
+		var a2 := s.world.ships[i]
+		var b2 := rp.session.world.ships[i]
+		if a2.pos != b2.pos or a2.score != b2.score:
+			exact2 = false
+			break
+	_check("replay: state after scrubbing is still bit-exact", exact2)

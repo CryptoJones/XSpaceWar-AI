@@ -40,6 +40,12 @@ func _on_session_rebuilt() -> void:
 	_inputs.clear()
 	_acked.clear()
 	for peer in _peers:
+		if int(_peers[peer]) < 0:
+			# Spectators just need the new arena recipe.
+			_t.send(peer,
+				NetProtocol.pack(NetProtocol.MSG_WELCOME, NetProtocol.welcome_of(session, -1)),
+				true, NetProtocol.CH_CONTROL)
+			continue
 		var bot_ids := session.bots.keys()
 		if bot_ids.is_empty():
 			_reject(peer, "no ship available after restart")
@@ -116,7 +122,18 @@ func update(dt: float, local_input: Dictionary) -> void:
 	_t.tick(dt, player_count())
 
 func player_count() -> int:
-	return _peers.size() + 1
+	var n := 1  # the host
+	for peer in _peers:
+		if int(_peers[peer]) >= 0:
+			n += 1
+	return n
+
+func _spectator_count() -> int:
+	var n := 0
+	for peer in _peers:
+		if int(_peers[peer]) < 0:
+			n += 1
+	return n
 
 func _broadcast_snapshot() -> void:
 	_event_accum = _event_accum.slice(maxi(0, _event_accum.size() - 64))  # bound backlog
@@ -155,6 +172,8 @@ func _on_packet(peer, bytes: PackedByteArray) -> void:
 		NetProtocol.MSG_INPUT:
 			if _peers.has(peer):
 				var sid: int = _peers[peer]
+				if sid < 0:
+					return  # spectators don't drive ships
 				var q := int(data.get("q", 0))
 				if q >= int(_acked.get(sid, 0)):
 					_acked[sid] = q
@@ -165,6 +184,16 @@ func _on_hello(peer, data: Dictionary) -> void:
 		return
 	if int(data.get("v", -1)) != NetProtocol.VERSION:
 		_reject(peer, "protocol version mismatch")
+		return
+	# Spectators get snapshots but no ship (sid -1).
+	if bool(data.get("spec", false)):
+		if _spectator_count() >= 8:
+			_reject(peer, "spectator slots full")
+			return
+		_peers[peer] = -1
+		_t.send(peer,
+			NetProtocol.pack(NetProtocol.MSG_WELCOME, NetProtocol.welcome_of(session, -1)),
+			true, NetProtocol.CH_CONTROL)
 		return
 	# A joining player takes over a bot's ship; no bots left = server full.
 	var bot_ids := session.bots.keys()
@@ -194,6 +223,8 @@ func _drop_peer(peer) -> void:
 	var sid: int = _peers[peer]
 	_peers.erase(peer)
 	_names.erase(peer)
+	if sid < 0:
+		return  # spectator: nothing to hand back
 	_inputs.erase(sid)
 	_acked.erase(sid)
 	# Hand the ship back to a bot (with its own callsign again).

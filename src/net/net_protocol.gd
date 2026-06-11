@@ -12,10 +12,10 @@ extends RefCounted
 ## locally from the seed + params (ArenaGen is deterministic), then apply
 ## snapshots on top and dead-reckon between them.
 
-const VERSION := 3
+const VERSION := 4
 
 enum {
-	MSG_HELLO = 1,      ## client -> host: {v, name}
+	MSG_HELLO = 1,      ## client -> host: {v, name, spec?}
 	MSG_WELCOME = 2,    ## host -> client: {v, id, seed, prm, mode, dif, gen, ros}
 	MSG_REJECT = 3,     ## host -> client: {why}
 	MSG_INPUT = 4,      ## client -> host: {q, u, t, f, h, m} (q = input sequence)

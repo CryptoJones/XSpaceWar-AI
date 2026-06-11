@@ -48,22 +48,49 @@ func update(dt: float) -> void:
 	_accum += dt * speed
 	while _accum >= world.config.fixed_dt - 1e-9:
 		_accum -= world.config.fixed_dt
-		_advance_frames(world)
-		for sid in _inputs:
-			var s := world.ship_by_id(int(sid))
-			if s == null or not s.alive:
-				continue
-			var rec: Array = _inputs[sid]
-			s.in_turn = float(rec[0])
-			var flags := int(rec[1])
-			s.in_thrust = (flags & Replay.FLAG_THRUST) != 0
-			s.in_fire = (flags & Replay.FLAG_FIRE) != 0
-			s.in_hyper = (flags & Replay.FLAG_HYPER) != 0
-			s.in_mine = (flags & Replay.FLAG_MINE) != 0
-		world.step()
-		if world.tick > replay.final_tick:
-			finished = true
+		_step_once(world)
+		if finished:
 			return
+
+## Scrub to an absolute tick. Backward seeks rebuild the world and re-simulate
+## from zero — determinism makes the result exact, and the sim is cheap enough
+## that even a long rewind lands in well under a second.
+func seek(target_tick: int) -> void:
+	if session.world == null or replay == null:
+		return
+	target_tick = clampi(target_tick, 0, replay.final_tick)
+	if target_tick < session.world.tick:
+		_inputs.clear()
+		_cursor = 0
+		_accum = 0.0
+		finished = false
+		session.ship_names.clear()
+		load_replay(replay)
+	var world := session.world
+	while world.tick < target_tick and not finished:
+		_step_once(world)
+	world.events.clear()  # don't fire a backlog of fx after the jump
+
+func seek_relative(dticks: int) -> void:
+	if session.world != null:
+		seek(session.world.tick + dticks)
+
+func _step_once(world: SimWorld) -> void:
+	_advance_frames(world)
+	for sid in _inputs:
+		var s := world.ship_by_id(int(sid))
+		if s == null or not s.alive:
+			continue
+		var rec: Array = _inputs[sid]
+		s.in_turn = float(rec[0])
+		var flags := int(rec[1])
+		s.in_thrust = (flags & Replay.FLAG_THRUST) != 0
+		s.in_fire = (flags & Replay.FLAG_FIRE) != 0
+		s.in_hyper = (flags & Replay.FLAG_HYPER) != 0
+		s.in_mine = (flags & Replay.FLAG_MINE) != 0
+	world.step()
+	if world.tick > replay.final_tick:
+		finished = true
 
 func _advance_frames(world: SimWorld) -> void:
 	while _cursor < replay.frames.size() and int(replay.frames[_cursor][0]) <= world.tick:
