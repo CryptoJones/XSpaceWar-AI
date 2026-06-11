@@ -1,5 +1,12 @@
 # XSpaceWar-AI
 
+[![CI](https://github.com/CryptoJones/XSpaceWar-AI/actions/workflows/ci.yml/badge.svg)](https://github.com/CryptoJones/XSpaceWar-AI/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/CryptoJones/XSpaceWar-AI?label=release&color=00b4d8)](https://github.com/CryptoJones/XSpaceWar-AI/releases/latest)
+[![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
+[![Godot 4.6](https://img.shields.io/badge/Godot-4.6-478cbf?logo=godotengine&logoColor=white)](https://godotengine.org)
+[![Platforms](https://img.shields.io/badge/platforms-linux%20%C2%B7%20windows%20%C2%B7%20macos-555)](https://github.com/CryptoJones/XSpaceWar-AI/releases/latest)
+[![Mirror: Codeberg](https://img.shields.io/badge/mirror-Codeberg-2185D0?logo=codeberg)](https://codeberg.org/CryptoJones/XSpaceWar-AI)
+
 A modern, AAA-styled networked **space-fighter** with a strong AI focus — a
 2026 reimagining of the classic networked *Spacewar!* / `xspacewar`. Bird's-eye
 view like the original, but with
