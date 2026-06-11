@@ -233,7 +233,8 @@ func _build_menu() -> void:
 	outer.add_child(title)
 
 	var subtitle := Label.new()
-	subtitle.text = "a networked space-fighter, est. 1962"
+	subtitle.text = "a networked space-fighter, est. 1962  ·  v%s" \
+		% str(ProjectSettings.get_setting("application/config/version", "?"))
 	subtitle.add_theme_font_size_override("font_size", 14)
 	subtitle.add_theme_color_override("font_color", Color(0.6, 0.7, 0.85, 0.7))
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

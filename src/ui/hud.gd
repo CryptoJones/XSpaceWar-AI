@@ -8,7 +8,6 @@ var session: GameSession
 
 var _banner: Label
 var _score: Label
-var _hint: Label
 var _bars: Control
 var _feed_label: Label
 var _radar: Control
@@ -41,21 +40,13 @@ func _ready() -> void:
 	_score.position = Vector2(-16, 14)
 	add_child(_score)
 
-	_hint = _make_label(15, Color(0.7, 0.78, 0.9, 0.55))
-	_hint.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	_hint.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	_hint.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	_hint.position = Vector2(-16, -14)
-	_hint.text = "A/D turn   W thrust   SPACE fire   S mine   SHIFT hyperspace   M map   ESC menu\nPad: stick turn   A/RT thrust   X/RB fire   B/LT mine   Y/LB hyper   START menu"
-	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	add_child(_hint)
-
-	# Bars sit above the minimap in the bottom-left stack.
+	# The three gauges (fuel / ammo / mines) sit top-center under the banner.
+	# (No key-binding hint text — the menu's KEYS panel and the splash own that.)
 	_bars = Control.new()
-	_bars.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	_bars.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	_bars.position = Vector2(16, -RADAR_SIZE - 32 - 74)
-	_bars.size = Vector2(300, 74)
+	_bars.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_bars.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_bars.position = Vector2(-155, 52)
+	_bars.size = Vector2(310, 74)
 	_bars.draw.connect(_draw_bars)
 	add_child(_bars)
 
@@ -136,7 +127,6 @@ func _process(dt: float) -> void:
 	_arrows.queue_redraw()
 	var human := session.human_ship()
 	_bars.visible = human != null
-	_hint.visible = human != null
 	if human != null:
 		_bars.queue_redraw()
 	# Big center countdown while you're dead (skirmish only).
