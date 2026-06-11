@@ -75,16 +75,16 @@ void fragment() {
 	float neb = pow(clamp(n1 * 1.35 - 0.32, 0.0, 1.0), 1.7) * smoothstep(0.25, 0.75, patch);
 	float wisps = pow(clamp(n2 * 1.25 - 0.42, 0.0, 1.0), 2.1) * smoothstep(0.2, 0.7, patch);
 
-	// Space is BLACK: a near-black base, faint nebula, dim distant stars.
-	vec3 col = vec3(0.004, 0.005, 0.012);
+	// The deepest layer is PURE BLACK — empty space. Everything visible
+	// sits in front of it: faint nebula wisps, then two near star layers.
+	vec3 col = vec3(0.0);
 	col += tint_a * neb * 0.32;
 	col += tint_b * wisps * 0.26;
-	col += vec3(0.02, 0.025, 0.05) * fbm(p * 0.6) * 0.2;
 
-	// Three parallax star layers (near = faster drift, smaller + dimmer far).
+	// Two parallax star layers (small, dim; the slow far layer of big soft
+	// dots is gone — it read as floating rocks, not stars).
 	float st = star_layer(uv + cam * 0.000115, 70.0, 0.5, t)
-		+ star_layer(uv * 1.9 + cam * 0.00008 + 7.0, 130.0, 0.28, t)
-		+ star_layer(uv * 0.7 + cam * 0.000045 - 3.0, 38.0, 0.8, t);
+		+ star_layer(uv * 1.9 + cam * 0.00008 + 7.0, 130.0, 0.28, t);
 	col += vec3(0.85, 0.92, 1.0) * st;
 
 	COLOR = vec4(col, 1.0);
