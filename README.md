@@ -30,17 +30,36 @@ full attribution. Huge thanks to **Ron Frederick**
 [timeheart.net/spacewar](https://www.timeheart.net/spacewar)) whose 1992
 networked Spacewar is this game's direct ancestor.
 
-## Features (target)
+## Features
 
 - Top-down arena dogfights around a gravity well, up to **12 ships**.
 - Modern **Newtonian** flight — conserved momentum, inverse-square gravity on
   ships *and* torpedoes, gravity-assist slingshots, hyperspace.
-- **Procedurally generated** stars, planets, moons, asteroid fields, nebulae,
-  ships, and VFX — every match a new seeded arena.
-- **Game modes:** Free-for-all, Team battle, and AI bots (Rookie → Insane).
-- **Multiplayer:** peer-host with automatic **LAN discovery**, **direct IP**,
-  and platform-agnostic **internet** play via an optional relay/master server.
-  (Steam relay used opportunistically when present, never required.)
+- **Procedurally generated everything** — stars, planets, moons, asteroid
+  fields, nebulae, ships, VFX, *and audio* (every sound is synthesized from
+  math at load) — every match a new seeded arena.
+- **Game modes:** Free-for-all, Team battle, AI bots (Rookie → Insane), and
+  **Movie Mode** — an all-AI spectator attract that regenerates a fresh
+  arena, roster, and teams every 30 minutes.
+- **Multiplayer (working today):** host-authoritative netcode with
+  client-side prediction + reconciliation, automatic **LAN discovery**,
+  **direct IP**, and platform-agnostic **internet play** via this repo's own
+  relay/master server — room codes, an online server browser, and no port
+  forwarding or platform services required.
+
+## Multiplayer quick start
+
+- **LAN:** one player clicks *HOST — LAN skirmish*; everyone else sees the
+  game in the menu's server list (or uses *JOIN IP*).
+- **Internet:** run the relay on any mutually reachable box (a $5 VPS works):
+
+  ```bash
+  godot --headless --path . --script res://server/relay_main.gd -- --port 24645
+  ```
+
+  Players put `that-box:24645` in the relay field (or set `XSW_RELAY`), the
+  host clicks *HOST ONLINE* and shares the 4-letter room code, friends use
+  *JOIN CODE* or *BROWSE*.
 
 ## Project layout
 

@@ -147,12 +147,28 @@ networked *Spacewar!* / `xspacewar`. Godot 4.6, Apache 2.0. Plan file:
   carries traffic — costs relay bandwidth, zero-config for players);
   PlatformServices (steam/null) stub.
 
+## DONE (M7 — release engineering, 2026-06-11)
+- `export_presets.cfg` — Linux x86_64 / Windows x86_64 / macOS universal
+  (embedded pck, unsigned mac with codesign+notarization off, Windows
+  modify_resources off so no rcedit needed). Verified presets parse locally
+  (only missing-templates error, expected — no templates on this box).
+- `.github/workflows/ci.yml` — on push/PR: installs Godot 4.6.3, runs all 5
+  headless suites; then matrix-exports all 3 platforms (fail-fast off) and
+  uploads artifacts; on `v*` tags additionally creates a GitHub Release with
+  per-platform zips. **First run pending verification on GitHub.**
+- `build/export_all.sh` — local export helper (needs templates installed).
+- `.gitignore`: un-ignored export_presets.cfg (no secrets in it; CI needs it),
+  added build/out/. `project.godot`: config/version=0.4.0.
+- README refreshed: features now describe the working game (multiplayer,
+  prediction, procedural audio, Movie Mode) + a multiplayer quick start
+  (LAN + relay deploy instructions).
+
 ## NEXT
+- Verify the first CI run (gh run list); fix template URL / preset option
+  drift if the matrix export fails.
 - M5 lobby: pre-match lobby screen (roster, arena params, difficulty, ready-up).
 - Settings: audio volume sliders + key rebinding (project has none yet).
-- M7 release: export presets + CI builds (Win/Linux/mac) under `build/`.
-- Deploy a relay for real play: any box with godot + this repo,
-  open UDP 24645, set XSW_RELAY on clients.
+- Tag v0.4.0 once CI is green to cut the first downloadable release.
 - M4 online: `server/` master/relay (hole-punch + relay), server browser, `PlatformServices`
   (steam/null) so non-Steam builds compile without GodotSteam.
 - M5 wire procedural map params + difficulty into a real lobby; M6 polish/audio (procedural);

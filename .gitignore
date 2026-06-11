@@ -2,11 +2,13 @@
 .godot/
 .import/
 export.cfg
-export_presets.cfg
 *.translation
+# export_presets.cfg is committed deliberately: it holds no signing
+# credentials and CI exports depend on it.
 
 # Exported builds
 build/dist/
+build/out/
 *.exe
 *.pck
 *.dmg

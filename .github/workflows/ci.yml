@@ -1,0 +1,107 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+
+env:
+  GODOT_VERSION: "4.6.3"
+
+jobs:
+  test:
+    name: Headless test suites
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Godot
+        run: |
+          curl -sSL -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip
+          sudo mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" /usr/local/bin/godot
+
+      - name: Import project
+        run: godot --headless --path . --import || true
+
+      - name: Sim tests
+        run: godot --headless --path . --script res://tests/run_tests.gd
+      - name: Net tests
+        run: godot --headless --path . --script res://tests/net_tests.gd
+      - name: Relay tests
+        run: godot --headless --path . --script res://tests/relay_tests.gd
+      - name: Audio tests
+        run: godot --headless --path . --script res://tests/audio_tests.gd
+      - name: Scene smoke test
+        run: godot --headless --path . --script res://tests/scene_smoke.gd
+
+  build:
+    name: Export ${{ matrix.preset }}
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - preset: Linux
+            out_dir: build/out/linux
+            artifact: xspacewar-ai-linux-x86_64
+          - preset: Windows
+            out_dir: build/out/windows
+            artifact: xspacewar-ai-windows-x86_64
+          - preset: macOS
+            out_dir: build/out/macos
+            artifact: xspacewar-ai-macos-universal
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Godot
+        run: |
+          curl -sSL -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip
+          sudo mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" /usr/local/bin/godot
+
+      - name: Install export templates
+        run: |
+          curl -sSL -o templates.tpz "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          mkdir -p "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
+          unzip -q templates.tpz -d /tmp/templates
+          mv /tmp/templates/templates/* "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable/"
+
+      - name: Import project
+        run: godot --headless --path . --import || true
+
+      - name: Export ${{ matrix.preset }}
+        run: |
+          mkdir -p "${{ matrix.out_dir }}"
+          godot --headless --path . --export-release "${{ matrix.preset }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.out_dir }}
+          if-no-files-found: error
+
+  release:
+    name: Tagged release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Zip per platform
+        run: |
+          cd dist
+          for d in */; do (cd "$d" && zip -r "../${d%/}.zip" .); done
+          ls -la *.zip
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.zip
+          generate_release_notes: true
