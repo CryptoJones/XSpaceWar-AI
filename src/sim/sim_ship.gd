@@ -34,6 +34,11 @@ var score: int = 0
 var kills: int = 0
 var deaths: int = 0
 
+# --- Render-only (never read or written by the simulation) ---
+## Net-client snapshot-correction smoothing: the renderer draws the ship at
+## pos + render_pos_offset while the offset decays to zero.
+var render_pos_offset: Vector2 = Vector2.ZERO
+
 # --- Control inputs (applied next step) ---
 var in_turn: float = 0.0                ## -1 (CCW) .. +1 (CW)
 var in_thrust: bool = false

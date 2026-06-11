@@ -95,6 +95,13 @@ func update(dt: float, local_input: Dictionary) -> void:
 
 	_extrapolate(world, dt, own)
 
+	# Smoothing offsets glide out over ~100ms.
+	var decay := exp(-10.0 * dt)
+	for s in world.ships:
+		s.render_pos_offset *= decay
+		if s.render_pos_offset.length_squared() < 0.25:
+			s.render_pos_offset = Vector2.ZERO
+
 ## Dead-reckon between snapshots: orbiting bodies advance kinematically and
 ## ships/torpedoes coast under gravity. The next snapshot corrects any drift.
 ## `skip` is the locally-predicted ship (already integrated this tick).
@@ -110,6 +117,24 @@ func _extrapolate(world: SimWorld, dt: float, skip: SimShip) -> void:
 		if world.config.torpedo_gravity:
 			t.vel += world.gravity_accel(t.pos) * dt
 		t.pos += t.vel * dt
+
+## Convert each ship's snapshot correction into a decaying render offset so
+## the drawn position glides to the authoritative one instead of snapping.
+## Wrap-aware: a correction across the toroidal seam takes the short path.
+func _absorb_corrections(old_vis: Dictionary) -> void:
+	var world := session.world
+	var size := world.config.arena_size
+	for s in world.ships:
+		if not s.alive or not old_vis.has(s.id):
+			s.render_pos_offset = Vector2.ZERO
+			continue
+		var off: Vector2 = (old_vis[s.id] as Vector2) - s.pos
+		if world.config.wrap_edges:
+			if absf(off.x) > size * 0.5:
+				off.x -= signf(off.x) * size
+			if absf(off.y) > size * 0.5:
+				off.y -= signf(off.y) * size
+		s.render_pos_offset = off.limit_length(90.0)
 
 ## Adopt the snapshot's authoritative own-ship state, drop acked inputs, and
 ## replay the unacked tail so local control stays ahead of the wire.
@@ -156,10 +181,15 @@ func _on_packet(bytes: PackedByteArray) -> void:
 			_fail(String(data.get("why", "rejected")))
 		NetProtocol.MSG_SNAPSHOT:
 			if session.world != null:
+				var old_vis := {}
+				for s in session.world.ships:
+					if s.alive:
+						old_vis[s.id] = s.pos + s.render_pos_offset
 				var fx := NetProtocol.apply_snapshot(session.world, data)
 				_pending_events.append_array(fx["e"])
 				_last_thrusting = fx["th"]
 				_reconcile(fx["a"])
+				_absorb_corrections(old_vis)
 
 func _on_welcome(data: Dictionary) -> void:
 	var cfg := SimConfig.from_seed(int(data["seed"]))

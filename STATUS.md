@@ -105,12 +105,30 @@ networked *Spacewar!* / `xspacewar`. Godot 4.6, Apache 2.0. Plan file:
   (lead-invariant: distance to host_pos + host_vel*k*dt minimized over k,
   wrap-aware) — stable across repeated runs. 14 sim + smoke still green.
 
+## DONE (net visual polish + M6 procedural audio, 2026-06-11)
+- Snapshot-correction smoothing: `SimShip.render_pos_offset` (render-only
+  field) absorbs each snapshot's correction and decays ~100ms (wrap-aware
+  short path, clamped 90u); renderer draws at pos+offset. NetClient sets it
+  in `_absorb_corrections` after apply+reconcile.
+- Toroidal wrap rendering: ships/torpedoes near an arena seam draw ghosts on
+  the far side(s) (`WorldView._ghost_offsets`); camera following a ship jumps
+  with it across wraps/hyperspace instead of lerping across the map.
+- **M6 audio, 100% synthesized** (`src/render/sound_forge.gd` — PCM rendered
+  at load from math+seeded noise, no assets): fire pew (sweep+spit),
+  explosion (lowpass-swept noise+sub thump, soft-clipped), hyperspace riser,
+  seam-crossfaded thrust loop. `src/render/audio_director.gd`: pooled
+  positional one-shots from sim events + per-ship held thrust loops; wired
+  into WorldView's event loop; reset on regeneration.
+- `tests/audio_tests.gd` — **8 checks pass** (PCM sanity, determinism, loop
+  points, peak range). All suites green: 14 sim + 21 net + 8 audio + smoke.
+  (Smoke exits with one orphan "Master" StringName from the dummy audio
+  driver — engine-internal, zero leaked objects.)
+
 ## NEXT
-- Visual polish for net play: smooth snapshot corrections for remote ships
-  (currently snap; fine at 20Hz LAN) + wrap-seam ghost rendering.
 - M4 online: `server/` master/relay (hole-punch + relay), server browser,
   PlatformServices (steam/null).
-- M6 procedural audio (engine hum, fire, explosions — all synthesized).
+- M5 lobby: wire arena params + difficulty into a pre-match lobby screen.
+- Settings: audio volume sliders + key rebinding (project has none yet).
 - M4 online: `server/` master/relay (hole-punch + relay), server browser, `PlatformServices`
   (steam/null) so non-Steam builds compile without GodotSteam.
 - M5 wire procedural map params + difficulty into a real lobby; M6 polish/audio (procedural);

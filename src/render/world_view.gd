@@ -29,10 +29,13 @@ var external_driver: Callable = Callable()
 
 var _camera: Camera2D
 var _bg_mat: ShaderMaterial
+var _audio: AudioDirector
 var _thrusting := {}                ## ship_id -> true (fired thrust this step)
 var _asteroid_polys := {}           ## body_id -> PackedVector2Array
 var _seen_generation := -1
 var _cam_zoom := 0.6
+var _follow_id := -1                ## camera wrap-follow tracking
+var _follow_pos := Vector2.ZERO
 
 func _ready() -> void:
 	# Parallax nebula backdrop: screen-fixed full-rect shader, below the world.
@@ -61,6 +64,9 @@ func _ready() -> void:
 	add_child(_camera)
 	_camera.make_current()
 
+	_audio = AudioDirector.new()
+	add_child(_audio)
+
 func _physics_process(dt: float) -> void:
 	if session == null:
 		return
@@ -76,6 +82,7 @@ func _physics_process(dt: float) -> void:
 		_on_new_generation()
 
 	for ev in session.world.events:
+		_audio.play_event(ev)
 		match ev.get("type", ""):
 			"thrust":
 				_thrusting[ev["ship"]] = true
@@ -83,6 +90,7 @@ func _physics_process(dt: float) -> void:
 				_spawn_burst(ev["pos"], Color(2.4, 1.5, 0.5), 56, 420.0)
 			"hyperspace":
 				_spawn_burst(ev["pos"], Color(0.7, 1.2, 2.4), 28, 240.0)
+	_audio.update(dt, session.world)
 
 	_update_camera(dt)
 	if _bg_mat != null:
@@ -93,6 +101,9 @@ func _on_new_generation() -> void:
 	_seen_generation = session.generation
 	_asteroid_polys.clear()
 	_thrusting.clear()
+	_follow_id = -1
+	if _audio != null:
+		_audio.reset()
 	# Re-seed the nebula and tint it per-arena so every match looks distinct.
 	var s := session.world.config.seed
 	_bg_mat.set_shader_parameter("seed", float(absi(s) % 100000) * 0.001)
@@ -138,7 +149,18 @@ func _update_camera(dt: float) -> void:
 	var human := session.human_ship()
 
 	if human != null:
-		target_pos = human.pos
+		# When the followed ship wraps the toroidal edge (or hyperspaces), jump
+		# the camera by the same leap instead of lerping across the whole map.
+		if _follow_id == human.id:
+			var jump := human.pos - _follow_pos
+			var half := session.world.config.arena_size * 0.5
+			if absf(jump.x) > half:
+				_camera.position.x += signf(jump.x) * session.world.config.arena_size
+			if absf(jump.y) > half:
+				_camera.position.y += signf(jump.y) * session.world.config.arena_size
+		_follow_id = human.id
+		_follow_pos = human.pos
+		target_pos = human.pos + human.render_pos_offset
 		target_zoom = 0.9
 	else:
 		# Movie Mode: frame the bounding box of alive ships (fit zoom).
@@ -183,11 +205,39 @@ func _draw() -> void:
 				_draw_minor(b)
 			SimBody.Kind.ASTEROID:
 				_draw_asteroid(b, world.time)
+	var wrap := world.config.wrap_edges
+	var half := world.config.arena_size * 0.5
 	for t in world.torpedoes:
-		_draw_torpedo(t)
+		for off in _ghost_offsets(t.pos, wrap, half, 80.0):
+			_draw_torpedo(t, off)
 	for s in world.ships:
 		if s.alive:
-			_draw_ship(s, world.time)
+			for off in _ghost_offsets(s.pos + s.render_pos_offset, wrap, half, 240.0):
+				_draw_ship(s, world.time, off)
+
+## Offsets at which to additionally draw an entity so it appears on both sides
+## of a toroidal wrap seam (corners produce three ghosts).
+func _ghost_offsets(p: Vector2, wrap: bool, half: float, margin: float) -> Array[Vector2]:
+	var offs: Array[Vector2] = [Vector2.ZERO]
+	if not wrap:
+		return offs
+	var dx := 0.0
+	if p.x > half - margin:
+		dx = -2.0 * half
+	elif p.x < -half + margin:
+		dx = 2.0 * half
+	var dy := 0.0
+	if p.y > half - margin:
+		dy = -2.0 * half
+	elif p.y < -half + margin:
+		dy = 2.0 * half
+	if dx != 0.0:
+		offs.append(Vector2(dx, 0))
+	if dy != 0.0:
+		offs.append(Vector2(0, dy))
+	if dx != 0.0 and dy != 0.0:
+		offs.append(Vector2(dx, dy))
+	return offs
 
 func _draw_arena_bounds(world: SimWorld) -> void:
 	var half := world.config.arena_size * 0.5
@@ -241,15 +291,16 @@ func _draw_asteroid(b: SimBody, t: float) -> void:
 	draw_colored_polygon(poly, Color(shade, shade * 0.95, shade * 0.88))
 	draw_set_transform(Vector2.ZERO)
 
-func _draw_torpedo(t: SimTorpedo) -> void:
+func _draw_torpedo(t: SimTorpedo, ghost: Vector2 = Vector2.ZERO) -> void:
+	var p := t.pos + ghost
 	var dir := t.vel.normalized() if t.vel.length() > 1.0 else Vector2.RIGHT
-	draw_line(t.pos - dir * 16.0, t.pos, Color(1.6, 1.2, 0.4, 0.35), 2.0)
-	draw_circle(t.pos, t.radius * 0.8, Color(2.6, 2.2, 1.4))
+	draw_line(p - dir * 16.0, p, Color(1.6, 1.2, 0.4, 0.35), 2.0)
+	draw_circle(p, t.radius * 0.8, Color(2.6, 2.2, 1.4))
 
-func _draw_ship(s: SimShip, t: float) -> void:
+func _draw_ship(s: SimShip, t: float, ghost: Vector2 = Vector2.ZERO) -> void:
 	var col := ship_color(s)
 	var k := s.radius / 12.0
-	draw_set_transform(s.pos, s.angle, Vector2(k, k))
+	draw_set_transform(s.pos + s.render_pos_offset + ghost, s.angle, Vector2(k, k))
 
 	# Exhaust flame while thrusting (flickers).
 	if _thrusting.has(s.id):
