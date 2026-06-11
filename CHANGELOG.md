@@ -2,6 +2,29 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [1.2.0] — 2026-06-11
+
+### Added
+- **AI temperament**: every pilot rolls two dials per match — **roam**
+  (1 hugs the star, 100 prowls out to 6× the spawn ring) and
+  **aggression** (1 flees from ships, 100 hunts relentlessly). The fleet
+  now spreads across the playfield hunter-killer style instead of
+  swarming the gravity well. Deterministic per seed.
+- **Match history & career stats** (OPTIONS → MATCH HISTORY…): every
+  finished match recorded with standings; career matches/wins/K/D.
+- **16 distinct FFA ship colors** (no repeats up to a full lobby), with
+  the **scoreboard and kill feed color-coded** to match; your minimap
+  dot is always **dark red**.
+- Minimap shows **armed mines** (blinking red) and **supply pickups**.
+- **Team-sector spawns**: teams spawn and respawn together on their own
+  side of the ring.
+- Movie Mode mixes bot skill per pilot (rookies among aces).
+- Minimap toggle is a rebindable key listed in the bindings UI;
+  KEY BINDINGS button on the menu's main row.
+- Sim performance regression guard (worst-case 16 bots + dense rocks
+  must stay under 4ms/step).
+- README gameplay screenshots.
+
 ## [1.1.0] — 2026-06-11
 
 ### Added
