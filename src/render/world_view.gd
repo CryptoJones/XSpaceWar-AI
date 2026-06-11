@@ -50,15 +50,19 @@ func _ready() -> void:
 	add_child(bg_layer)
 
 	# HDR glow so colors > 1.0 bloom (needs rendering/viewport/hdr_2d=true).
-	var env := Environment.new()
-	env.background_mode = Environment.BG_CANVAS
-	env.glow_enabled = true
-	env.glow_intensity = 0.9
-	env.glow_bloom = 0.05
-	env.glow_blend_mode = Environment.GLOW_BLEND_MODE_ADDITIVE
-	var we := WorldEnvironment.new()
-	we.environment = env
-	add_child(we)
+	# Only on Forward+: on the compatibility/mobile renderers (e.g. launched
+	# with --rendering-method gl_compatibility on boxes without Vulkan) the
+	# game runs fine without bloom, so skip the environment entirely.
+	if RenderingServer.get_current_rendering_method() == "forward_plus":
+		var env := Environment.new()
+		env.background_mode = Environment.BG_CANVAS
+		env.glow_enabled = true
+		env.glow_intensity = 0.9
+		env.glow_bloom = 0.05
+		env.glow_blend_mode = Environment.GLOW_BLEND_MODE_ADDITIVE
+		var we := WorldEnvironment.new()
+		we.environment = env
+		add_child(we)
 
 	_camera = Camera2D.new()
 	add_child(_camera)

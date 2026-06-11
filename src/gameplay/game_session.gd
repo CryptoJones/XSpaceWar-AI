@@ -29,6 +29,18 @@ var human_ship_id: int = -1
 var arena_params: Dictionary = {}
 ## Optional display names by ship id (multiplayer); missing/empty = bot.
 var ship_names := {}
+## The local player's name, re-applied to the human ship across rebuilds.
+var host_name := ""
+
+# Match flow (skirmish only): first to score_limit wins, the win screen
+# plays out for RESTART_DELAY seconds, then the match restarts on a fresh
+# arena with the same settings.
+const RESTART_DELAY := 8.0
+var score_limit := 10              ## 0 = endless
+var match_over := false
+var winner_ship := -1              ## FFA winner's ship id
+var winner_team := -1              ## TEAM winner, -1 in FFA
+var restart_timer := 0.0
 
 var _rng := RandomNumberGenerator.new()
 var on_regenerate: Callable = Callable()  ## optional hook for the renderer
@@ -88,6 +100,13 @@ func _build(seed: int) -> void:
 		else:
 			bots[ship.id] = BotController.new(world, ship.id, difficulty)
 
+	match_over = false
+	winner_ship = -1
+	winner_team = -1
+	restart_timer = 0.0
+	if host_name != "" and human_ship_id >= 0:
+		ship_names[human_ship_id] = host_name
+
 	generation += 1
 	if on_regenerate.is_valid():
 		on_regenerate.call()
@@ -102,6 +121,15 @@ func regenerate() -> void:
 # --------------------------------------------------------------------------
 
 func update(dt: float) -> void:
+	if match_over:
+		# Victory lap: the sim keeps running (no bot pilots) while the win
+		# banner shows, then the match restarts with the same settings.
+		world.step(dt)
+		restart_timer -= dt
+		if restart_timer <= 0.0:
+			start_skirmish(num_ships, mode, difficulty)
+		return
+
 	for sid in bots:
 		(bots[sid] as BotController).update(dt)
 	world.step(dt)
@@ -110,6 +138,25 @@ func update(dt: float) -> void:
 		regen_timer -= dt
 		if regen_timer <= 0.0:
 			regenerate()
+	elif score_limit > 0:
+		_check_match_over()
+
+func _check_match_over() -> void:
+	if mode == Mode.TEAM:
+		var totals := team_scores()
+		for t in totals:
+			if int(t) >= 0 and int(totals[t]) >= score_limit:
+				match_over = true
+				winner_team = int(t)
+				restart_timer = RESTART_DELAY
+				return
+	else:
+		for s in world.ships:
+			if s.score >= score_limit:
+				match_over = true
+				winner_ship = s.id
+				restart_timer = RESTART_DELAY
+				return
 
 # --------------------------------------------------------------------------
 # Queries (for HUD / scoreboard)

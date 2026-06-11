@@ -108,6 +108,10 @@ unzip Godot_v4.6.3-stable_linux.x86_64.zip && mv Godot_v4.6.3-stable_linux.x86_6
 `Godot_v4.6.3-stable_macos.universal.zip` — same page.)
 
 ```bash
+# One-time after cloning (or pulling big changes): build the import cache.
+# Skipping this can give you a black screen / missing resources on launch.
+godot --headless --path . --import
+
 # Run the game
 godot --path .
 

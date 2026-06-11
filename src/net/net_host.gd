@@ -21,6 +21,7 @@ var server_name := "XSpaceWar"
 var _t = null                 ## duck-typed host transport (direct or relay)
 var _open := false
 var _peers := {}              ## transport peer key -> ship_id
+var _names := {}              ## transport peer key -> player name (survives rebuilds)
 var _inputs := {}             ## ship_id -> latest input payload
 var _acked := {}              ## ship_id -> highest input sequence received
 var _advertiser: LanDiscovery
@@ -29,6 +30,27 @@ var _snap_accum := 0.0
 
 func _init(p_session: GameSession) -> void:
 	session = p_session
+	# When the session rebuilds (match restart), every connected player needs
+	# a ship in the NEW world and a fresh WELCOME describing it.
+	session.on_regenerate = _on_session_rebuilt
+
+func _on_session_rebuilt() -> void:
+	if not _open or _peers.is_empty():
+		return
+	_inputs.clear()
+	_acked.clear()
+	for peer in _peers:
+		var bot_ids := session.bots.keys()
+		if bot_ids.is_empty():
+			_reject(peer, "no ship available after restart")
+			continue
+		var sid: int = bot_ids[0]
+		session.bots.erase(sid)
+		_peers[peer] = sid
+		session.ship_names[sid] = String(_names.get(peer, "PILOT-%d" % sid))
+		_t.send(peer,
+			NetProtocol.pack(NetProtocol.MSG_WELCOME, NetProtocol.welcome_of(session, sid)),
+			true, NetProtocol.CH_CONTROL)
 
 func open(p_port := DEFAULT_PORT, advertise := true, p_server_name := "XSpaceWar",
 		bind_address := "*") -> Error:
@@ -105,8 +127,9 @@ func _broadcast_snapshot() -> void:
 	for ev in session.world.events:
 		if String(ev.get("type", "")) == "thrust":
 			thrust_ids.append(ev["ship"])
-	var bytes := NetProtocol.pack(NetProtocol.MSG_SNAPSHOT,
-		NetProtocol.snapshot_of(session.world, thrust_ids, _event_accum, _acked))
+	var snap := NetProtocol.snapshot_of(session.world, thrust_ids, _event_accum, _acked)
+	snap["mo"] = NetProtocol.match_state_of(session)
+	var bytes := NetProtocol.pack(NetProtocol.MSG_SNAPSHOT, snap)
 	_event_accum = []
 	for peer in _peers:
 		_t.send(peer, bytes, false, NetProtocol.CH_STATE)
@@ -152,7 +175,10 @@ func _on_hello(peer, data: Dictionary) -> void:
 	session.bots.erase(sid)
 	_peers[peer] = sid
 	var pname := String(data.get("name", "")).strip_edges().left(16)
-	session.ship_names[sid] = pname if pname != "" else "PILOT-%d" % sid
+	if pname == "":
+		pname = "PILOT-%d" % sid
+	_names[peer] = pname
+	session.ship_names[sid] = pname
 	_t.send(peer,
 		NetProtocol.pack(NetProtocol.MSG_WELCOME, NetProtocol.welcome_of(session, sid)),
 		true, NetProtocol.CH_CONTROL)
@@ -167,6 +193,7 @@ func _drop_peer(peer) -> void:
 		return
 	var sid: int = _peers[peer]
 	_peers.erase(peer)
+	_names.erase(peer)
 	_inputs.erase(sid)
 	_acked.erase(sid)
 	session.ship_names.erase(sid)

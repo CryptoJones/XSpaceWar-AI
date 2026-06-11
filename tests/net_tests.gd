@@ -131,6 +131,29 @@ func _test_host_join_sync() -> void:
 	_check("net: client fire input produced torpedoes on the host", saw_client_torpedo_on_host)
 	_check("net: torpedoes replicate down to the client", saw_torpedo_on_client)
 
+	# Match restart: the host rebuilds and re-welcomes the client into the
+	# NEW arena (fresh ship ids, names preserved).
+	var gen_before := client.session.generation
+	hsession.score_limit = 1
+	hw.ship_by_id(hsession.human_ship_id).score = 1
+	var restarted := false
+	for i in range(1500):
+		host.update(DT, {})
+		client.update(DT, {})
+		if client.session.generation > gen_before \
+				and client.state == NetClient.State.READY \
+				and client.session.world != null \
+				and client.session.world.ships.size() == hsession.world.ships.size():
+			restarted = true
+			break
+		OS.delay_msec(1)
+	_check("net: match restart re-welcomes the client into the new arena", restarted,
+		"gen %d -> %d" % [gen_before, client.session.generation])
+	_check("net: joiner name survives the restart",
+		String(hsession.ship_names.get(client.session.human_ship_id, "")) == "JOINER")
+	hsession.score_limit = 0
+	sid = client.session.human_ship_id  # fresh ship id in the new arena
+
 	# Disconnect: the host should hand the ship back to a bot.
 	client.close()
 	for i in range(2000):

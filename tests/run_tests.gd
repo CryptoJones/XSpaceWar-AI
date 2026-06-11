@@ -18,6 +18,7 @@ func _initialize() -> void:
 	_test_fire_and_kill()
 	_test_hyperspace_relocates()
 	_test_ai_combat()
+	_test_match_flow()
 	print("=== %d passed, %d failed ===" % [_passed, _failed])
 	quit(1 if _failed > 0 else 0)
 
@@ -191,3 +192,29 @@ func _test_ai_combat() -> void:
 		"kills a=%d b=%d" % [a.kills, b.kills])
 	_check("ai: bots are not wiped out permanently (respawn works)",
 		a.alive or b.alive or a.respawn_timer > 0.0 or b.respawn_timer > 0.0)
+
+func _test_match_flow() -> void:
+	var s := GameSession.new()
+	s.score_limit = 3
+	s.start_skirmish(2, GameSession.Mode.FFA, BotController.Difficulty.ROOKIE)
+	var gen0 := s.generation
+	var human := s.human_ship()
+	human.score = 3
+	s.update(1.0 / 60.0)
+	_check("match: reaching the score limit ends the match",
+		s.match_over and s.winner_ship == human.id)
+	for _i in range(520):  # ride out the 8s win screen
+		s.update(1.0 / 60.0)
+	_check("match: restarts with a fresh arena after the win screen",
+		not s.match_over and s.generation == gen0 + 1)
+	_check("match: scores reset on restart",
+		s.human_ship() != null and s.human_ship().score == 0)
+
+	var t := GameSession.new()
+	t.score_limit = 2
+	t.start_skirmish(4, GameSession.Mode.TEAM, BotController.Difficulty.ROOKIE)
+	t.world.ships[0].score = 1
+	t.world.ships[2].score = 1  # ships 0 and 2 share team 0 (i % 2)
+	t.update(1.0 / 60.0)
+	_check("match: team totals trigger a team win",
+		t.match_over and t.winner_team == 0)

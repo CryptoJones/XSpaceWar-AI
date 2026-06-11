@@ -64,6 +64,18 @@ func _process(_dt: float) -> void:
 		_bars.queue_redraw()
 
 func _update_banner() -> void:
+	if session.match_over:
+		var who := ""
+		if session.winner_team >= 0:
+			who = "TEAM %d" % (session.winner_team + 1)
+		elif session.winner_ship == session.human_ship_id:
+			who = "YOU"
+		else:
+			who = String(session.ship_names.get(session.winner_ship,
+				"BOT-%d" % session.winner_ship))
+		_banner.text = "★ %s WIN%s ★ — next round in %d" \
+			% [who, "" if who == "YOU" else "S", maxi(0, ceili(session.restart_timer))]
+		return
 	if session.movie_mode:
 		var t := maxf(0.0, session.regen_timer)
 		_banner.text = "MOVIE MODE — arena %d — next regeneration in %02d:%02d" \

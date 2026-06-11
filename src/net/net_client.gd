@@ -190,8 +190,17 @@ func _on_packet(bytes: PackedByteArray) -> void:
 				_last_thrusting = fx["th"]
 				_reconcile(fx["a"])
 				_absorb_corrections(old_vis)
+				NetProtocol.apply_match_state(session, data.get("mo", []))
 
 func _on_welcome(data: Dictionary) -> void:
+	# Also arrives mid-connection on match restarts: rebuild from scratch.
+	_pending_inputs.clear()
+	_pending_events.clear()
+	_last_thrusting = []
+	session.ship_names.clear()
+	session.match_over = false
+	session.winner_ship = -1
+	session.winner_team = -1
 	var cfg := SimConfig.from_seed(int(data["seed"]))
 	var world := SimWorld.new(cfg)
 	ArenaGen.populate(world, data.get("prm", {}))

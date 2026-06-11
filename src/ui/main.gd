@@ -14,6 +14,7 @@ var _menu: CanvasLayer
 var _mode_btn: OptionButton
 var _diff_btn: OptionButton
 var _ships_spin: SpinBox
+var _limit_spin: SpinBox
 var _ip_edit: LineEdit
 var _server_list: ItemList
 var _net_status: Label
@@ -129,6 +130,13 @@ func _build_menu() -> void:
 	_ships_spin.max_value = 12
 	_ships_spin.value = 8
 	box.add_child(_labelled("Ships", _ships_spin))
+
+	_limit_spin = SpinBox.new()
+	_limit_spin.min_value = 0
+	_limit_spin.max_value = 50
+	_limit_spin.value = 10
+	_limit_spin.tooltip_text = "First to this score wins (0 = endless)"
+	box.add_child(_labelled("Score limit", _limit_spin))
 
 	var play := Button.new()
 	play.text = "PLAY — Skirmish vs AI"
@@ -246,6 +254,8 @@ func set_menu_visible(v: bool) -> void:
 func _on_play_pressed() -> void:
 	_teardown_net()
 	var mode := GameSession.Mode.TEAM if _mode_btn.selected == 1 else GameSession.Mode.FFA
+	session.score_limit = int(_limit_spin.value)
+	session.host_name = _player_name
 	session.start_skirmish(int(_ships_spin.value), mode, _diff_btn.selected)
 	set_menu_visible(false)
 
@@ -270,8 +280,9 @@ func _unhandled_input(event: InputEvent) -> void:
 func _on_host_pressed() -> void:
 	_teardown_net()
 	var mode := GameSession.Mode.TEAM if _mode_btn.selected == 1 else GameSession.Mode.FFA
+	session.score_limit = int(_limit_spin.value)
+	session.host_name = _player_name
 	session.start_skirmish(int(_ships_spin.value), mode, _diff_btn.selected)
-	session.ship_names[session.human_ship_id] = _player_name
 	net_host = NetHost.new(session)
 	var err := net_host.open(NetHost.DEFAULT_PORT, true, "%s's arena" % _player_name)
 	if err != OK:
@@ -374,8 +385,9 @@ func _on_host_online_pressed() -> void:
 		return
 	_teardown_net()
 	var mode := GameSession.Mode.TEAM if _mode_btn.selected == 1 else GameSession.Mode.FFA
+	session.score_limit = int(_limit_spin.value)
+	session.host_name = _player_name
 	session.start_skirmish(int(_ships_spin.value), mode, _diff_btn.selected)
-	session.ship_names[session.human_ship_id] = _player_name
 	net_host = NetHost.new(session)
 	var err: Error = net_host.open_relay(String(addr["ip"]), int(addr["port"]),
 		"%s's arena" % _player_name)
