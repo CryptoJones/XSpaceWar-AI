@@ -79,3 +79,5 @@ in Dickinson, Texas. HTMFPWOCBNOTDOD
 ## License
 
 Apache License 2.0 — see [`LICENSE`](LICENSE) and [`NOTICE`](NOTICE).
+
+Proudly Made in Nebraska. Go Big Red! 🌽 https://xkcd.com/2347/
