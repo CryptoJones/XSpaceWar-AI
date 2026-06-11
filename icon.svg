@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <defs>
+    <radialGradient id="star" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#fff7e6"/>
+      <stop offset="40%" stop-color="#ffcf6b"/>
+      <stop offset="100%" stop-color="#ff6a00" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="128" height="128" fill="#05060d"/>
+  <circle cx="64" cy="64" r="34" fill="url(#star)"/>
+  <circle cx="64" cy="64" r="9" fill="#fff3cf"/>
+  <!-- needle ship -->
+  <polygon points="100,30 112,40 100,50 103,40" fill="#7fd4ff"/>
+  <!-- wedge ship -->
+  <polygon points="22,92 38,86 38,98" fill="#ff8a8a"/>
+  <!-- orbit hint -->
+  <circle cx="64" cy="64" r="50" fill="none" stroke="#2a3550" stroke-width="1" stroke-dasharray="3 5"/>
+</svg>

@@ -1,0 +1,45 @@
+XSpaceWar-AI
+Copyright 2026 The XSpaceWar-AI Authors
+
+This product is licensed under the Apache License, Version 2.0 (the
+"License"); you may not use this product except in compliance with the
+License. A copy of the License is provided in the LICENSE file and at
+http://www.apache.org/licenses/LICENSE-2.0
+
+--------------------------------------------------------------------------
+Heritage and Attribution
+--------------------------------------------------------------------------
+
+XSpaceWar-AI is a modern, original reimagining inspired by the classic
+networked space-fighter lineage:
+
+  * Spacewar!  - Originally created in 1962 at MIT for the DEC PDP-1 by
+    Steve Russell, Martin Graetz, Wayne Wiitanen, and collaborators of the
+    "Hingham Institute." Spacewar! has been released by its authors under
+    the MIT License.
+
+  * Spacewar! PDP-11 port - Ported to the DEC PDP-11 architecture by
+    Bill Seiler and Larry Bryant (1974). This PDP-11 networked-fighter
+    heritage is the spirit this project carries forward.
+
+  * xspacewar (version 1.2) - An X11 networked version written in C by
+    Ron Frederick in 1992, one of the early examples of a serverless
+    networked multiplayer game (peers shared state directly via IP unicast
+    and IP multicast, each client simulating independently with latency
+    self-correcting over time). Ron Frederick is credited as the author of
+    this direct ancestor. See:
+        https://github.com/ronf
+        https://github.com/ronf/webrtc-spacewar   (MIT License)
+        https://www.timeheart.net/spacewar
+
+XSpaceWar-AI is an independent, clean-room implementation. No source code
+from the original xspacewar 1.2 distribution is included or copied; the
+original C source could not be recovered from any public archive, and the
+game's mechanics were reimplemented from their publicly documented history.
+Where Ron Frederick's MIT-licensed webrtc-spacewar was consulted as a
+reference, our gratitude and attribution are recorded here in accordance
+with the MIT License.
+
+Original game concepts, names, and any contributions remain credited to
+their respective authors. Nothing in this NOTICE grants rights to any
+third-party trademarks.
