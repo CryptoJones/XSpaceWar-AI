@@ -24,6 +24,12 @@ var generation: int = 0                   ## increments each regeneration
 # Skirmish: id of the human-controlled ship, or -1 in Movie Mode.
 var human_ship_id: int = -1
 
+## The full merged dict ArenaGen actually used — sent to joining clients so
+## they rebuild the byte-identical arena from the seed.
+var arena_params: Dictionary = {}
+## Optional display names by ship id (multiplayer); missing/empty = bot.
+var ship_names := {}
+
 var _rng := RandomNumberGenerator.new()
 var on_regenerate: Callable = Callable()  ## optional hook for the renderer
 
@@ -60,9 +66,10 @@ func _build(seed: int) -> void:
 	var cfg := SimConfig.from_seed(seed)
 	world = SimWorld.new(cfg)
 	bots.clear()
+	ship_names.clear()
 
 	# Procedural arena — vary the layout a little by mode.
-	ArenaGen.populate(world, {
+	arena_params = ArenaGen.populate(world, {
 		"star_count": 2 if _rng.randf() < 0.2 else 1,
 		"planets": _rng.randi_range(1, 3),
 		"asteroid_density": _rng.randi_range(40, 130),

@@ -72,8 +72,33 @@ networked *Spacewar!* / `xspacewar`. Godot 4.6, Apache 2.0. Plan file:
 - Wrap-around isn't visually handled (torpedo tails/ships at arena edges don't draw
   ghosts on the far side); fine at current zoom levels.
 
-## NEXT (M3 — netcode)
-- M3 netcode (host-authoritative ENet + UDP LAN discovery + prediction), `src/net/`.
+## DONE (M3 — LAN netcode, 2026-06-11)
+- `src/net/net_protocol.gd` — wire protocol: `[type, payload]` via var_to_bytes
+  (objects rejected on decode), ch0 reliable control (hello/welcome/reject),
+  ch1 unreliable-seq state (inputs up @60Hz, snapshots down @20Hz). Snapshot =
+  ships + torpedoes (full rebuild) + orbiting-body angles + forwarded fx events
+  + thrusting ids. Clients rebuild arenas locally from seed+params (ArenaGen is
+  deterministic); welcome carries seed/params/mode/roster(+names)/your_ship_id.
+- `src/net/net_host.gd` — authoritative host wrapping GameSession: joiners take
+  over a bot's ship (leavers hand it back to a fresh BotController), remote
+  inputs applied each tick, snapshot broadcast, LAN advertising.
+- `src/net/net_client.gd` — connect/hello/welcome/snapshot apply + dead-reckon
+  between snapshots (bodies kinematic, ships/torps coast under gravity).
+- `src/net/lan_discovery.gd` — UDP broadcast advertise (1s) / listen+expire (3.5s).
+- WorldView `external_driver` hook (net pumps replace the built-in drive);
+  menu: HOST — LAN skirmish, JOIN IP, auto-discovered server list (double-click),
+  net status line; drop/refusal bounces to menu over attract mode.
+- `tests/net_tests.gd` — **17 checks pass** headless over real loopback sockets:
+  protocol round-trips, join, deterministic arena replication, name sync, input
+  forwarding (client fire spawns host torpedoes), snapshot sync (< tolerance),
+  torpedo replication, leaver re-botting, discovery. 14 sim + smoke still green.
+
+## NEXT
+- M3 polish: client-side *prediction* of own ship (apply local input + rewind/
+  replay on snapshot) — current client is snapshot+extrapolate only (fine on
+  LAN, ~50-100ms input feel; not for internet play yet).
+- M4 online: `server/` master/relay (hole-punch + relay), server browser,
+  PlatformServices (steam/null).
 - M4 online: `server/` master/relay (hole-punch + relay), server browser, `PlatformServices`
   (steam/null) so non-Steam builds compile without GodotSteam.
 - M5 wire procedural map params + difficulty into a real lobby; M6 polish/audio (procedural);

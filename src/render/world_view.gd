@@ -23,6 +23,10 @@ const SHIP_POLY: Array[Vector2] = [
 var session: GameSession
 var input_enabled := false
 
+## When valid, replaces the built-in input+update drive each physics step —
+## set by main.gd to a net host/client pump. Signature: f(dt: float).
+var external_driver: Callable = Callable()
+
 var _camera: Camera2D
 var _bg_mat: ShaderMaterial
 var _thrusting := {}                ## ship_id -> true (fired thrust this step)
@@ -58,14 +62,18 @@ func _ready() -> void:
 	_camera.make_current()
 
 func _physics_process(dt: float) -> void:
-	if session == null or session.world == null:
+	if session == null:
+		return
+	_thrusting.clear()
+	if external_driver.is_valid():
+		external_driver.call(dt)
+	elif session.world != null:
+		_read_human_input()
+		session.update(dt)
+	if session.world == null:
 		return
 	if session.generation != _seen_generation:
 		_on_new_generation()
-
-	_read_human_input()
-	_thrusting.clear()
-	session.update(dt)
 
 	for ev in session.world.events:
 		match ev.get("type", ""):
@@ -97,21 +105,28 @@ func _on_new_generation() -> void:
 # Input
 # --------------------------------------------------------------------------
 
+## Read the local keyboard into a NetProtocol input payload ({u, t, f, h}).
+## Used directly for solo play and forwarded over the wire for net play.
+func gather_local_input() -> Dictionary:
+	var turn := 0.0
+	if Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT):
+		turn -= 1.0
+	if Input.is_physical_key_pressed(KEY_D) or Input.is_physical_key_pressed(KEY_RIGHT):
+		turn += 1.0
+	return {
+		"u": turn,
+		"t": Input.is_physical_key_pressed(KEY_W) or Input.is_physical_key_pressed(KEY_UP),
+		"f": Input.is_physical_key_pressed(KEY_SPACE),
+		"h": Input.is_physical_key_pressed(KEY_ENTER) or Input.is_physical_key_pressed(KEY_SHIFT),
+	}
+
 func _read_human_input() -> void:
 	if not input_enabled:
 		return
 	var ship := session.human_ship()
 	if ship == null or not ship.alive:
 		return
-	var turn := 0.0
-	if Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT):
-		turn -= 1.0
-	if Input.is_physical_key_pressed(KEY_D) or Input.is_physical_key_pressed(KEY_RIGHT):
-		turn += 1.0
-	ship.in_turn = turn
-	ship.in_thrust = Input.is_physical_key_pressed(KEY_W) or Input.is_physical_key_pressed(KEY_UP)
-	ship.in_fire = Input.is_physical_key_pressed(KEY_SPACE)
-	ship.in_hyper = Input.is_physical_key_pressed(KEY_ENTER) or Input.is_physical_key_pressed(KEY_SHIFT)
+	NetProtocol.apply_input(ship, gather_local_input())
 
 # --------------------------------------------------------------------------
 # Camera

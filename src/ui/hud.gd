@@ -87,7 +87,11 @@ func _update_scoreboard() -> void:
 			team_bits.append("Team %d: %d" % [int(k) + 1, totals[k]])
 		lines.append("  ".join(team_bits))
 	for s in session.leaderboard():
-		var name := "YOU" if s.id == session.human_ship_id else "BOT-%d" % s.id
+		var name: String = session.ship_names.get(s.id, "")
+		if s.id == session.human_ship_id:
+			name = "YOU"
+		elif name == "":
+			name = "BOT-%d" % s.id
 		var team_tag := "" if s.team < 0 else " [T%d]" % (s.team + 1)
 		var dead := "" if s.alive else " †"
 		lines.append("%s%s  %d  %d/%d%s" % [name, team_tag, s.score, s.kills, s.deaths, dead])
