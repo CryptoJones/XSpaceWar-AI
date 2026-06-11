@@ -8,7 +8,7 @@ extends SceneTree
 ##   godot --headless --path . --script res://tests/camera_probe.gd
 
 const FRAMES := 4200
-const MAX_LOST_FRAMES := 240   # 4s of camera >3000u from the live ship
+const MAX_LOST_FRAMES := 20    # ship off the visible screen for ⅓s = failure
 
 var _frames := 0
 var _lost := 0
@@ -46,20 +46,24 @@ func _on_frame() -> void:
 		main.set_menu_visible(false)
 	var human := session.human_ship()
 	if human != null and human.alive:
-		# Scripted chaos: thrust hard, spam hyperspace periodically.
-		human.in_thrust = (_frames % 4) != 0
-		human.in_turn = 1.0 if (_frames / 90) % 2 == 0 else -1.0
-		if _frames % 600 == 300:
+		# Alternate sustained straight burns (the camera-outrunning case that
+		# bit Aaron) with turning chaos and hyperspace spam.
+		var burning := (_frames / 600) % 2 == 0
+		human.in_thrust = true if burning else (_frames % 4) != 0
+		human.in_turn = 0.0 if burning else (1.0 if (_frames / 90) % 2 == 0 else -1.0)
+		if _frames % 1100 == 550:
 			human.in_hyper = true
 	if human != null:
-		var d := view._camera.position.distance_to(human.pos)
-		if d > 3000.0:
+		# THE invariant: the ship must stay INSIDE the visible screen.
+		var half_view: Vector2 = main.view.get_viewport_rect().size * 0.5 / main.view._cam_zoom
+		var d := (human.pos - view._camera.position).abs()
+		if d.x > half_view.x * 1.02 or d.y > half_view.y * 1.02:
 			_lost += 1
 			_worst_lost = maxi(_worst_lost, _lost)
 			if _lost > MAX_LOST_FRAMES:
 				_failed = true
-				print("  [FAIL] camera lost the ship for >4s (d=%.0f ship=%s cam=%s gen=%d)"
-					% [d, human.pos, view._camera.position, session.generation])
+				print("  [FAIL] ship left the screen for >%d frames (d=%s half_view=%s v=%.0f)"
+					% [MAX_LOST_FRAMES, d, half_view, human.vel.length()])
 				quit(1)
 				return
 		else:

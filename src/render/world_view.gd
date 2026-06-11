@@ -292,6 +292,17 @@ func _update_camera(dt: float) -> void:
 	_cam_zoom = lerpf(_cam_zoom, target_zoom, k)
 	_camera.zoom = Vector2(_cam_zoom, _cam_zoom)
 
+	# The bleed-zone rule (Aaron's): the player's ship may NEVER leave the
+	# screen. The lerp above lags proportionally to speed, so on a long
+	# straight burn the ship can outrun it — when the ship reaches the outer
+	# buffer of the view, the map moves instead. Hard per-axis clamp keeping
+	# the ship inside the inner 72% of the screen.
+	if human != null:
+		var half_view := get_viewport_rect().size * 0.5 / _cam_zoom
+		var limit := half_view * 0.72
+		var sp := human.pos + human.render_pos_offset
+		_camera.position = _camera.position.clamp(sp - limit, sp + limit)
+
 	# Explosion shake: jitter the camera offset, energy decays fast.
 	if _shake > 0.2:
 		var tt := session.world.time * 70.0
