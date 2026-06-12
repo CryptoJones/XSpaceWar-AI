@@ -2,6 +2,15 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [1.6.0] — 2026-06-12
+
+### Added
+- **Match setup persists**: mode, difficulty, ships, score/time limits,
+  respawn, asteroids, star size, planets, and the boundary toggle save
+  when a match starts and restore at boot.
+- **Timid pilots mine their escape route**: low-aggression bots (any
+  personality) drop mines on a pursuer's path while fleeing.
+
 ## [1.5.0] — 2026-06-11
 
 ### Added
