@@ -182,7 +182,8 @@ most expensive pixel work in the game.
 ## Thanks
 
 To our play testers, who flew the rough builds and filed the truth:
-**Trevor Flurry**, **Patrick Hannah**, and **Adam Testagrossa**.
+**Claude Fable 5**, **Trevor Flurry**, **Patrick Hannah**, and
+**Adam Testagrossa**.
 
 ## Dedication
 

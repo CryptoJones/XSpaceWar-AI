@@ -19,11 +19,17 @@ var _deaths_seen := 0
 var _fps_samples: Array[float] = []
 var _phase := "boot"
 var _failures: Array[String] = []
+var _win_mode := false
+var _pilot: BotController = null     ## --win: my combat AI flies the ship
+var _won := false
 
 func _initialize() -> void:
 	for i in range(OS.get_cmdline_user_args().size() - 1):
 		if OS.get_cmdline_user_args()[i] == "--shots":
 			_shots_dir = OS.get_cmdline_user_args()[i + 1]
+	_win_mode = "--win" in OS.get_cmdline_user_args()
+	if "--fast" in OS.get_cmdline_user_args():
+		Engine.time_scale = 5.0  # dry runs only: the pilot decides per frame
 	DirAccess.make_dir_recursive_absolute(_shots_dir)
 	print("=== XSpaceWar-AI — graphical playtest ===")
 	print("  shots -> %s" % _shots_dir)
@@ -44,15 +50,26 @@ func _on_frame() -> void:
 	if _frames == 30:
 		main._end_credits()
 		main._dismiss_splash()
-		main._ships_slider.value = 8
+		main._ships_slider.value = 5 if _win_mode else 8
 		main._lives_slider.value = 0
-		main._limit_slider.value = 0
+		main._limit_slider.value = 3 if _win_mode else 0
 		main._time_slider.value = 0
 		main._hazard_slider.value = 30
+		main._map_slider.value = 8000 if _win_mode else 40000
+		main._diff_slider.value = BotController.Difficulty.VETERAN
 		main._edge_check.button_pressed = false
 		main._on_play_pressed()
+		if _win_mode:
+			var s: GameSession = main.session
+			_pilot = BotController.new(s.world, s.human_ship_id,
+				BotController.Difficulty.INSANE, BotController.Personality.BRAWLER, 35, 100)
+			# Register into the session so the SIM drives my decisions every
+			# tick (frame-rate updates degrade reflexes under time_scale).
+			s.bots[s.human_ship_id] = _pilot
+			print("  [t+%02ds] FIRST TO 3 — my AI has the stick" % (_frames / 60))
+		else:
+			print("  [t+%02ds] match started" % (_frames / 60))
 		_phase = "fly"
-		print("  [t+%02ds] match started" % (_frames / 60))
 		return
 	if _frames < 40:
 		return
@@ -62,8 +79,38 @@ func _on_frame() -> void:
 		return
 	var human := session.human_ship()
 
+	# --- win mode: hand the stick to my combat AI; declare on match end ---
+	if _win_mode:
+		# Re-arm my pilot across auto-restarts (rebuilds clear session.bots).
+		if _pilot != null and session.bots.get(session.human_ship_id) != _pilot \
+				and not session.match_over:
+			_pilot = BotController.new(session.world, session.human_ship_id,
+				BotController.Difficulty.INSANE, BotController.Personality.BRAWLER, 35, 100)
+			session.bots[session.human_ship_id] = _pilot
+		if session.match_over and not _won:
+			_won = true
+			var i_won: bool = session.winner_ship == session.human_ship_id
+			var img := root.get_viewport().get_texture().get_image()
+			if img != null and not img.is_empty():
+				img.save_png("%s/victory.png" % _shots_dir)
+				_shots_saved += 1
+			print("  [t+%02ds] MATCH OVER — winner: %s" % [_frames / 60,
+				session.display_name(session.winner_ship)])
+			if not i_won:
+				_failures.append("lost the round (winner: %s)"
+					% session.display_name(session.winner_ship))
+			_report(main)
+			return
+		if _frames % 1200 == 0 and human != null:
+			print("  [t+%02ds] score: me %d | best rival %d  (%d/%d alive)" % [
+				_frames / 60, human.score,
+				_best_rival_score(session), _alive(session), session.world.ships.size()])
+		if _frames >= 24000:
+			_failures.append("no decision after %d sim ticks" % session.world.tick)
+			_report(main)
+			return
 	# --- scripted sortie: fly, fight, hyperspace, die-and-watch ---
-	if human != null and human.alive:
+	if not _win_mode and human != null and human.alive:
 		var t := _frames
 		human.in_thrust = (t / 240) % 2 == 0          # burn 4s, coast 4s
 		human.in_turn = 1.0 if (t / 150) % 3 == 0 else (-1.0 if (t / 150) % 3 == 1 else 0.0)
@@ -99,8 +146,22 @@ func _on_frame() -> void:
 	if _frames == 2000 and main.hud._feed.is_empty() and _deaths_seen > 0:
 		_failures.append("deaths happened but the kill feed stayed empty")
 
-	if _frames >= DURATION_FRAMES:
+	if not _win_mode and _frames >= DURATION_FRAMES:
 		_report(main)
+
+func _best_rival_score(s: GameSession) -> int:
+	var best := -99
+	for ship in s.world.ships:
+		if ship.id != s.human_ship_id:
+			best = maxi(best, ship.score)
+	return best
+
+func _alive(s: GameSession) -> int:
+	var n := 0
+	for ship in s.world.ships:
+		if ship.alive:
+			n += 1
+	return n
 
 func _report(main: Node) -> void:
 	var fps_avg := 0.0
