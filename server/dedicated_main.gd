@@ -60,7 +60,8 @@ func _initialize() -> void:
 		var addr := NetProtocol.parse_addr(String(a["relay"]), RelayProtocol.DEFAULT_PORT)
 		err = host.open_relay(String(addr.get("ip", "")), int(addr.get("port", RelayProtocol.DEFAULT_PORT)), server_name)
 		if err == OK:
-			print("dedicated: hosting via relay %s:%d" % [rip, rport])
+			print("dedicated: hosting via relay %s:%d" % [String(addr.get("ip", "")),
+				int(addr.get("port", RelayProtocol.DEFAULT_PORT))])
 	else:
 		var port := int(a.get("port", str(NetHost.DEFAULT_PORT)))
 		err = host.open(port, true, server_name)
