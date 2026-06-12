@@ -2,6 +2,16 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [1.8.3] — 2026-06-12
+
+### Fixed
+- **Exported builds write logs again**: file logging was only ever on
+  for editor/source runs — packaged games logged nothing, which made
+  the macOS diagnosis blind. Exports now write
+  user://logs/godot.log on every platform (--debug output included).
+- macOS release asset is no longer a zip inside a zip — one unzip,
+  there's the app.
+
 ## [1.8.2] — 2026-06-12
 
 ### Fixed

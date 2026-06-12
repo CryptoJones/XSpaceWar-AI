@@ -6,11 +6,16 @@ config_version=5
 [application]
 
 config/name="XSpaceWar-AI"
-config/version="1.8.2"
+config/version="1.8.3"
 config/description="A modern, AI-driven networked space-fighter — a 2026 reimagining of the classic networked Spacewar! / xspacewar. Apache 2.0."
 run/main_scene="res://src/ui/main.tscn"
 config/features=PackedStringArray("4.6", "Forward Plus")
 config/icon="res://icon.svg"
+
+[debug]
+
+file_logging/enable_file_logging=true
+file_logging/enable_file_logging.pc=true
 
 [display]
 

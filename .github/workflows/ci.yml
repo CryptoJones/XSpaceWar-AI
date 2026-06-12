@@ -117,6 +117,12 @@ jobs:
           cd dist
           # download-artifact strips POSIX modes — restore the executable bit
           chmod +x */xspacewar-ai.x86_64 2>/dev/null || true
+          # macOS: Godot already exports a zip (signed app inside). Ship THAT
+          # directly — re-zipping made downloaders unzip twice.
+          if [ -f xspacewar-ai-macos-universal/xspacewar-ai-macos.zip ]; then
+            mv xspacewar-ai-macos-universal/xspacewar-ai-macos.zip xspacewar-ai-macos-universal.zip
+            rm -rf xspacewar-ai-macos-universal
+          fi
           for d in */; do (cd "$d" && zip -r "../${d%/}.zip" .); done
           ls -la *.zip
 
