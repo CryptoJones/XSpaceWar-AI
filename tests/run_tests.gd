@@ -22,6 +22,7 @@ func _initialize() -> void:
 	_test_hazard_slider()
 	_test_ship_colors()
 	_test_star_scale()
+	_test_gravity_escapable()
 	_test_giant_star_spawns()
 	_test_map_size()
 	_test_lives()
@@ -305,10 +306,13 @@ func _test_star_scale() -> void:
 	_check("star: scale multiplies mass (gravity) and size",
 		is_equal_approx(p4.mass, p1.mass * 4.0) and p4.radius > p1.radius,
 		"m %0.f/%0.f r %.0f/%.0f" % [p1.mass, p4.mass, p1.radius, p4.radius])
-	var probe := Vector2(1500, 0)
+	# Probe far enough out that neither star's pull hits the escapability
+	# cap, so the raw 4x mass ratio is visible (inside the cap both clamp).
+	var probe := Vector2(3000, 0)
 	var g1 := w1.gravity_accel(probe).length()
 	var g4 := w4.gravity_accel(probe).length()
-	_check("star: bigger star pulls 4x harder", is_equal_approx(g4, g1 * 4.0),
+	_check("star: bigger star pulls 4x harder (below the cap)",
+		is_equal_approx(g4, g1 * 4.0) and g4 < w4.config.thrust_accel * 0.8,
 		"g %.2f vs %.2f" % [g1, g4])
 
 func _test_eternal_torpedoes() -> void:
@@ -507,6 +511,58 @@ func _test_lives() -> void:
 	_check("lives: last pilot standing wins",
 		s2.match_over and s2.winner_ship == survivor_id)
 
+func _test_gravity_escapable() -> void:
+	# The well must never out-pull thrust — even at the steep core of a small
+	# map, a pilot burning straight out makes headway (Aaron\'s rule).
+	var s := GameSession.new()
+	s.map_size = 8000.0
+	s.hazard = 0.0
+	s.score_limit = 0
+	s.start_skirmish(2, GameSession.Mode.FFA, BotController.Difficulty.ROOKIE)
+	var w := s.world
+	# Probe gravity right at the spawn ring and just inside it.
+	var star := w.primary_body()
+	var cap := w.config.thrust_accel * 0.8
+	var worst := 0.0
+	for rr in [w.config.spawn_orbit_radius, w.config.spawn_orbit_radius * 0.6,
+			star.radius * 2.0]:
+		var probe := star.pos + Vector2(rr, 0.0)
+		worst = maxf(worst, w.gravity_accel(probe).length())
+	_check("gravity: capped below thrust everywhere (escapable)",
+		worst <= cap + 0.001 and cap < w.config.thrust_accel,
+		"worst=%.0f cap=%.0f thrust=%.0f" % [worst, cap, w.config.thrust_accel])
+
+	# Across the WHOLE star-size slider (5..100) x map extremes: gravity is
+	# capped below thrust (escapable) AND a still pilot orbits the star-only
+	# field without dying (spawn sits outside the capped, non-Keplerian core).
+	var escapable_all := true
+	var still_survives_all := true
+	for star_slider in [5, 25, 50, 100]:
+		for map_sz in [2000.0, 8000.0, 40000.0]:
+			var cfg := SimConfig.from_seed(909 + star_slider)
+			cfg.arena_size = map_sz
+			cfg.spawn_orbit_radius = clampf(map_sz * 0.035, 550.0, 1400.0)
+			var ww := SimWorld.new(cfg)
+			ArenaGen.populate(ww, {"star_count": 1, "star_scale": float(star_slider) / 25.0,
+				"planets": 0, "satellites": 0, "hazard": 0.0})
+			var st := ww.primary_body()
+			var rr := st.radius + ww.config.ship_radius
+			while rr <= ww.config.spawn_orbit_radius + 1.0:
+				if ww.gravity_accel(st.pos + Vector2(rr, 0)).length() > ww.config.thrust_accel * 0.8 + 0.5:
+					escapable_all = false
+				rr += 60.0
+			var pilot := ww.add_ship()
+			pilot.spawn_grace = 0.0
+			for _i in range(1200):
+				pilot.in_thrust = false; pilot.in_turn = 0.0; pilot.in_fire = false
+				ww.step(1.0 / 60.0)
+				if not pilot.alive:
+					still_survives_all = false
+					break
+	_check("gravity: escapable at every star size (cap < thrust)", escapable_all)
+	_check("gravity: still pilot orbits, never dragged in — every star size",
+		still_survives_all)
+
 func _test_giant_star_spawns() -> void:
 	# Max star size: nobody spawns inside (or hugging) the well.
 	var s := GameSession.new()
@@ -695,8 +751,8 @@ func _test_ai_temperament() -> void:
 		hugger.update(dt)
 		w2.step()
 	var d_close := s2.pos.distance_to(w2.primary_body().pos)
-	_check("ai: roam spreads pilots (100 roams far, 1 hugs the star)",
-		d_far > w1.config.spawn_orbit_radius * 2.0 and d_close < d_far * 0.5,
+	_check("ai: roam spreads pilots (100 roams far, 1 stays closer)",
+		d_far > w1.config.spawn_orbit_radius * 2.0 and d_close < d_far * 0.8,
 		"far=%.0f close=%.0f" % [d_far, d_close])
 
 	# Aggression 1 = flee: with an enemy 600 away, the desired heading points

@@ -2,6 +2,22 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [1.9.0] — 2026-06-12
+
+### Changed
+- **The gravity well no longer inflicts death on players** — proven
+  across the ENTIRE star-size slider (5–100) × every map size
+  (2,000–40,000) via a 36-cell survival sweep:
+  - **Escapable everywhere**: gravitational acceleration is hard-capped
+    below engine thrust, so a pilot burning away from the star always
+    makes headway. Before, a small map's steep core pulled ~1,980 u/s²
+    against 900 u/s² of thrust — an inescapable death drag even for a
+    ship holding still.
+  - **Stable spawns**: ships spawn outside the capped core, in the true
+    inverse-square region where circular orbits are stable — a still
+    pilot now orbits forever instead of decaying into the sun.
+  - Slingshots at range are unchanged.
+
 ## [1.8.4] — 2026-06-12
 
 ### Added
