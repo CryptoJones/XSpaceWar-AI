@@ -2,6 +2,22 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [1.7.20] — 2026-06-12
+
+### Fixed
+- **Death always hands the camera to someone alive**: environment deaths
+  (rocks, the star, the boundary) have no killer to killcam, and used to
+  leave you staring at your wreck — now the action director takes over,
+  and **TAB/N cycle pilots during any death**, not just elimination.
+  Killcam yields to an explicit TAB choice; respawning snaps back to
+  your cockpit and resets the watcher state.
+
+## [1.7.19] — 2026-06-12
+
+### Fixed
+- Camera probe asserts the on-screen invariant for living ships (corpse
+  drift behind the killcam is intended).
+
 ## [1.7.18] — 2026-06-12
 
 ### Fixed

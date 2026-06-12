@@ -871,7 +871,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				or (net_client != null and net_client.spectate)
 				or view.session.movie_mode
 				or (view.session.human_ship() != null
-					and view.session.is_eliminated(view.session.human_ship()))):
+					and not view.session.human_ship().alive)):
 		# TAB (or N) cycles the follow-cam anywhere you're a watcher:
 		# movie mode, spectating, replays, or eliminated.
 		_cycle_watch_target()

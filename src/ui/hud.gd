@@ -207,7 +207,8 @@ func _process(dt: float) -> void:
 	if human != null and session.is_eliminated(human) and not session.match_over:
 		_spec_hint.visible = true
 		_spec_hint.text = "ELIMINATED  ·  TAB follows the next pilot"
-	elif session.movie_mode and session.world != null:
+	elif (session.movie_mode or (human != null and not human.alive)) \
+			and session.world != null and not session.match_over:
 		_spec_hint.visible = true
 		_spec_hint.text = "TAB follows a pilot"
 	else:

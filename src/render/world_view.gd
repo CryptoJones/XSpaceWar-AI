@@ -343,8 +343,9 @@ func _update_camera(dt: float) -> void:
 		human = null  # eliminated: the spectator director takes over
 	var killcam_active := false
 
-	if human != null and not human.alive and _killcam_id >= 0:
-		# Killcam: ride with whoever got you until you respawn.
+	if human != null and not human.alive and _killcam_id >= 0 \
+			and session.watch_ship_id < 0:
+		# Killcam: ride with whoever got you until you respawn (TAB overrides).
 		var killer := session.world.ship_by_id(_killcam_id)
 		if killer != null and killer.alive:
 			target_pos = killer.pos + killer.render_pos_offset
@@ -353,9 +354,12 @@ func _update_camera(dt: float) -> void:
 			killcam_active = true
 	if killcam_active:
 		pass
+	elif human != null and not human.alive:
+		human = null  # dead: the action director (or your TAB choice) takes over
 	elif human != null:
 		if human.alive:
 			_killcam_id = -1
+			session.watch_ship_id = -1
 		# When the followed ship wraps the toroidal edge (or hyperspaces), jump
 		# the camera by the same leap instead of lerping across the whole map.
 		if _follow_id == human.id:
