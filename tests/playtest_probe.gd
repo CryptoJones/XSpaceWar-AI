@@ -22,6 +22,7 @@ var _failures: Array[String] = []
 var _win_mode := false
 var _pilot: BotController = null     ## --win: my combat AI flies the ship
 var _won := false
+var _win_capture_at := -1
 
 func _initialize() -> void:
 	for i in range(OS.get_cmdline_user_args().size() - 1):
@@ -90,13 +91,15 @@ func _on_frame() -> void:
 			session.bots[session.human_ship_id] = _pilot
 		if session.match_over and not _won:
 			_won = true
+			_win_capture_at = _frames + 45   # let the WINNER banner + standings render
+			print("  [t+%02ds] MATCH OVER — winner: %s" % [_frames / 60,
+				session.display_name(session.winner_ship)])
+		if _won and _frames == _win_capture_at:
 			var i_won: bool = session.winner_ship == session.human_ship_id
 			var img := root.get_viewport().get_texture().get_image()
 			if img != null and not img.is_empty():
 				img.save_png("%s/victory.png" % _shots_dir)
 				_shots_saved += 1
-			print("  [t+%02ds] MATCH OVER — winner: %s" % [_frames / 60,
-				session.display_name(session.winner_ship)])
 			if not i_won:
 				_failures.append("lost the round (winner: %s)"
 					% session.display_name(session.winner_ship))
