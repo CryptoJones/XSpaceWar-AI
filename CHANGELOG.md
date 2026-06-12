@@ -2,6 +2,35 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [1.10.0] — 2026-06-12
+
+### Added
+- **Localization (i18n) — the wiring, plus Spanish and French.** (issue #3)
+  - Godot `TranslationServer` catalogs under `locale/` (gettext `.po`),
+    auto-loaded via `project.godot` `[internationalization]`. The canonical
+    string list is `locale/messages.pot` (149 strings); `en` is the source
+    language and needs no catalog (lookups fall through to the key).
+  - A **Language** selector in OPTIONS (endonyms, never auto-translated),
+    persisted to `settings.cfg`. The default follows the OS locale when a
+    matching catalog ships, else English. Switching is live — static UI
+    re-translates on the spot; the HUD re-resolves every frame.
+  - Every menu / options / splash / key-binding / panel string and the core
+    HUD (banner, scoreboard, respawn, boundary warning, fuel·ammo·mine bars,
+    final standings, network status lines) routes through `tr()`. Format
+    templates are translated *before* they are filled, so `%d`/`%s`/`%%`
+    survive intact.
+  - **Spanish (es)** and **French (fr)** catalogs — machine-drafted and
+    flagged for native review (`X-Review-Status: machine-draft`). HUD bar
+    labels are abbreviated to fit (e.g. `FUEL`→`COMB.`/`CARB.`).
+  - `tests/i18n_tests.gd` (wired into CI): enforces catalog completeness,
+    printf-specifier integrity, and live resolution through the
+    `TranslationServer` — a half-translated or arg-dropping catalog fails CI.
+  - Decision on record: pilot names stay Latin-whitelisted regardless of UI
+    language; the Orbitron wordmark and the credits roll stay English.
+  - Deferred to issue #5: non-Latin locales (zh-CN / hi / ar) needing Noto
+    fallback fonts + an Arabic RTL pass, plus the kill-feed verbs, the "YOU"
+    self-label, and the server-browser rows (sentinel- or data-coupled).
+
 ## [1.9.2] — 2026-06-12
 
 ### Changed

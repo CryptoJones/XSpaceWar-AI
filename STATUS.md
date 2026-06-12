@@ -335,6 +335,15 @@ networked *Spacewar!* / `xspacewar`. Godot 4.6, Apache 2.0. Plan file:
 ## NEXT
 - Aaron's live feedback drives. Steam: blocked on partner account
   (issues #1-#3). Multi-machine tester session = next big input.
+- **Localization (issue #3): WIRING DONE (v1.10.0).** Godot `TranslationServer`
+  catalogs in `locale/` (`.po`, auto-loaded via project.godot), a persisted
+  Language selector in OPTIONS defaulting to OS locale, every visible string
+  through `tr()`, and `tests/i18n_tests.gd` in CI guarding completeness +
+  format specifiers. Spanish + French shipped (machine-draft, pending native
+  review). **Issue #5 next:** zh-CN / hi / ar catalogs + Noto fallback fonts
+  + Arabic RTL pass; then the deferred kill-feed verbs / "YOU" / server rows.
+  To add a Latin-script language: drop `locale/<code>.po`, add it to
+  project.godot `[internationalization]` and the `LOCALES` table in main.gd.
 - M4 online: `server/` master/relay (hole-punch + relay), server browser, `PlatformServices`
   (steam/null) so non-Steam builds compile without GodotSteam.
 - M5 wire procedural map params + difficulty into a real lobby; M6 polish/audio (procedural);

@@ -42,6 +42,8 @@ var _nebula_slider: HSlider
 var _stars_slider: HSlider
 var _far_check: CheckButton
 var _record_check: CheckButton
+var _lang_btn: OptionButton
+var _language := "en"
 var replay_player: ReplayPlayer
 var _recorded_gen := -1
 var _splash: CanvasLayer
@@ -137,6 +139,16 @@ const CREDITS_LINES := [
 const SETTINGS_PATH := "user://settings.cfg"
 const REPLAY_DIR := "user://replays"
 
+## Selectable UI languages: [locale code, endonym shown in its own language].
+## "en" is the source language (no catalog — strings fall through to English).
+## Each non-en entry must have a locale/<code>.po registered in project.godot
+## under [internationalization]. Adding a language = add a .po + a row here.
+const LOCALES := [
+	["en", "English"],
+	["es", "Español"],
+	["fr", "Français"],
+]
+
 var _title_font: Font
 
 ## Orbitron at bold weight — the futuristic display face used for titles
@@ -158,6 +170,7 @@ func _get_title_font() -> Font:
 	return _title_font
 
 func _ready() -> void:
+	_apply_startup_locale()
 	view = WorldView.new()
 	view.session = session
 	add_child(view)
@@ -219,29 +232,29 @@ func _process(dt: float) -> void:
 		_teardown_net()
 		session.start_movie()
 		set_menu_visible(true)
-		_net_status.text = "Replay finished."
+		_net_status.text = tr("Replay finished.")
 	# A dropped/refused connection bounces back to the menu over attract mode.
 	if net_client != null and net_client.state == NetClient.State.FAILED:
 		var why := net_client.error_msg
 		_teardown_net()
 		session.start_movie()
 		set_menu_visible(true)
-		_net_status.text = "Disconnected: %s" % why
+		_net_status.text = tr("Disconnected: %s") % why
 	# Surface the relay room code once the relay assigns it.
 	if net_host != null and net_host.room_code() != "" \
 			and net_host.room_code() != _shown_room_code:
 		_shown_room_code = net_host.room_code()
-		_net_status.text = "Hosting online — room code: %s" % _shown_room_code
+		_net_status.text = tr("Hosting online — room code: %s") % _shown_room_code
 	if net_host != null and net_host.transport_failed():
-		_net_status.text = "Relay link lost — clients can no longer reach this game."
+		_net_status.text = tr("Relay link lost — clients can no longer reach this game.")
 	if _browser != null and not _browser.done:
 		_browser.update(dt)
 		if _browser.done:
 			if _browser.error != "":
-				_net_status.text = "Browse failed: %s" % _browser.error
+				_net_status.text = tr("Browse failed: %s") % _browser.error
 			else:
 				_relay_rooms = _browser.servers
-				_net_status.text = "" if not _relay_rooms.is_empty() else "No online games right now."
+				_net_status.text = "" if not _relay_rooms.is_empty() else tr("No online games right now.")
 			_server_repr = "force"  # rebuild the merged list
 	if _menu.visible:
 		_refresh_server_list(dt)
@@ -286,7 +299,7 @@ func _build_menu() -> void:
 	outer.add_child(title)
 
 	var subtitle := Label.new()
-	subtitle.text = "a networked space-fighter, est. 1962  ·  v%s" \
+	subtitle.text = tr("a networked space-fighter, est. 1962  ·  v%s") \
 		% str(ProjectSettings.get_setting("application/config/version", "?"))
 	subtitle.add_theme_font_size_override("font_size", 14)
 	subtitle.add_theme_color_override("font_color", Color(0.6, 0.7, 0.85, 0.7))
@@ -431,25 +444,25 @@ func _build_match_tab() -> Control:
 
 	_diff_slider = _slider_row(grid, "AI difficulty", 0, 3, 1,
 		BotController.Difficulty.VETERAN,
-		func(x: float) -> String: return ["Rookie", "Veteran", "Ace", "Insane"][int(x)])
+		func(x: float) -> String: return tr(["Rookie", "Veteran", "Ace", "Insane"][int(x)]))
 	_ships_slider = _slider_row(grid, "Ships", 1, 16, 1, 8,
-		func(x: float) -> String: return "1 (solo)" if int(x) == 1 else str(int(x)))
+		func(x: float) -> String: return tr("1 (solo)") if int(x) == 1 else str(int(x)))
 	_limit_slider = _slider_row(grid, "Score limit", 0, 1024, 1, 10,
-		func(x: float) -> String: return "endless" if int(x) == 0 else str(int(x)))
+		func(x: float) -> String: return tr("endless") if int(x) == 0 else str(int(x)))
 	_time_slider = _slider_row(grid, "Time limit", 0, 30, 1, 0,
-		func(x: float) -> String: return "no clock" if int(x) == 0 else "%d min" % int(x))
+		func(x: float) -> String: return tr("no clock") if int(x) == 0 else tr("%d min") % int(x))
 	_respawn_slider = _slider_row(grid, "Respawn", 1, 15, 1, 6,
-		func(x: float) -> String: return "%d s" % int(x))
+		func(x: float) -> String: return tr("%d s") % int(x))
 	_lives_slider = _slider_row(grid, "Lives", 0, 64, 1, 0,
-		func(x: float) -> String: return "unlimited" if int(x) == 0 else str(int(x)))
+		func(x: float) -> String: return tr("unlimited") if int(x) == 0 else str(int(x)))
 	_hazard_slider = _slider_row(grid, "Asteroids", 0, 100, 1, 30,
-		func(x: float) -> String: return "none" if int(x) == 0 else "%d%%" % int(x))
+		func(x: float) -> String: return tr("none") if int(x) == 0 else tr("%d%%") % int(x))
 	_star_slider = _slider_row(grid, "Star size", 5, 100, 1, 25,
-		func(x: float) -> String: return "%d (classic)" % int(x) if int(x) == 25 else str(int(x)))
+		func(x: float) -> String: return tr("%d (classic)") % int(x) if int(x) == 25 else str(int(x)))
 	_planets_slider = _slider_row(grid, "Planets", 0, 6, 1, 2,
-		func(x: float) -> String: return "none" if int(x) == 0 else str(int(x)))
+		func(x: float) -> String: return tr("none") if int(x) == 0 else str(int(x)))
 	_map_slider = _slider_row(grid, "Map size", 2601, 40000, 1000, 40000,
-		func(x: float) -> String: return "%d u" % int(x))
+		func(x: float) -> String: return tr("%d u") % int(x))
 
 	_edge_check = CheckButton.new()
 	_edge_check.text = "Lethal map edge"
@@ -591,6 +604,14 @@ func _build_options_tab() -> Control:
 	_stars_slider.tooltip_text = "Background star brightness"
 	_stars_slider.value_changed.connect(func(_v: float): _apply_sky(); _save_settings())
 	_grid_row(grid, "Stars", _stars_slider)
+
+	_lang_btn = OptionButton.new()
+	# Endonyms always render in their own language — never auto-translated.
+	_lang_btn.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	for pair in LOCALES:
+		_lang_btn.add_item(String(pair[1]))
+	_lang_btn.item_selected.connect(_on_language_selected)
+	_grid_row(grid, "Language", _lang_btn)
 
 	v.add_child(HSeparator.new())
 
@@ -948,7 +969,7 @@ func _unhandled_input(event: InputEvent) -> void:
 					_awaiting_rebind = ""
 					_keys_status.text = ""
 				elif k in [KEY_F3, KEY_TAB, KEY_N]:
-					_keys_status.text = "That key is reserved (camera/debug) — pick another."
+					_keys_status.text = tr("That key is reserved (camera/debug) — pick another.")
 				else:
 					# Refuse a key already bound to a different action: silent
 					# double-binding permanently coupled weapons before.
@@ -958,7 +979,7 @@ func _unhandled_input(event: InputEvent) -> void:
 							clash = String(action)
 							break
 					if clash != "":
-						_keys_status.text = "Already bound to '%s' — pick another (ESC cancels)." % clash
+						_keys_status.text = tr("Already bound to '%s' — pick another (ESC cancels).") % clash
 					else:
 						view.key_binds[_awaiting_rebind] = k
 						_awaiting_rebind = ""
@@ -1049,21 +1070,21 @@ func _on_host_pressed() -> void:
 		if err == OK:
 			break
 	if err != OK:
-		_net_status.text = "Host failed (error %d) — UDP %d-%d all busy." \
+		_net_status.text = tr("Host failed (error %d) — UDP %d-%d all busy.") \
 			% [err, NetHost.DEFAULT_PORT, NetHost.DEFAULT_PORT + 7]
 		net_host = null
 		return
 	view.external_driver = func(dt: float): net_host.update(dt,
 		view.gather_local_input() if not _modal_open() else {})
 	_maybe_start_recording()
-	_net_status.text = "Hosting LAN on UDP %d%s — players on your network see you automatically." \
-		% [bound_port, "" if bound_port == NetHost.DEFAULT_PORT else " (default was busy)"]
+	_net_status.text = tr("Hosting LAN on UDP %d%s — players on your network see you automatically.") \
+		% [bound_port, "" if bound_port == NetHost.DEFAULT_PORT else tr(" (default was busy)")]
 	set_menu_visible(false)
 
 func _on_join_ip_pressed() -> void:
 	var addr := NetProtocol.parse_addr(_ip_edit.text, NetHost.DEFAULT_PORT)
 	if addr.is_empty():
-		_net_status.text = "Enter a host IP first."
+		_net_status.text = tr("Enter a host IP first.")
 		return
 	var ip: String = addr["ip"]
 	var port: int = addr["port"]
@@ -1084,7 +1105,7 @@ func _join(ip: String, port: int) -> void:
 	net_client = NetClient.new()
 	var err := net_client.open(ip, port, _player_name, _spec_check.button_pressed)
 	if err != OK:
-		_net_status.text = "Join failed (error %d)." % err
+		_net_status.text = tr("Join failed (error %d).") % err
 		net_client = null
 		return
 	view.session = net_client.session
@@ -1117,8 +1138,8 @@ func _refresh_server_list(dt: float) -> void:
 	_server_repr = repr
 	_server_list.clear()
 	if entries.is_empty():
-		var why := "searching LAN…" if (_lan != null and _lan.bind_ok) else "LAN discovery unavailable"
-		_server_list.add_item("(%s — BROWSE checks the relay)" % why, null, false)
+		var why := tr("searching LAN…") if (_lan != null and _lan.bind_ok) else tr("LAN discovery unavailable")
+		_server_list.add_item(tr("(%s — BROWSE checks the relay)") % why, null, false)
 	else:
 		for i in range(entries.size()):
 			var idx := _server_list.add_item(lines[i])
@@ -1131,7 +1152,7 @@ func _relay_addr() -> Dictionary:
 func _on_host_online_pressed() -> void:
 	var addr := _relay_addr()
 	if addr.is_empty():
-		_net_status.text = "Enter a relay address first (or set XSW_RELAY)."
+		_net_status.text = tr("Enter a relay address first (or set XSW_RELAY).")
 		return
 	_teardown_net()
 	_start_configured_match()
@@ -1139,47 +1160,47 @@ func _on_host_online_pressed() -> void:
 	var err: Error = net_host.open_relay(String(addr["ip"]), int(addr["port"]),
 		"%s's arena" % _player_name)
 	if err != OK:
-		_net_status.text = "Relay host failed (error %d)." % err
+		_net_status.text = tr("Relay host failed (error %d).") % err
 		net_host = null
 		return
 	_shown_room_code = ""
 	view.external_driver = func(dt: float): net_host.update(dt,
 		view.gather_local_input() if not _modal_open() else {})
 	_maybe_start_recording()
-	_net_status.text = "Registering with relay…"
+	_net_status.text = tr("Registering with relay…")
 	_save_settings()
 	set_menu_visible(false)
 
 func _on_browse_pressed() -> void:
 	var addr := _relay_addr()
 	if addr.is_empty():
-		_net_status.text = "Enter a relay address first (or set XSW_RELAY)."
+		_net_status.text = tr("Enter a relay address first (or set XSW_RELAY).")
 		return
 	_browser = RelayBrowser.new()
 	if _browser.open(String(addr["ip"]), int(addr["port"])) != OK:
-		_net_status.text = "Could not reach the relay."
+		_net_status.text = tr("Could not reach the relay.")
 		_browser = null
 		return
-	_net_status.text = "Browsing online games…"
+	_net_status.text = tr("Browsing online games…")
 
 func _on_join_code_pressed() -> void:
 	var code := _code_edit.text.strip_edges().to_upper()
 	if code.length() != RelayProtocol.CODE_LEN:
-		_net_status.text = "Room codes are %d characters." % RelayProtocol.CODE_LEN
+		_net_status.text = tr("Room codes are %d characters.") % RelayProtocol.CODE_LEN
 		return
 	_join_relay(code)
 
 func _join_relay(code: String) -> void:
 	var addr := _relay_addr()
 	if addr.is_empty():
-		_net_status.text = "Enter a relay address first (or set XSW_RELAY)."
+		_net_status.text = tr("Enter a relay address first (or set XSW_RELAY).")
 		return
 	_teardown_net()
 	net_client = NetClient.new()
 	var err: Error = net_client.open_relay(String(addr["ip"]), int(addr["port"]),
 		code, _player_name, _spec_check.button_pressed)
 	if err != OK:
-		_net_status.text = "Relay join failed (error %d)." % err
+		_net_status.text = tr("Relay join failed (error %d).") % err
 		net_client = null
 		return
 	view.session = net_client.session
@@ -1209,6 +1230,47 @@ func _on_fullscreen_toggled(on: bool) -> void:
 func _apply_sky() -> void:
 	view.set_background_prefs(_nebula_slider.value / 100.0,
 		_stars_slider.value / 100.0 * 1.5, _far_check.button_pressed)
+
+# --------------------------------------------------------------------------
+# Localization (Godot i18n — catalogs in locale/*.po, auto-loaded via
+# project.godot [internationalization]. Static Control text auto-translates
+# live; format templates / drawn strings are wrapped in tr() at their call
+# sites; this just owns the active-locale choice.)
+# --------------------------------------------------------------------------
+
+## Boot-time locale: the saved preference if any, else the closest available
+## match to the OS locale, else English. Runs before any UI is built so the
+## first frame is already in the right language.
+func _apply_startup_locale() -> void:
+	var cfg := ConfigFile.new()
+	var lang := ""
+	if cfg.load(SETTINGS_PATH) == OK:
+		lang = String(cfg.get_value("i18n", "language", ""))
+	if lang == "" or not _locale_available(lang):
+		lang = _best_locale()
+	_language = lang
+	TranslationServer.set_locale(lang)
+
+func _locale_available(code: String) -> bool:
+	for pair in LOCALES:
+		if String(pair[0]) == code:
+			return true
+	return false
+
+## Narrow the OS locale (e.g. "es_ES", "fr_CA") to one of our offered
+## languages by its language sub-tag; default to English when unmatched.
+func _best_locale() -> String:
+	var lang := OS.get_locale().split("_")[0].split("-")[0]
+	return lang if _locale_available(lang) else "en"
+
+## Live language switch from the OPTIONS selector. Static labels re-translate
+## themselves on the locale-changed notification; the slider readouts hold
+## already-composed strings, so re-run their formatters explicitly.
+func _on_language_selected(index: int) -> void:
+	_language = String(LOCALES[index][0])
+	TranslationServer.set_locale(_language)
+	_refresh_slider_readouts()
+	_save_settings()
 
 func _load_settings() -> void:
 	var cfg := ConfigFile.new()
@@ -1257,6 +1319,11 @@ func _load_settings() -> void:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
 	_apply_sky()
 	view.set_music_enabled(_music_check.button_pressed)
+	# Reflect the locale chosen at boot (_apply_startup_locale) in the selector.
+	for i in range(LOCALES.size()):
+		if String(LOCALES[i][0]) == _language:
+			_lang_btn.select(i)
+			break
 
 func _save_settings() -> void:
 	var cfg := ConfigFile.new()
@@ -1264,6 +1331,7 @@ func _save_settings() -> void:
 	cfg.set_value("video", "fullscreen", _fullscreen_check.button_pressed)
 	cfg.set_value("net", "relay", _relay_edit.text.strip_edges())
 	cfg.set_value("net", "player_name", _player_name)
+	cfg.set_value("i18n", "language", _language)
 	cfg.set_value("display", "nebula", _nebula_slider.value)
 	cfg.set_value("display", "stars", _stars_slider.value)
 	cfg.set_value("display", "far_stars", _far_check.button_pressed)
@@ -1339,10 +1407,10 @@ func _cycle_watch_target() -> void:
 	else:
 		s.watch_ship_id = ids[pos + 1]
 	if s.watch_ship_id < 0:
-		_net_status.text = "Camera: action director"
+		_net_status.text = tr("Camera: action director")
 	else:
 		var nm: String = s.ship_names.get(s.watch_ship_id, "BOT-%d" % s.watch_ship_id)
-		_net_status.text = "Camera: following %s (TAB cycles)" % nm
+		_net_status.text = tr("Camera: following %s (TAB cycles)") % nm
 
 func _teardown_net() -> void:
 	if net_host != null:
@@ -1389,7 +1457,7 @@ func _finalize_recording() -> void:
 	if f != null:
 		f.store_buffer(r.to_bytes())
 		f.close()
-		_net_status.text = "Replay saved (%.0fs): %s" % [r.duration_sec(1.0 / 60.0), path.get_file()]
+		_net_status.text = tr("Replay saved (%.0fs): %s") % [r.duration_sec(1.0 / 60.0), path.get_file()]
 
 func _build_keys_panel() -> void:
 	_keys_panel = CanvasLayer.new()
@@ -1431,7 +1499,7 @@ func _build_keys_panel() -> void:
 		btn.text = "REBIND"
 		btn.pressed.connect(func():
 			_awaiting_rebind = action
-			_keys_status.text = "Press a key for %s… (ESC cancels)" % String(pair[1])
+			_keys_status.text = tr("Press a key for %s… (ESC cancels)") % tr(String(pair[1]))
 			btn.release_focus())
 		grid.add_child(btn)
 	v.add_child(grid)
@@ -1523,7 +1591,7 @@ func _build_stats_panel() -> void:
 
 func _on_stats_pressed() -> void:
 	var career := MatchStats.career()
-	_stats_career.text = "Career:  %d matches  ·  %d wins  ·  %d kills / %d deaths" \
+	_stats_career.text = tr("Career:  %d matches  ·  %d wins  ·  %d kills / %d deaths") \
 		% [career["matches"], career["wins"], career["kills"], career["deaths"]]
 	_stats_list.clear()
 	_stats_detail.text = ""
@@ -1666,12 +1734,12 @@ func _watch_replay(path: String) -> void:
 	_refresh_input_gate()
 	var rec := Replay.from_bytes(FileAccess.get_file_as_bytes(path))
 	if rec == null:
-		_net_status.text = "Could not read %s." % path.get_file()
+		_net_status.text = tr("Could not read %s.") % path.get_file()
 		set_menu_visible(true)
 		return
 	replay_player = ReplayPlayer.new()
 	if not replay_player.load_replay(rec):
-		_net_status.text = "Replay is out of sync with this game version."
+		_net_status.text = tr("Replay is out of sync with this game version.")
 		replay_player = null
 		set_menu_visible(true)
 		return
@@ -1679,5 +1747,5 @@ func _watch_replay(path: String) -> void:
 	hud.session = replay_player.session
 	var rp := replay_player
 	view.external_driver = func(dt: float): rp.update(dt)
-	_net_status.text = "Replaying %s — P pause, F speed, ◄/► seek 10s, ESC menu" % path.get_file()
+	_net_status.text = tr("Replaying %s — P pause, F speed, ◄/► seek 10s, ESC menu") % path.get_file()
 	set_menu_visible(false)

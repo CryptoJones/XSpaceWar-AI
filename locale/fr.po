@@ -1,0 +1,457 @@
+# XSpaceWar-AI — French (fr)
+# MACHINE-DRAFTED 2026-06-12 — flagged for native review (see issue #3/#5).
+# Pilot names stay Latin-whitelisted; HUD abbreviations chosen to fit bars.
+msgid ""
+msgstr ""
+"Project-Id-Version: XSpaceWar-AI\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: fr\n"
+"X-Review-Status: machine-draft\n"
+
+msgid "MATCH"
+msgstr "PARTIE"
+
+msgid "MULTIPLAYER"
+msgstr "MULTIJOUEUR"
+
+msgid "OPTIONS"
+msgstr "OPTIONS"
+
+msgid "Mode"
+msgstr "Mode"
+
+msgid "Free-for-all"
+msgstr "Chacun pour soi"
+
+msgid "Team battle"
+msgstr "Combat en équipe"
+
+msgid "AI difficulty"
+msgstr "Difficulté de l'IA"
+
+msgid "Rookie"
+msgstr "Débutant"
+
+msgid "Veteran"
+msgstr "Vétéran"
+
+msgid "Ace"
+msgstr "As"
+
+msgid "Insane"
+msgstr "Dément"
+
+msgid "Ships"
+msgstr "Vaisseaux"
+
+msgid "1 (solo)"
+msgstr "1 (solo)"
+
+msgid "Score limit"
+msgstr "Limite de score"
+
+msgid "endless"
+msgstr "sans fin"
+
+msgid "Time limit"
+msgstr "Limite de temps"
+
+msgid "no clock"
+msgstr "sans chrono"
+
+msgid "%d min"
+msgstr "%d min"
+
+msgid "Respawn"
+msgstr "Réapparition"
+
+msgid "%d s"
+msgstr "%d s"
+
+msgid "Lives"
+msgstr "Vies"
+
+msgid "unlimited"
+msgstr "illimitées"
+
+msgid "Asteroids"
+msgstr "Astéroïdes"
+
+msgid "none"
+msgstr "aucun"
+
+msgid "%d%%"
+msgstr "%d%%"
+
+msgid "Star size"
+msgstr "Taille de l'étoile"
+
+msgid "%d (classic)"
+msgstr "%d (classique)"
+
+msgid "Planets"
+msgstr "Planètes"
+
+msgid "Map size"
+msgstr "Taille de la carte"
+
+msgid "%d u"
+msgstr "%d u"
+
+msgid "Boundary"
+msgstr "Limite"
+
+msgid "Lethal map edge"
+msgstr "Bord de carte mortel"
+
+msgid "Off: the map wraps around · On: the border destroys ships"
+msgstr "Désactivé : la carte boucle · Activé : le bord détruit les vaisseaux"
+
+msgid "WATCH — Movie Mode"
+msgstr "REGARDER — Mode Cinéma"
+
+msgid "Pilot name"
+msgstr "Nom du pilote"
+
+msgid "shown on every scoreboard"
+msgstr "affiché sur chaque tableau des scores"
+
+msgid "HOST — LAN skirmish"
+msgstr "HÉBERGER — Escarmouche LAN"
+
+msgid "host ip (or ip:port)"
+msgstr "ip de l'hôte (ou ip:port)"
+
+msgid "Game port defaults to UDP 24642"
+msgstr "Le port du jeu est UDP 24642 par défaut"
+
+msgid "JOIN IP"
+msgstr "REJOINDRE PAR IP"
+
+msgid "Spectate"
+msgstr "Observer"
+
+msgid "Join without taking a ship — the action camera directs"
+msgstr "Rejoindre sans prendre de vaisseau — la caméra d'action dirige"
+
+msgid "relay address (ip[:port])"
+msgstr "adresse du relais (ip[:port])"
+
+msgid "Relay port defaults to UDP 24645"
+msgstr "Le port du relais est UDP 24645 par défaut"
+
+msgid "HOST ONLINE"
+msgstr "HÉBERGER EN LIGNE"
+
+msgid "BROWSE"
+msgstr "PARCOURIR"
+
+msgid "room code"
+msgstr "code de salon"
+
+msgid "JOIN CODE"
+msgstr "REJOINDRE PAR CODE"
+
+msgid "Servers — LAN auto-discovered + online via BROWSE (double-click to join):"
+msgstr "Serveurs — LAN détectés automatiquement + en ligne via PARCOURIR (double-cliquez pour rejoindre) :"
+
+msgid "Volume"
+msgstr "Volume"
+
+msgid "Nebula"
+msgstr "Nébuleuse"
+
+msgid "Colored nebula wisps (0 = pure black space)"
+msgstr "Volutes de nébuleuse colorées (0 = espace totalement noir)"
+
+msgid "Stars"
+msgstr "Étoiles"
+
+msgid "Background star brightness"
+msgstr "Luminosité des étoiles d'arrière-plan"
+
+msgid "Music"
+msgstr "Musique"
+
+msgid "Fullscreen"
+msgstr "Plein écran"
+
+msgid "Far stars"
+msgstr "Étoiles lointaines"
+
+msgid "Extra layer of large, slow distant stars"
+msgstr "Couche supplémentaire de grandes étoiles lointaines et lentes"
+
+msgid "Record matches"
+msgstr "Enregistrer les parties"
+
+msgid "Save input recordings (tiny files; bit-exact playback)"
+msgstr "Enregistrer les entrées (fichiers minuscules ; lecture bit à bit)"
+
+msgid "Language"
+msgstr "Langue"
+
+msgid "REPLAYS…"
+msgstr "REPRISES…"
+
+msgid "MATCH HISTORY…"
+msgstr "HISTORIQUE DES PARTIES…"
+
+msgid "QUIT"
+msgstr "QUITTER"
+
+msgid "CREDITS"
+msgstr "CRÉDITS"
+
+msgid "KEY BINDINGS"
+msgstr "COMMANDES"
+
+msgid "PLAY — Skirmish vs AI"
+msgstr "JOUER — Escarmouche contre l'IA"
+
+msgid "a networked space-fighter, est. 1962"
+msgstr "un combat spatial en réseau, depuis 1962"
+
+msgid "a networked space-fighter, est. 1962  ·  v%s"
+msgstr "un combat spatial en réseau, depuis 1962  ·  v%s"
+
+msgid "PRESS SPACE BAR TO CONTINUE"
+msgstr "APPUYEZ SUR LA BARRE D'ESPACE POUR CONTINUER"
+
+msgid "KEYBOARD"
+msgstr "CLAVIER"
+
+msgid "GAMEPAD"
+msgstr "MANETTE"
+
+msgid "turn"
+msgstr "tourner"
+
+msgid "thrust"
+msgstr "propulser"
+
+msgid "fire torpedo"
+msgstr "tirer torpille"
+
+msgid "drop mine"
+msgstr "larguer mine"
+
+msgid "hyperspace"
+msgstr "hyperespace"
+
+msgid "toggle minimap"
+msgstr "afficher minicarte"
+
+msgid "menu"
+msgstr "menu"
+
+msgid "SPACE to skip"
+msgstr "ESPACE pour passer"
+
+msgid "Turn left"
+msgstr "Tourner à gauche"
+
+msgid "Turn right"
+msgstr "Tourner à droite"
+
+msgid "Thrust"
+msgstr "Propulser"
+
+msgid "Fire torpedo"
+msgstr "Tirer une torpille"
+
+msgid "Drop mine"
+msgstr "Larguer une mine"
+
+msgid "Hyperspace"
+msgstr "Hyperespace"
+
+msgid "Toggle minimap"
+msgstr "Afficher la minicarte"
+
+msgid "Toggle kill feed"
+msgstr "Afficher le journal des éliminations"
+
+msgid "Toggle scoreboard"
+msgstr "Afficher le tableau des scores"
+
+msgid "REBIND"
+msgstr "RÉASSIGNER"
+
+msgid "DONE"
+msgstr "TERMINÉ"
+
+msgid "Arrows / Enter always work as alternates."
+msgstr "Les flèches / Entrée fonctionnent toujours en remplacement."
+
+msgid "Press a key for %s… (ESC cancels)"
+msgstr "Appuyez sur une touche pour %s… (ÉCHAP annule)"
+
+msgid "That key is reserved (camera/debug) — pick another."
+msgstr "Cette touche est réservée (caméra/débogage) — choisissez-en une autre."
+
+msgid "Already bound to '%s' — pick another (ESC cancels)."
+msgstr "Déjà assignée à '%s' — choisissez-en une autre (ÉCHAP annule)."
+
+msgid "Career:  %d matches  ·  %d wins  ·  %d kills / %d deaths"
+msgstr "Carrière :  %d parties  ·  %d victoires  ·  %d éliminations / %d morts"
+
+msgid "BACK"
+msgstr "RETOUR"
+
+msgid "(no finished matches yet — set a score or time limit and play)"
+msgstr "(aucune partie terminée pour l'instant — fixez une limite de score ou de temps et jouez)"
+
+msgid "REPLAYS"
+msgstr "REPRISES"
+
+msgid "DELETE"
+msgstr "SUPPRIMER"
+
+msgid "WATCH"
+msgstr "REGARDER"
+
+msgid "(no replays yet — enable 'Record matches' and play)"
+msgstr "(aucune reprise pour l'instant — activez « Enregistrer les parties » et jouez)"
+
+msgid "⚠ BOUNDARY  %d"
+msgstr "⚠ LIMITE  %d"
+
+msgid "RESPAWNING IN %d"
+msgstr "RÉAPPARITION DANS %d"
+
+msgid "ELIMINATED  ·  TAB follows the next pilot"
+msgstr "ÉLIMINÉ  ·  TAB suit le pilote suivant"
+
+msgid "TAB follows a pilot"
+msgstr "TAB suit un pilote"
+
+msgid "FINAL STANDINGS"
+msgstr "CLASSEMENT FINAL"
+
+msgid "TEAM %d"
+msgstr "ÉQUIPE %d"
+
+msgid "TEAM %d  —  %d"
+msgstr "ÉQUIPE %d  —  %d"
+
+msgid "%d.  %s%s   %d   (%d kills / %d deaths)"
+msgstr "%d.  %s%s   %d   (%d élim. / %d morts)"
+
+msgid "★ %s WIN%s ★ — next round in %d"
+msgstr "★ %s GAGNE%s ★ — prochaine manche dans %d"
+
+msgid "MOVIE MODE — arena %d — next regeneration in %02d:%02d"
+msgstr "MODE CINÉMA — arène %d — prochaine régénération dans %02d:%02d"
+
+msgid "TEAM BATTLE"
+msgstr "COMBAT EN ÉQUIPE"
+
+msgid "FREE-FOR-ALL"
+msgstr "CHACUN POUR SOI"
+
+msgid "SPECTATING — "
+msgstr "SPECTATEUR — "
+
+msgid "  ·  following "
+msgstr "  ·  suit "
+
+msgid "SCORE  K  D"
+msgstr "SCORE  É  M"
+
+msgid "Team %d: %d"
+msgstr "Équipe %d : %d"
+
+msgid "FUEL"
+msgstr "CARB."
+
+msgid "AMMO"
+msgstr "MUN."
+
+msgid "MINE"
+msgstr "MINE"
+
+msgid "LOW"
+msgstr "BAS"
+
+msgid "Replay finished."
+msgstr "Reprise terminée."
+
+msgid "Disconnected: %s"
+msgstr "Déconnecté : %s"
+
+msgid "Hosting online — room code: %s"
+msgstr "Hébergement en ligne — code de salon : %s"
+
+msgid "Relay link lost — clients can no longer reach this game."
+msgstr "Lien du relais perdu — les clients ne peuvent plus accéder à cette partie."
+
+msgid "Browse failed: %s"
+msgstr "Échec du parcours : %s"
+
+msgid "No online games right now."
+msgstr "Aucune partie en ligne pour l'instant."
+
+msgid "Host failed (error %d) — UDP %d-%d all busy."
+msgstr "Échec de l'hébergement (erreur %d) — UDP %d-%d tous occupés."
+
+msgid "Hosting LAN on UDP %d%s — players on your network see you automatically."
+msgstr "Hébergement LAN sur UDP %d%s — les joueurs de votre réseau vous voient automatiquement."
+
+msgid " (default was busy)"
+msgstr " (le port par défaut était occupé)"
+
+msgid "Enter a host IP first."
+msgstr "Saisissez d'abord une IP d'hôte."
+
+msgid "Join failed (error %d)."
+msgstr "Échec de la connexion (erreur %d)."
+
+msgid "Enter a relay address first (or set XSW_RELAY)."
+msgstr "Saisissez d'abord une adresse de relais (ou définissez XSW_RELAY)."
+
+msgid "Relay host failed (error %d)."
+msgstr "Échec de l'hébergement par relais (erreur %d)."
+
+msgid "Registering with relay…"
+msgstr "Enregistrement auprès du relais…"
+
+msgid "Could not reach the relay."
+msgstr "Impossible de joindre le relais."
+
+msgid "Browsing online games…"
+msgstr "Recherche de parties en ligne…"
+
+msgid "Room codes are %d characters."
+msgstr "Les codes de salon comportent %d caractères."
+
+msgid "Relay join failed (error %d)."
+msgstr "Échec de la connexion par relais (erreur %d)."
+
+msgid "Camera: action director"
+msgstr "Caméra : réalisateur d'action"
+
+msgid "Camera: following %s (TAB cycles)"
+msgstr "Caméra : suit %s (TAB pour changer)"
+
+msgid "Replay saved (%.0fs): %s"
+msgstr "Reprise enregistrée (%.0fs) : %s"
+
+msgid "Could not read %s."
+msgstr "Impossible de lire %s."
+
+msgid "Replaying %s — P pause, F speed, ◄/► seek 10s, ESC menu"
+msgstr "Lecture de %s — P pause, F vitesse, ◄/► naviguer 10s, ÉCHAP menu"
+
+msgid "Replay is out of sync with this game version."
+msgstr "La reprise n'est pas compatible avec cette version du jeu."
+
+msgid "searching LAN…"
+msgstr "recherche sur le LAN…"
+
+msgid "LAN discovery unavailable"
+msgstr "détection LAN indisponible"
+
+msgid "(%s — BROWSE checks the relay)"
+msgstr "(%s — PARCOURIR consulte le relais)"

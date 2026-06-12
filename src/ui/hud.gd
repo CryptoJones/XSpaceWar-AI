@@ -153,7 +153,7 @@ func _update_edge_warning(human: SimShip) -> void:
 	var d := half - maxf(absf(human.pos.x), absf(human.pos.y))
 	if d < 2500.0:
 		_edge_warn.visible = true
-		_edge_warn.text = "⚠ BOUNDARY  %d" % int(d)
+		_edge_warn.text = tr("⚠ BOUNDARY  %d") % int(d)
 		var pulse := 0.55 + 0.45 * absf(sin(Time.get_ticks_msec() / 1000.0 * 6.0))
 		_edge_warn.modulate.a = pulse
 	else:
@@ -213,7 +213,7 @@ func _process(dt: float) -> void:
 	if human != null and not human.alive and not session.match_over \
 			and not session.is_eliminated(human):
 		_respawn_label.visible = true
-		_respawn_label.text = "RESPAWNING IN %d" % maxi(1, ceili(human.respawn_timer))
+		_respawn_label.text = tr("RESPAWNING IN %d") % maxi(1, ceili(human.respawn_timer))
 		_respawn_label.modulate.a = 0.65 + 0.35 * sin(Time.get_ticks_msec() / 1000.0 * 6.0)
 	else:
 		_respawn_label.visible = false
@@ -221,28 +221,28 @@ func _process(dt: float) -> void:
 	# viewers learn TAB without a billboard over the dogfight.
 	if human != null and session.is_eliminated(human) and not session.match_over:
 		_spec_hint.visible = true
-		_spec_hint.text = "ELIMINATED  ·  TAB follows the next pilot"
+		_spec_hint.text = tr("ELIMINATED  ·  TAB follows the next pilot")
 	elif (session.movie_mode or (human != null and not human.alive)) \
 			and session.world != null and not session.match_over:
 		_spec_hint.visible = true
-		_spec_hint.text = "TAB follows a pilot"
+		_spec_hint.text = tr("TAB follows a pilot")
 	else:
 		_spec_hint.visible = false
 	# Final standings under the winner banner during the victory lap.
 	_final_board.visible = session.match_over
 	if session.match_over:
-		var lines: Array[String] = ["FINAL STANDINGS", ""]
+		var lines: Array[String] = [tr("FINAL STANDINGS"), ""]
 		if session.mode == GameSession.Mode.TEAM:
 			var totals := session.team_scores()
 			var keys := totals.keys()
 			keys.sort()
 			for k in keys:
 				if int(k) >= 0:
-					lines.append("TEAM %d  —  %d" % [int(k) + 1, int(totals[k])])
+					lines.append(tr("TEAM %d  —  %d") % [int(k) + 1, int(totals[k])])
 			lines.append("")
 		var rank := 1
 		for s in session.leaderboard():
-			lines.append("%d.  %s%s   %d   (%d kills / %d deaths)" % [rank, _ship_name(s.id),
+			lines.append(tr("%d.  %s%s   %d   (%d kills / %d deaths)") % [rank, _ship_name(s.id),
 				"" if s.team < 0 else "  [T%d]" % (s.team + 1), s.score, s.kills, s.deaths])
 			rank += 1
 		_final_board.text = "\n".join(lines)
@@ -403,19 +403,19 @@ func _update_banner() -> void:
 	if session.match_over:
 		var who := ""
 		if session.winner_team >= 0:
-			who = "TEAM %d" % (session.winner_team + 1)
+			who = tr("TEAM %d") % (session.winner_team + 1)
 		else:
 			who = _ship_name(session.winner_ship)
-		_banner.text = "★ %s WIN%s ★ — next round in %d" \
+		_banner.text = tr("★ %s WIN%s ★ — next round in %d") \
 			% [who, "" if who == "YOU" else "S", maxi(0, ceili(session.restart_timer))]
 		return
 	if session.movie_mode:
 		var t := maxf(0.0, session.regen_timer)
-		_banner.text = "MOVIE MODE — arena %d — next regeneration in %02d:%02d" \
+		_banner.text = tr("MOVIE MODE — arena %d — next regeneration in %02d:%02d") \
 			% [session.generation, int(t) / 60, int(t) % 60]
 	else:
 		# (The respawn countdown gets its own big center overlay.)
-		var mode_name := "TEAM BATTLE" if session.mode == GameSession.Mode.TEAM else "FREE-FOR-ALL"
+		var mode_name := tr("TEAM BATTLE") if session.mode == GameSession.Mode.TEAM else tr("FREE-FOR-ALL")
 		if session.time_limit > 0.0:
 			var left := maxf(0.0, session.time_limit - session.match_time)
 			mode_name += "  —  %d:%02d" % [int(left) / 60, int(left) % 60]
@@ -424,13 +424,13 @@ func _update_banner() -> void:
 		if session.human_ship_id >= 0:
 			_banner.text = mode_name
 		else:
-			var spec := "SPECTATING — " + mode_name
+			var spec := tr("SPECTATING — ") + mode_name
 			if session.watch_ship_id >= 0:
-				spec += "  ·  following " + _ship_name(session.watch_ship_id)
+				spec += tr("  ·  following ") + _ship_name(session.watch_ship_id)
 			_banner.text = spec
 
 func _update_scoreboard() -> void:
-	var lines: Array[String] = ["[right]  SCORE  K  D"]
+	var lines: Array[String] = ["[right]  " + tr("SCORE  K  D")]
 	if session.mode == GameSession.Mode.TEAM:
 		var totals := session.team_scores()
 		var keys := totals.keys()
@@ -439,7 +439,7 @@ func _update_scoreboard() -> void:
 		for k in keys:
 			if int(k) >= 0:
 				var tc := "#" + WorldView.TEAM_COLORS[int(k) % WorldView.TEAM_COLORS.size()].to_html(false)
-				team_bits.append("[color=%s]Team %d: %d[/color]" % [tc, int(k) + 1, totals[k]])
+				team_bits.append("[color=%s]%s[/color]" % [tc, tr("Team %d: %d") % [int(k) + 1, totals[k]]])
 		lines.append("  ".join(team_bits))
 	for s in session.leaderboard():
 		var team_tag := "" if s.team < 0 else " [T%d]" % (s.team + 1)
@@ -456,7 +456,7 @@ func _draw_bars() -> void:
 	# Fuel bar (flashes red + LOW under 20%).
 	var w := 260.0
 	var low_fuel := human.fuel < cfg.max_fuel * 0.2
-	_bars.draw_string(ThemeDB.fallback_font, Vector2(0, 12), "FUEL",
+	_bars.draw_string(ThemeDB.fallback_font, Vector2(0, 12), tr("FUEL"),
 		HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.7, 0.8, 0.9, 0.8))
 	_bars.draw_rect(Rect2(50, 2, w, 12), Color(1, 1, 1, 0.12))
 	var frac := clampf(human.fuel / cfg.max_fuel, 0.0, 1.0)
@@ -467,10 +467,10 @@ func _draw_bars() -> void:
 		fuel_col = Color(1.0, 0.5, 0.3)
 	_bars.draw_rect(Rect2(50, 2, w * frac, 12), fuel_col)
 	if low_fuel:
-		_bars.draw_string(ThemeDB.fallback_font, Vector2(50 + w + 8, 12), "LOW",
+		_bars.draw_string(ThemeDB.fallback_font, Vector2(50 + w + 8, 12), tr("LOW"),
 			HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(1.0, 0.3, 0.2, 0.5 + 0.5 * pulse))
 	# Ammo pips (frame flashes when empty).
-	_bars.draw_string(ThemeDB.fallback_font, Vector2(0, 36), "AMMO",
+	_bars.draw_string(ThemeDB.fallback_font, Vector2(0, 36), tr("AMMO"),
 		HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.7, 0.8, 0.9, 0.8))
 	var pip_w := w / float(cfg.max_ammo)
 	for i in range(cfg.max_ammo):
@@ -479,7 +479,7 @@ func _draw_bars() -> void:
 	if human.ammo == 0:
 		_bars.draw_rect(Rect2(49, 25, w + 2, 14), Color(1.0, 0.3, 0.2, 0.3 + 0.5 * pulse), false, 1.5)
 	# Mine pips.
-	_bars.draw_string(ThemeDB.fallback_font, Vector2(0, 60), "MINE",
+	_bars.draw_string(ThemeDB.fallback_font, Vector2(0, 60), tr("MINE"),
 		HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.7, 0.8, 0.9, 0.8))
 	var mine_w := 30.0
 	for i in range(cfg.max_mines):
