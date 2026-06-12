@@ -25,6 +25,7 @@ func _initialize() -> void:
 	_test_giant_star_spawns()
 	_test_map_size()
 	_test_lives()
+	_test_swept_and_events()
 	_test_review_gameplay_fixes()
 	_test_eternal_torpedoes()
 	_test_solo_practice()
@@ -322,6 +323,46 @@ func _test_eternal_torpedoes() -> void:
 		w.step(1.0 / 60.0)
 	_check("torps: fly forever until they hit something (no fuse)",
 		w.torpedoes.size() == 1, "left=%d" % w.torpedoes.size())
+
+func _test_swept_and_events() -> void:
+	# Swept collision: a slingshot-speed torpedo cannot tunnel a ship.
+	var cfg := SimConfig.from_seed(11)
+	cfg.wrap_edges = false
+	var w := SimWorld.new(cfg)
+	var victim := w.add_ship()
+	var shooter := w.add_ship()
+	victim.pos = Vector2(8000, 0)
+	victim.vel = Vector2.ZERO
+	victim.spawn_grace = 0.0
+	shooter.pos = Vector2(12000, 4000)  # parked far away, irrelevant
+	var t := SimTorpedo.new()
+	t.id = 9001
+	t.owner_id = shooter.id
+	t.team = -1
+	t.radius = cfg.torpedo_radius
+	t.pos = Vector2(8000.0 - 120.0, 0.0)  # 120u out, moving 8000 u/s
+	t.vel = Vector2(8000, 0)              # crosses 133u this tick: pure tunnel before
+	t.age = 1.0
+	w.torpedoes.append(t)
+	w.step(1.0 / 60.0)
+	_check("swept: slingshot torpedo connects instead of tunneling",
+		not victim.alive)
+
+	# Event accumulation: nothing is lost across multi-step batches.
+	var w2 := SimWorld.new(SimConfig.from_seed(12))
+	var s2 := w2.add_ship()
+	s2.pos = Vector2(5000, 0)
+	s2.in_fire = true
+	w2.step(1.0 / 60.0)   # fire event at tick 0
+	s2.in_fire = false
+	w2.step(1.0 / 60.0)   # second step would previously WIPE it
+	var fire_evs := 0
+	for ev in w2.events:
+		if String(ev.get("type", "")) == "fire":
+			fire_evs += 1
+	_check("events: survive multi-step batches with tick stamps",
+		fire_evs == 1 and int(w2.events[0].get("tk", -1)) >= 0,
+		"fire_evs=%d size=%d" % [fire_evs, w2.events.size()])
 
 func _test_review_gameplay_fixes() -> void:
 	# Team mutual annihilation ends the match (score decides).

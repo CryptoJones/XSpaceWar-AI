@@ -150,7 +150,10 @@ func place_in_orbit(s: SimShip) -> void:
 func step(dt: float = -1.0) -> void:
 	if dt < 0.0:
 		dt = config.fixed_dt
-	events.clear()
+	# Events ACCUMULATE (tick-stamped) instead of clearing per step: when a
+	# driver runs several steps per consumer pass (fast replay, sub-60fps
+	# frames) nothing is lost. Consumers track the last tick they processed;
+	# the cap below bounds memory for consumer-less worlds (dedicated).
 
 	_advance_bodies(dt)
 
@@ -161,12 +164,15 @@ func step(dt: float = -1.0) -> void:
 	_step_torpedoes(dt)
 	_step_mines(dt)
 	_step_pickups(dt)
-	_resolve_collisions()
+	_resolve_collisions(dt)
 
 	if config.wrap_edges:
 		_wrap_positions()
 	elif config.lethal_edges:
 		_enforce_lethal_edges()
+
+	if events.size() > 512:
+		events = events.slice(events.size() - 256)
 
 	time += dt
 	tick += 1
@@ -219,7 +225,7 @@ func _step_ship(s: SimShip, dt: float) -> void:
 	if s.in_thrust and s.fuel > 0.0:
 		s.vel += s.facing() * config.thrust_accel * dt
 		s.fuel = maxf(0.0, s.fuel - config.thrust_fuel_per_sec * dt)
-		events.append({"type": "thrust", "ship": s.id, "pos": s.pos})
+		events.append({"tk": tick, "type": "thrust", "ship": s.id, "pos": s.pos})
 	else:
 		s.fuel = minf(config.max_fuel, s.fuel + config.fuel_regen_per_sec * dt)
 
@@ -250,7 +256,7 @@ func _fire_torpedo(s: SimShip) -> void:
 	torpedoes.append(t)
 	s.ammo -= 1
 	s.fire_cooldown = config.fire_cooldown
-	events.append({"type": "fire", "ship": s.id, "pos": t.pos})
+	events.append({"tk": tick, "type": "fire", "ship": s.id, "pos": t.pos})
 
 func _drop_mine(s: SimShip) -> void:
 	var m := SimMine.new()
@@ -264,12 +270,12 @@ func _drop_mine(s: SimShip) -> void:
 	mines.append(m)
 	s.mines -= 1
 	s.mine_cooldown = config.mine_drop_cooldown
-	events.append({"type": "mine", "ship": s.id, "pos": m.pos})
+	events.append({"tk": tick, "type": "mine", "ship": s.id, "pos": m.pos})
 
 func _hyperspace(s: SimShip) -> void:
 	s.hyperspace_uses += 1
 	s.hyperspace_cooldown = config.hyperspace_cooldown
-	events.append({"type": "hyperspace", "ship": s.id, "pos": s.pos})
+	events.append({"tk": tick, "type": "hyperspace", "ship": s.id, "pos": s.pos})
 	var risk := config.hyperspace_base_risk + config.hyperspace_risk_per_use * float(s.hyperspace_uses - 1)
 	if rng.randf() < risk:
 		_destroy_ship(s, -1, "hyperspace")
@@ -321,7 +327,7 @@ func _step_torpedoes(dt: float) -> void:
 func _break_rock(rock: SimBody) -> void:
 	bodies.erase(rock)
 	removed_body_ids.append(rock.id)
-	events.append({"type": "rock_break", "pos": rock.pos})
+	events.append({"tk": tick, "type": "rock_break", "pos": rock.pos})
 	if rng.randf() < config.pickup_chance:
 		var p := SimPickup.new()
 		p.id = alloc_id()
@@ -367,7 +373,7 @@ func _grant_pickup(s: SimShip, p: SimPickup) -> void:
 			s.ammo = mini(config.max_ammo, s.ammo + config.pickup_ammo_amount)
 		SimPickup.Kind.MINES:
 			s.mines = mini(config.max_mines, s.mines + config.pickup_mines_amount)
-	events.append({"type": "pickup", "ship": s.id, "kind": p.kind, "pos": p.pos})
+	events.append({"tk": tick, "type": "pickup", "ship": s.id, "kind": p.kind, "pos": p.pos})
 
 func _step_mines(dt: float) -> void:
 	var survivors: Array[SimMine] = []
@@ -423,17 +429,30 @@ func step_ship_kinematics(s: SimShip, turn: float, thrust: bool, dt: float) -> v
 # Collisions
 # --------------------------------------------------------------------------
 
-func _resolve_collisions() -> void:
+## True if the swept path p0->p1 passes within r of c. Degenerates to a
+## point test for tiny displacement; callers must teleport-guard wraps.
+static func _segment_hits_circle(p0: Vector2, p1: Vector2, c: Vector2, r: float) -> bool:
+	var d := p1 - p0
+	var len_sq := d.length_squared()
+	if len_sq < 0.000001:
+		return p0.distance_to(c) <= r
+	var t := clampf((c - p0).dot(d) / len_sq, 0.0, 1.0)
+	return (p0 + d * t).distance_to(c) <= r
+
+func _resolve_collisions(dt: float) -> void:
 	# Torpedoes vs bodies. Stars/planets simply eat torpedoes; ASTEROIDS are
 	# destructible — the rock shatters and sometimes drops its cargo.
 	var torp_survivors: Array[SimTorpedo] = []
 	var broken_rocks: Array[SimBody] = []
 	for t in torpedoes:
 		var hit_body := false
+		var t_prev := t.pos - t.vel * dt
+		if t_prev.distance_to(t.pos) > config.arena_size * 0.4:
+			t_prev = t.pos  # wrapped this step: sweep would span the map
 		for b in bodies:
 			if not b.lethal:
 				continue
-			if t.pos.distance_to(b.pos) <= b.radius + t.radius:
+			if _segment_hits_circle(t_prev, t.pos, b.pos, b.radius + t.radius):
 				hit_body = true
 				if b.kind == SimBody.Kind.ASTEROID and not broken_rocks.has(b):
 					broken_rocks.append(b)
@@ -455,7 +474,11 @@ func _resolve_collisions() -> void:
 				continue
 			if s.id != t.owner_id and s.team == t.team and s.team != -1 and not config.friendly_fire:
 				continue
-			if t.pos.distance_to(s.pos) <= s.radius + t.radius:
+			var rel_prev := (t.pos - t.vel * dt) - (s.pos - s.vel * dt)
+			var rel_now := t.pos - s.pos
+			if rel_prev.distance_to(rel_now) > config.arena_size * 0.4:
+				rel_prev = rel_now  # wrap teleport: fall back to a point test
+			if _segment_hits_circle(rel_prev, rel_now, Vector2.ZERO, s.radius + t.radius):
 				var killer := -1 if s.id == t.owner_id else t.owner_id
 				_destroy_ship(s, killer, "torpedo")
 				consumed = true
@@ -470,10 +493,13 @@ func _resolve_collisions() -> void:
 	for s in ships:
 		if not s.alive or s.spawn_grace > 0.0:
 			continue
+		var s_prev := s.pos - s.vel * dt
+		if s_prev.distance_to(s.pos) > config.arena_size * 0.4:
+			s_prev = s.pos  # wrapped this step
 		for b in bodies:
 			if not b.lethal:
 				continue
-			if s.pos.distance_to(b.pos) <= b.radius + s.radius:
+			if _segment_hits_circle(s_prev, s.pos, b.pos, b.radius + s.radius):
 				_destroy_ship(s, -1, "body")
 				break
 
@@ -532,7 +558,7 @@ func _resolve_mines() -> void:
 	mines = survivors
 
 func _explode_mine(m: SimMine) -> void:
-	events.append({"type": "mine_explode", "pos": m.pos})
+	events.append({"tk": tick, "type": "mine_explode", "pos": m.pos})
 	for s in ships:
 		if not s.alive or s.spawn_grace > 0.0:
 			continue
@@ -563,13 +589,13 @@ func _destroy_ship(s: SimShip, killer_id: int, cause: String) -> void:
 	s.alive = false
 	s.deaths += 1
 	s.respawn_timer = config.respawn_time
-	events.append({"type": "explosion", "ship": s.id, "pos": s.pos, "vel": s.vel, "cause": cause})
+	events.append({"tk": tick, "type": "explosion", "ship": s.id, "pos": s.pos, "vel": s.vel, "cause": cause})
 	if killer_id >= 0 and killer_id != s.id:
 		var killer := ship_by_id(killer_id)
 		if killer != null:
 			killer.kills += 1
 			killer.score += 1
-			events.append({"type": "kill", "killer": killer_id, "victim": s.id})
+			events.append({"tk": tick, "type": "kill", "killer": killer_id, "victim": s.id})
 	elif cause == "torpedo" or cause == "hyperspace" or cause == "mine":
 		s.score -= 1  # suicide / self-destruct penalty
 
@@ -589,7 +615,7 @@ func _wrap_positions() -> void:
 		if wrapped != s.pos:
 			s.pos = wrapped
 			s.vel = (s.vel * WRAP_BOOST).limit_length(WRAP_SPEED_CAP)
-			events.append({"type": "wrap", "ship": s.id, "pos": s.pos})
+			events.append({"tk": tick, "type": "wrap", "ship": s.id, "pos": s.pos})
 
 ## Lethal-edge mode: the border is a wall of death. Ships crossing it are
 ## destroyed (environmental, no score penalty — like flying into a rock);

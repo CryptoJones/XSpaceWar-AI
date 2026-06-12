@@ -2,6 +2,26 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [1.7.26] — 2026-06-12
+
+Code-review fixes, batch 4b (collision, events, camera, rebinding):
+
+### Fixed
+- **Slingshot-speed shots connect**: torpedo-vs-ship/body and
+  ship-vs-body collisions are swept along their travel segment, so
+  wrap-boosted projectiles and ships no longer tunnel through targets
+  (wrap teleports fall back to point tests).
+- **No event is ever lost**: sim events accumulate with tick stamps and
+  consumers process each exactly once — the kill feed stops dropping
+  entries on sub-60fps frames, and fast replay playback keeps all
+  explosions/audio/feed lines.
+- The Movie Mode director clamps its followed duelist on-screen
+  (hyperspace and slingshots can no longer leave the camera staring at
+  empty space until the lerp catches up).
+- **Rebinding refuses conflicts**: a key already bound to another action
+  (or reserved: TAB/N/F3) is rejected with an explanation instead of
+  silently double-binding weapons.
+
 ## [1.7.25] — 2026-06-12
 
 Code-review fixes, batch 4a (gameplay/session):

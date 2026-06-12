@@ -844,11 +844,28 @@ func _unhandled_input(event: InputEvent) -> void:
 	if _keys_panel != null and _keys_panel.visible:
 		if key_pressed:
 			if _awaiting_rebind != "":
-				if event.physical_keycode != KEY_ESCAPE:
-					view.key_binds[_awaiting_rebind] = event.physical_keycode
-				_awaiting_rebind = ""
-				_keys_status.text = ""
-				_refresh_keybind_labels()
+				var k: int = event.physical_keycode
+				if k == KEY_ESCAPE:
+					_awaiting_rebind = ""
+					_keys_status.text = ""
+				elif k in [KEY_F3, KEY_TAB, KEY_N]:
+					_keys_status.text = "That key is reserved (camera/debug) — pick another."
+				else:
+					# Refuse a key already bound to a different action: silent
+					# double-binding permanently coupled weapons before.
+					var clash := ""
+					for action in view.key_binds:
+						if action != _awaiting_rebind and int(view.key_binds[action]) == k:
+							clash = String(action)
+							break
+					if clash != "":
+						_keys_status.text = "Already bound to '%s' — pick another (ESC cancels)." % clash
+					else:
+						view.key_binds[_awaiting_rebind] = k
+						_awaiting_rebind = ""
+						_keys_status.text = ""
+						_refresh_keybind_labels()
+						_save_settings()
 			elif event.physical_keycode == KEY_ESCAPE:
 				_close_keys_panel()
 		return

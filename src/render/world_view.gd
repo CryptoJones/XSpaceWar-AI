@@ -77,6 +77,7 @@ var _focus_a := -1                  ## movie-mode action camera: current duel
 var _focus_b := -1
 var _focus_timer := 0.0
 var _killcam_id := -1               ## while dead: ride along with your killer
+var _seen_ev_tick := -1             ## events are consumed once (they accumulate)
 
 # Render interpolation: the sim steps at a fixed 60Hz; drawing raw sim
 # positions makes motion visibly hop on >60Hz displays. We keep last tick's
@@ -209,6 +210,11 @@ func _physics_process(dt: float) -> void:
 		_match_over_seen = false
 
 	for ev in session.world.events:
+		# Continuous-state events (thrust flames) are re-emitted every frame
+		# by design; one-shots are consumed exactly once via tick stamps.
+		if String(ev.get("type", "")) != "thrust" \
+				and int(ev.get("tk", -1)) <= _seen_ev_tick:
+			continue
 		_audio.play_event(ev)
 		match ev.get("type", ""):
 			"thrust":
@@ -236,6 +242,7 @@ func _physics_process(dt: float) -> void:
 					_killcam_id = int(ev["killer"])
 	_audio.update(dt, session.world)
 	_step_popups(dt)
+	_seen_ev_tick = session.world.tick
 
 	_update_camera(dt)
 	if _bg_mat != null:
@@ -252,6 +259,7 @@ func _on_new_generation() -> void:
 	_focus_b = -1
 	_focus_timer = 0.0
 	_killcam_id = -1
+	_seen_ev_tick = -1
 	if _audio != null:
 		_audio.reset()
 	# Re-seed the starfield per-arena so every match's sky is distinct, and
@@ -412,9 +420,11 @@ func _update_camera(dt: float) -> void:
 			target_pos = (fa.pos + fb.pos) * 0.5
 			var span := (fa.pos - fb.pos).abs() + Vector2(750, 750)
 			target_zoom = clampf(minf(vp.x / span.x, vp.y / span.y), 0.5, 1.15)
+			clamp_to = fa.pos  # the primary duelist never leaves the screen
 		elif fa != null:
 			target_pos = fa.pos
 			target_zoom = 0.9
+			clamp_to = fa.pos  # lone survivor: hyperspace/slingshot can't lose them
 		else:
 			var primary := world.primary_body()
 			target_pos = primary.pos if primary != null else Vector2.ZERO

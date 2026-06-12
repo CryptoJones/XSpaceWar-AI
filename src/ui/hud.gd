@@ -240,10 +240,14 @@ func _ship_name(id: int) -> String:
 	return n if n != "" else "BOT-%d" % id
 
 func _update_feed(dt: float) -> void:
-	# Consume each sim step's events exactly once (idle vs physics rates differ).
+	# Consume each event exactly once: events accumulate with tick stamps,
+	# so multi-step frames (fast replay, sub-60fps) lose nothing.
 	if session.world.tick != _seen_tick:
+		var last_seen := _seen_tick
 		_seen_tick = session.world.tick
 		for ev in session.world.events:
+			if int(ev.get("tk", -1)) <= last_seen:
+				continue
 			match String(ev.get("type", "")):
 				"kill":
 					_push_feed("%s  ▸☠  %s" % [_ship_bb(int(ev["killer"])), _ship_bb(int(ev["victim"]))])

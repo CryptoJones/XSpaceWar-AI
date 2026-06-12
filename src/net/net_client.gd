@@ -97,12 +97,12 @@ func update(dt: float, local_input: Dictionary) -> void:
 			continue
 		var s := world.ship_by_id(sid)
 		if s != null and s.alive:
-			world.events.append({"type": "thrust", "ship": sid, "pos": s.pos})
+			world.events.append({"tk": world.tick, "type": "thrust", "ship": sid, "pos": s.pos})
 
 	# Predict our own ship now; everyone else dead-reckons.
 	if own != null and own.alive:
 		if bool(inp.get("t", false)) and own.fuel > 0.0:
-			world.events.append({"type": "thrust", "ship": own.id, "pos": own.pos})
+			world.events.append({"tk": world.tick, "type": "thrust", "ship": own.id, "pos": own.pos})
 		world.step_ship_kinematics(own, float(inp.get("u", 0.0)), bool(inp.get("t", false)), dt)
 
 	_extrapolate(world, dt, own)

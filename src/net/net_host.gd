@@ -23,6 +23,7 @@ var port := DEFAULT_PORT
 var reclaim_names := false
 var _names_hash := 0          ## last broadcast roster-names hash
 var _failure_handled := false ## transport-death cleanup ran
+var _ev_tick := -1            ## last world tick whose events were forwarded
 var server_name := "XSpaceWar"
 
 var _t = null                 ## duck-typed host transport (direct or relay)
@@ -46,6 +47,7 @@ func _on_session_rebuilt() -> void:
 		return
 	_inputs.clear()
 	_acked.clear()
+	_ev_tick = -1
 	for peer in _peers.keys():
 		if int(_peers[peer]) < 0:
 			# Spectators just need the new arena recipe.
@@ -123,8 +125,11 @@ func update(dt: float, local_input: Dictionary) -> void:
 	session.update(dt)
 
 	for ev in session.world.events:
+		if int(ev.get("tk", -1)) <= _ev_tick:
+			continue  # events accumulate now; forward each exactly once
 		if String(ev.get("type", "")) in NetProtocol.FORWARDED_EVENTS:
 			_event_accum.append(ev)
+	_ev_tick = session.world.tick
 
 	_snap_accum += dt
 	if _snap_accum >= SNAPSHOT_INTERVAL:
