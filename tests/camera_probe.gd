@@ -53,8 +53,10 @@ func _on_frame() -> void:
 		human.in_turn = 0.0 if burning else (1.0 if (_frames / 90) % 2 == 0 else -1.0)
 		if _frames % 1100 == 550:
 			human.in_hyper = true
-	if human != null:
-		# THE invariant: the ship must stay INSIDE the visible screen.
+	if human != null and human.alive:
+		# THE invariant: a LIVING ship must stay INSIDE the visible screen.
+		# (While dead the camera intentionally leaves the wreck — killcam
+		# rides the killer, or holds position until the respawn snaps back.)
 		var half_view: Vector2 = main.view.get_viewport_rect().size * 0.5 / main.view._cam_zoom
 		var d := (human.pos - view._camera.position).abs()
 		if d.x > half_view.x * 1.02 or d.y > half_view.y * 1.02:
@@ -68,6 +70,8 @@ func _on_frame() -> void:
 				return
 		else:
 			_lost = 0
+	elif human != null:
+		_lost = 0  # death resets the streak; respawn must re-acquire instantly
 
 	if _frames >= FRAMES:
 		print("  [PASS] camera stayed on the ship across %d frames (worst pan: %d frames)"
