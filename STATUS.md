@@ -283,12 +283,29 @@ networked *Spacewar!* / `xspacewar`. Godot 4.6, Apache 2.0. Plan file:
 - Suites: 66 sim / 31 net / 15 relay / 10 audio / smoke / camera probe,
   zero-script-error enforced in CI (this gate caught 2 real bugs).
 
+## DONE (v1.6.0 → v1.7.15, 2026-06-12 early morning burst)
+- **v1.6.0**: match-setup persistence; timid escape-route mining.
+- **v1.7.x line** (Aaron: patch bump EVERY push): sliders everywhere with
+  editable integer readouts (Mode stays a dropdown), map size 2000-40000
+  (spawn ring + roam scale), score limit max 1024, LIVES/elimination
+  mode (0=unlimited; eliminated = spectate + TAB; last standing wins),
+  eternal torpedoes (no fuse — they orbit), N-key movie cam cycling,
+  giant-star spawn fix (ring scales 2.2x star radius), host port-walk
+  24642-49, networking ports surfaced everywhere.
+- **v1.7.13-15**: DEDICATED SERVER (server/dedicated_main.gd — VPS
+  authoritative host, bots hold slots, full CLI config, --reclaim);
+  pilot name field (persisted); trusted name reclaim (ghost kicked,
+  ship/score inherited — OFF by default, Steam-safe); random 4-digit
+  collision tags; authoritative name whitelist (A-Z 0-9 - _ — kills
+  scoreboard BBCode injection + tofu).
+- Steam track: process explained; GH+Codeberg issues #1 capsule art,
+  #2 SteamPipe CI, #3 localization (Latin-callsign decision recorded).
+- Suites: 75 sim / 38 net / 15 relay / 10 audio / smoke / camera probe.
+
 ## NEXT
-- Aaron's live playtest feedback drives everything now. Multi-machine
-  relay session with Patrick/Adam/Trevor = the next big data source
-  (hole-punch, Steam stub, perf tuning all want it).
-- Idle loop continues at a long cadence; tag v1.6.0 when the next batch
-  accumulates.
+- Aaron's live feedback is the driver (rapid-fire design session).
+- Steam: blocked on partner account (Aaron); then issues #1-#3.
+- Releases: tag when batches accumulate; version bumps every push.
 - M4 online: `server/` master/relay (hole-punch + relay), server browser, `PlatformServices`
   (steam/null) so non-Steam builds compile without GodotSteam.
 - M5 wire procedural map params + difficulty into a real lobby; M6 polish/audio (procedural);
