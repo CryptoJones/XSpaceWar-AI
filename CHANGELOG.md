@@ -2,6 +2,20 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [1.7.5] — 2026-06-12
+
+### Added
+- **Map size slider** (2,000–40,000 units per side, default 40,000):
+  arena size is a match setting. The spawn ring scales down on small
+  maps, AI roam rings stay inside the boundary, and the value carries
+  through net welcomes and replay headers. Movie Mode rolls its own.
+
+### Changed
+- **Sliders everywhere**: every numeric MATCH control is now a slider
+  with a live value readout — including AI difficulty (Rookie →
+  Insane). Zeros read as "endless" / "no clock" / "none"; Ships at 1
+  reads "1 (solo)". Mode stays a dropdown (a category, not a quantity).
+
 ## [1.6.0] — 2026-06-12
 
 ### Added
