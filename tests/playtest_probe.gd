@@ -24,6 +24,7 @@ var _pilot: BotController = null     ## --win: my combat AI flies the ship
 var _won := false
 var _win_capture_at := -1
 var _dumb := false
+var _join_addr := ""    ## --join ip[:port]: fly MY ship on a NETWORK game
 
 ## --dumb: one-off mercy-minus-five — lobotomize every OPPONENT bot.
 ## (Probe-only. The shipped game's Rookies keep their dignity.)
@@ -46,6 +47,9 @@ func _initialize() -> void:
 			_shots_dir = OS.get_cmdline_user_args()[i + 1]
 	_win_mode = "--win" in OS.get_cmdline_user_args()
 	_dumb = "--dumb" in OS.get_cmdline_user_args()
+	for i in range(OS.get_cmdline_user_args().size() - 1):
+		if OS.get_cmdline_user_args()[i] == "--join":
+			_join_addr = OS.get_cmdline_user_args()[i + 1]
 	if "--fast" in OS.get_cmdline_user_args():
 		Engine.time_scale = 5.0  # dry runs only: the pilot decides per frame
 	DirAccess.make_dir_recursive_absolute(_shots_dir)
@@ -65,6 +69,44 @@ func _on_frame() -> void:
 		return
 
 	# --- boot: skip cinema, configure a lively skirmish, launch ---
+	if _frames == 30 and _join_addr != "":
+		main._end_credits()
+		main._dismiss_splash()
+		main._ip_edit.text = _join_addr
+		main._on_join_ip_pressed()
+		print("  [t+00s] joining %s — Claude's ship inbound" % _join_addr)
+		_phase = "joining"
+		return
+	if _phase == "joining":
+		var nc = main.net_client
+		if nc == null:
+			print("  [FAIL] join refused")
+			quit(1)
+			return
+		if nc.state == NetClient.State.READY and main.session.human_ship_id >= 0 \
+				and main.session.world != null:
+			var s2: GameSession = main.session
+			_pilot = BotController.new(s2.world, s2.human_ship_id,
+				BotController.Difficulty.INSANE, BotController.Personality.BRAWLER, 35, 100)
+			# Drive the NET client with my pilot's inputs instead of the keyboard.
+			main.view.external_driver = func(dt: float):
+				var own := s2.human_ship()
+				if own != null and own.alive and not s2.match_over:
+					_pilot.update(dt)
+				nc.update(dt, {
+					"u": own.in_turn if own != null else 0.0,
+					"t": own.in_thrust if own != null else false,
+					"f": own.in_fire if own != null else false,
+					"h": own.in_hyper if own != null else false,
+					"m": own.in_mine if own != null else false,
+				} if own != null else {})
+			_win_mode = true   # reuse the win/trophy machinery
+			_phase = "fly"
+			print("  [t+%02ds] READY — I have the stick on a live server" % (_frames / 60))
+		elif _frames > 1800:
+			print("  [FAIL] join timeout")
+			quit(1)
+		return
 	if _frames == 30:
 		main._end_credits()
 		main._dismiss_splash()
@@ -104,7 +146,8 @@ func _on_frame() -> void:
 	# --- win mode: hand the stick to my combat AI; declare on match end ---
 	if _win_mode:
 		# Re-arm my pilot across auto-restarts (rebuilds clear session.bots).
-		if _pilot != null and session.bots.get(session.human_ship_id) != _pilot \
+		if _join_addr == "" and _pilot != null \
+				and session.bots.get(session.human_ship_id) != _pilot \
 				and not session.match_over:
 			_pilot = BotController.new(session.world, session.human_ship_id,
 				BotController.Difficulty.INSANE, BotController.Personality.BRAWLER, 35, 100)
