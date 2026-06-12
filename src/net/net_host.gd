@@ -34,6 +34,7 @@ var _inputs := {}             ## ship_id -> latest input payload
 var _acked := {}              ## ship_id -> highest input sequence received
 var _ban_names := {}          ## UPPERCASED banned callsign -> true
 var _ban_addrs := {}          ## banned peer address (direct/LAN only) -> true
+var aim := AimAnalyzer.new()  ## host-side aim-anomaly heuristics (warnings only)
 var _advertiser: LanDiscovery
 var _event_accum: Array = []  ## forwarded events since the last snapshot
 var _snap_accum := 0.0
@@ -50,6 +51,7 @@ func _on_session_rebuilt() -> void:
 	_inputs.clear()
 	_acked.clear()
 	_ev_tick = -1
+	aim.reset()   # ship ids are reassigned in the rebuilt world
 	for peer in _peers.keys():
 		if int(_peers[peer]) < 0:
 			# Spectators just need the new arena recipe.
@@ -125,6 +127,8 @@ func update(dt: float, local_input: Dictionary) -> void:
 			NetProtocol.apply_input(ship, _inputs[sid])
 
 	session.update(dt)
+	# Watch every connected human pilot for impossible aim (warnings, not bans).
+	aim.observe(session.world, _watched_ids())
 
 	for ev in session.world.events:
 		if int(ev.get("tk", -1)) < _ev_tick:
@@ -321,6 +325,7 @@ func _drop_peer(peer) -> void:
 		return  # spectator: nothing to hand back
 	_inputs.erase(sid)
 	_acked.erase(sid)
+	aim.forget(sid)   # drop the departed pilot's aim tallies
 	# Hand the ship back to a bot (with its own callsign again).
 	session.bots[sid] = BotController.new(session.world, sid, session.difficulty)
 	var ship := session.world.ship_by_id(sid)
@@ -351,6 +356,24 @@ func _peer_for_ship(sid: int):
 		if int(_peers[peer]) == sid:
 			return peer
 	return null
+
+## Ship ids of the connected human pilots — who the aim analyzer watches.
+func _watched_ids() -> Array:
+	var ids: Array = []
+	for peer in _peers:
+		if int(_peers[peer]) >= 0:
+			ids.append(int(_peers[peer]))
+	return ids
+
+## Aim-anomaly surface for the host UI / dedicated console.
+func aim_report() -> Array:
+	return aim.report()
+
+func is_aim_flagged(sid: int) -> bool:
+	return aim.is_flagged(sid)
+
+func aim_reasons(sid: int) -> Array:
+	return aim.reasons_for(sid)
 
 func _peer_addr(peer) -> String:
 	return String(_t.peer_address(peer)) if _t != null and _t.has_method("peer_address") else ""

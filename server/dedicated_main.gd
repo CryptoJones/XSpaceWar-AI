@@ -27,7 +27,8 @@ extends SceneTree
 ##                    adjudication (DIR default user://replays, see #4).
 ##
 ## Live moderation console (when stdin is a terminal): type `help`, or
-##   kick <name> | ban <name> | unban <name> | players | bans
+##   kick <name> | ban <name> | unban <name> | players | watch | bans
+## (`watch` lists pilots the aim-anomaly heuristics flagged — warnings only.)
 
 var host: NetHost
 var session := GameSession.new()
@@ -179,7 +180,7 @@ func _seed_bans(bans: Array, banfile: String) -> void:
 func _start_console() -> void:
 	_console = Thread.new()
 	_console.start(_console_loop)
-	print("dedicated: console — kick <name> | ban <name> | unban <name> | players | bans | help")
+	print("dedicated: console — kick <name> | ban <name> | unban <name> | players | watch | bans | help")
 
 func _console_loop() -> void:
 	while true:
@@ -224,11 +225,22 @@ func _run_command(line: String) -> void:
 			var ps := host.connected_players()
 			print("dedicated: %d player(s) connected" % ps.size())
 			for p in ps:
-				print("  [%d] %s" % [int(p["sid"]), String(p["name"])])
+				var flag := "  ⚠ FLAGGED" if host.is_aim_flagged(int(p["sid"])) else ""
+				print("  [%d] %s%s" % [int(p["sid"]), String(p["name"]), flag])
+		"watch":
+			var flagged := host.aim_report().filter(func(r): return bool(r["flagged"]))
+			if flagged.is_empty():
+				print("dedicated: no aim anomalies flagged (warnings only — never auto-banned)")
+			for r in flagged:
+				var nm := ""
+				for p in host.connected_players():
+					if int(p["sid"]) == int(r["sid"]):
+						nm = String(p["name"])
+				print("  ⚠ [%d] %s — %s" % [int(r["sid"]), nm, ", ".join(r["reasons"])])
 		"bans":
 			print("dedicated: bans — %s" % str(host.ban_list()))
 		"help":
-			print("commands: kick <name> | ban <name> | unban <name> | players | bans | help")
+			print("commands: kick <name> | ban <name> | unban <name> | players | watch | bans | help")
 		_:
 			print("dedicated: unknown command '%s' (try: help)" % cmd)
 

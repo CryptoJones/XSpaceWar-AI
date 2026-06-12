@@ -57,6 +57,7 @@ var _replays_list: ItemList
 var _players_panel: CanvasLayer
 var _players_list: ItemList
 var _players_note: Label
+var _players_detail: Label
 var _players_btn: Button
 var _spec_check: CheckButton
 var _music_check: CheckButton
@@ -1509,10 +1510,18 @@ func _build_players_panel() -> void:
 	_players_note.add_theme_color_override("font_color", Color(0.6, 0.7, 0.85, 0.85))
 	v.add_child(_players_note)
 	_players_list = ItemList.new()
-	_players_list.custom_minimum_size = Vector2(0, 200)
+	_players_list.custom_minimum_size = Vector2(0, 180)
 	# Callsigns are user content — never run a player's name through tr().
 	_players_list.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	_players_list.item_selected.connect(_on_player_selected)
 	v.add_child(_players_list)
+	# Aim-anomaly detail for the selected pilot (host-side warning, never a ban).
+	_players_detail = Label.new()
+	_players_detail.add_theme_font_size_override("font_size", 13)
+	_players_detail.add_theme_color_override("font_color", Color(1.0, 0.7, 0.35))
+	_players_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_players_detail.custom_minimum_size = Vector2(0, 56)
+	v.add_child(_players_detail)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 	var back := Button.new()
@@ -1547,14 +1556,37 @@ func _refresh_players_list() -> void:
 	if net_host == null:
 		return
 	var players := net_host.connected_players()
+	var flagged := 0
 	for p in players:
-		var idx := _players_list.add_item(String(p["name"]))
-		_players_list.set_item_metadata(idx, int(p["sid"]))
+		var sid := int(p["sid"])
+		var warn := net_host.is_aim_flagged(sid)
+		if warn:
+			flagged += 1
+		var idx := _players_list.add_item(("⚠ " if warn else "") + String(p["name"]))
+		_players_list.set_item_metadata(idx, sid)
 	if players.is_empty():
 		_players_list.add_item(tr("(no players connected — bots hold every slot)"), null, false)
+		_players_detail.text = ""
 	else:
 		_players_list.select(0)
-	_players_note.text = tr("%d connected · %d banned") % [players.size(), net_host.ban_list().size()]
+		_on_player_selected(0)
+	_players_note.text = tr("%d connected · %d banned · %d flagged") \
+		% [players.size(), net_host.ban_list().size(), flagged]
+
+## Show the selected pilot's aim-anomaly verdict (a warning to review, not a
+## ban — see AimAnalyzer). Clean pilots get a reassuring line.
+func _on_player_selected(idx: int) -> void:
+	if net_host == null:
+		return
+	var meta: Variant = _players_list.get_item_metadata(idx)
+	if typeof(meta) != TYPE_INT:
+		_players_detail.text = ""
+		return
+	var reasons := net_host.aim_reasons(int(meta))
+	if reasons.is_empty():
+		_players_detail.text = tr("Aim looks human — nothing flagged.")
+	else:
+		_players_detail.text = "⚠ " + "\n⚠ ".join(reasons)
 
 func _moderate_selected(ban: bool) -> void:
 	if net_host == null:

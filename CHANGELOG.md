@@ -2,6 +2,30 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [1.12.0] — 2026-06-12
+
+### Added
+- **Server-side aim-anomaly heuristics — host warnings, never bans.** (issue
+  #4) The host runs the authoritative sim and sees every input, so the new
+  `AimAnalyzer` watches each connected pilot for statistically impossible play:
+  - **near-zero aim variance** — a shooter holding a sub-3° firing solution
+    far more often than a human hand can while both ships maneuver;
+  - **sub-human acquisition** — firing within the ~117ms reaction floor of a
+    target first entering the aim cone;
+  - **seam tracking** — aim that stays glued to a target as it teleports
+    across the toroidal wrap edge (a human loses it for a beat).
+  Each signal is conservative and only trips on a real sample (≥20 shots, or 3
+  seam-locks). Flags surface as a ⚠ in the host **MANAGE PLAYERS** panel (with
+  the reason and per-pilot aim stats) and in the dedicated console's new
+  `watch` command — and that is **all** they do. There is deliberately no
+  auto-ban: a flag is a prompt to look, because perfect input isn't even
+  winning play here (a frame-perfect bot went 1W–9L vs Veterans), so an
+  anomaly is a curiosity, not a verdict. 11 unit tests cover an aimbot
+  tripping the flag, a sloppy human staying clean, and cross-seam aim-lock.
+- **This closes the implementable scope of issue #4** (kick/ban + replay
+  evidence shipped in 1.11.0). Only the Steamworks **VAC** checkbox remains —
+  blocked on the partner account. Kernel anticheat stays a non-goal.
+
 ## [1.11.0] — 2026-06-12
 
 ### Added

@@ -475,8 +475,11 @@ msgstr "Exclure et bloquer ce pseudo (et l'adresse, en LAN) pour empêcher tout 
 msgid "(no players connected — bots hold every slot)"
 msgstr "(aucun joueur connecté — les bots occupent chaque place)"
 
-msgid "%d connected · %d banned"
-msgstr "%d connectés · %d bannis"
+msgid "%d connected · %d banned · %d flagged"
+msgstr "%d connectés · %d bannis · %d signalés"
+
+msgid "Aim looks human — nothing flagged."
+msgstr "La visée semble humaine — rien à signaler."
 
 msgid "Kicked %s."
 msgstr "Exclu %s."

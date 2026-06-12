@@ -498,7 +498,10 @@ msgstr ""
 msgid "(no players connected — bots hold every slot)"
 msgstr ""
 
-msgid "%d connected · %d banned"
+msgid "%d connected · %d banned · %d flagged"
+msgstr ""
+
+msgid "Aim looks human — nothing flagged."
 msgstr ""
 
 msgid "Kicked %s."

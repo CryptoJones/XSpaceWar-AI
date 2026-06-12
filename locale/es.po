@@ -475,8 +475,11 @@ msgstr "Expulsa y bloquea este distintivo (y la dirección, en LAN) para impedir
 msgid "(no players connected — bots hold every slot)"
 msgstr "(no hay jugadores conectados — los bots ocupan cada puesto)"
 
-msgid "%d connected · %d banned"
-msgstr "%d conectados · %d vetados"
+msgid "%d connected · %d banned · %d flagged"
+msgstr "%d conectados · %d vetados · %d señalados"
+
+msgid "Aim looks human — nothing flagged."
+msgstr "La puntería parece humana — nada señalado."
 
 msgid "Kicked %s."
 msgstr "Expulsado %s."
