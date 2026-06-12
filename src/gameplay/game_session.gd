@@ -118,8 +118,16 @@ func _build(seed: int) -> void:
 
 	# Procedural arena — vary the layout a little by mode. Kept sparse:
 	# space should read as mostly empty with hazards, not an obstacle course.
+	# Star mass is SIZED TO THE ARENA (pure level-design parameter, not a
+	# physics fudge): pick the base mass so inverse-square gravity at the
+	# spawn ring is a comfortable fraction of engine thrust on every map.
+	# This is what makes small maps playable — a smaller arena gets a
+	# smaller star — while gravity stays exactly Newtonian (see README).
+	var base_star_mass := (cfg.thrust_accel * 0.35) \
+		* cfg.spawn_orbit_radius * cfg.spawn_orbit_radius / cfg.gravity_constant
 	arena_params = ArenaGen.populate(world, {
 		"star_count": 1,  # exactly one gravity well per map
+		"star_mass": base_star_mass,
 		"star_scale": clampf(star_scale, 0.2, 4.0),
 		"planets": clampi(planet_count, 0, 6),
 		"hazard": clampf(hazard, 0.0, 1.0),

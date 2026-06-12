@@ -67,6 +67,39 @@ networked Spacewar is this game's direct ancestor.
   relay/master server — room codes, an online server browser, and no port
   forwarding or platform services required.
 
+## Physics — what's real, and the one thing that isn't
+
+The simulation is **honest Newtonian mechanics**, and we keep it that way on
+purpose:
+
+- **Gravity is pure inverse-square.** Every body pulls with `G·M / r²` —
+  no caps, no clamps, no softening beyond a hair inside the star's own
+  radius (to avoid a divide-by-zero singularity). Fly close to a star and
+  the pull genuinely diverges, exactly as it should; you cannot thrust your
+  way out of a star you've already fallen into. That's not a bug, it's a
+  star.
+- **No drag.** Momentum is conserved. There is no brake — to slow down you
+  rotate 180° and burn against your velocity, the same maneuver Spacewar!
+  pilots have flown since 1962.
+- **Space is a torus.** Crossing a map edge teleports you to the opposite
+  side with your **velocity unchanged** — a wrap, not a slingshot. (An
+  earlier build doubled your speed at the seam; that was free energy, it
+  compounded into an unrecoverable runaway on small maps, and it's gone.)
+
+**The one deliberate deviation — and it isn't a physics fudge, it's level
+design:** the star's **mass is sized to the arena**. A smaller map gets a
+lighter star. We pick the base mass so that inverse-square gravity at the
+spawn ring is a comfortable fraction of your engine's thrust:
+
+```
+star_mass = (0.35 · thrust_accel · spawn_radius²) / G
+```
+
+so the playfield is always traversable regardless of map size, while the
+gravity *law* stays exactly Newtonian. The **Star size** slider then scales
+this base from 0.2× to 4×: a giant star really is a brutal, barely-escapable
+well, and a dwarf is a gentle nudge — both pure `1/r²`, both honest.
+
 ## Multiplayer quick start
 
 - **LAN:** one player clicks *HOST — LAN skirmish*; everyone else sees the

@@ -2,6 +2,24 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [1.9.1] — 2026-06-12
+
+### Changed
+- **Gravity is honest Newtonian again — the cap is gone.** The escapability
+  cap (v1.9.0) bent inverse-square into a constant-force core, which itself
+  destabilized orbits and needed a second hack to patch. Both removed.
+  Instead the star's **mass is sized to the arena** (a level-design
+  parameter, not a physics fudge): `star_mass = 0.35·thrust·spawn_r²/G`, so
+  small maps stay playable while gravity is pure `1/r²` at every star size.
+  Proven: a still pilot orbits a stable Keplerian ellipse across the whole
+  star-size × map-size matrix.
+- **Toroidal wrap preserves velocity** — the seam no longer doubles your
+  speed. That "slingshot" was free energy that compounded into an
+  unrecoverable runaway on small wrapping maps (the "Epstein-drive
+  catastrophe"); held thrust is now always recoverable via flip-and-burn,
+  exactly like 1962.
+- New README **Physics** section documenting all of the above.
+
 ## [1.9.0] — 2026-06-12
 
 ### Changed

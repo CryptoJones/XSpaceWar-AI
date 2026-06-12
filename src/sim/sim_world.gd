@@ -109,14 +109,6 @@ func place_in_orbit(s: SimShip) -> void:
 	var r := config.spawn_orbit_radius
 	if primary != null:
 		r = maxf(r, primary.radius * 3.0 + 200.0)
-		# Spawn OUTSIDE the capped (constant-force) core: inside r_cap gravity
-		# is clamped flat, and orbits under a constant central force precess
-		# and can decay into the star even with zero input. Beyond r_cap the
-		# field is true 1/r^2, so a circular orbit is a stable closed ellipse
-		# and a still pilot orbits forever. (Tiny-map+giant-star degenerates
-		# fall back to the wall clamp; the accel cap still keeps them escapable.)
-		var r_cap := sqrt(config.gravity_constant * m / (config.thrust_accel * 0.8))
-		r = maxf(r, r_cap * 1.15)
 	r = minf(r, config.arena_size * 0.5 * 0.85)
 	# Clearance: never materialize inside (or kissing) a rock/satellite —
 	# re-roll the ring angle a few times; deterministic via the world rng.
@@ -134,11 +126,9 @@ func place_in_orbit(s: SimShip) -> void:
 	# Circular-orbit speed, perpendicular to the radius, random direction.
 	var speed := 0.0
 	if m > 0.0:
-		# Circular speed for the EFFECTIVE (capped) gravity at this radius,
-		# so the spawn orbit is actually stable under the escapability cap.
-		var grav_here: float = minf(config.gravity_constant * m / (r * r),
-			config.thrust_accel * 0.8)
-		speed = sqrt(grav_here * r)
+		# True circular-orbit speed (Keplerian, pure 1/r^2): a still pilot
+		# orbits a stable closed ellipse forever.
+		speed = sqrt(config.gravity_constant * m / r)
 	var dir := Vector2(-sin(ang), cos(ang))
 	if rng.randf() < 0.5:
 		dir = -dir
@@ -416,16 +406,8 @@ func gravity_accel(p: Vector2) -> Vector2:
 		r2 = maxf(r2, soft * soft)
 		var r := sqrt(r2)
 		a += d * (config.gravity_constant * b.mass / (r2 * r))
-	# Escapability guarantee (Aaron's rule): the well may curve your path
-	# hard, but it must NEVER out-pull your engine — a pilot burning away
-	# from the star always makes headway. Without this, the steep core of a
-	# fixed-strength star on a small map exceeded thrust_accel and dragged
-	# even a still ship to its death. Slingshots at range are unaffected
-	# (gravity is naturally well under the cap out there).
-	var cap := config.thrust_accel * 0.8
-	if a.length() > cap:
-		a = a.normalized() * cap
-	return a
+	return a  # pure Newtonian inverse-square — no caps (star mass is sized
+	          # to the arena instead; see GameSession._build / README Physics)
 
 ## Advance one ship's pilot kinematics (turn / thrust+fuel / gravity /
 ## position / wrap) exactly as a full step would, without weapons, timers, or
@@ -630,15 +612,15 @@ func _destroy_ship(s: SimShip, killer_id: int, cause: String) -> void:
 const WRAP_BOOST := 2.0
 const WRAP_SPEED_CAP := 20000.0
 
-## Apply the toroidal wrap (+ Aaron's slingshot: speed doubles per seam
-## crossing, capped). ONE implementation — the sim has five wrappable
-## entity kinds, and a missed copy desyncs prediction from the host.
-## Returns [wrapped_pos, boosted_vel] or empty if no wrap occurred.
+## Toroidal wrap: position teleports across the seam, velocity is PRESERVED
+## (space is a torus — no free energy). Returns [wrapped_pos, vel] or empty.
+## (The old slingshot doubled speed here and compounded into an unrecoverable
+## runaway on small wrapping maps — removed in favor of honest physics.)
 func _wrap_with_boost(pos: Vector2, vel: Vector2) -> Array:
 	var wrapped := _wrap_point(pos)
 	if wrapped == pos:
 		return []
-	return [wrapped, (vel * WRAP_BOOST).limit_length(WRAP_SPEED_CAP)]
+	return [wrapped, vel]
 
 func _wrap_positions() -> void:
 	for s in ships:
