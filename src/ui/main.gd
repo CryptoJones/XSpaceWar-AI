@@ -380,7 +380,7 @@ func _build_match_tab() -> Control:
 		func(x: float) -> String: return ["Rookie", "Veteran", "Ace", "Insane"][int(x)])
 	_ships_slider = _slider_row(grid, "Ships", 1, 16, 1, 8,
 		func(x: float) -> String: return "1 (solo)" if int(x) == 1 else str(int(x)))
-	_limit_slider = _slider_row(grid, "Score limit", 0, 50, 1, 10,
+	_limit_slider = _slider_row(grid, "Score limit", 0, 1024, 1, 10,
 		func(x: float) -> String: return "endless" if int(x) == 0 else str(int(x)))
 	_time_slider = _slider_row(grid, "Time limit", 0, 30, 1, 0,
 		func(x: float) -> String: return "no clock" if int(x) == 0 else "%d min" % int(x))
