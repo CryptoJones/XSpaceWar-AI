@@ -20,6 +20,7 @@ func _initialize() -> void:
 	_test_prediction()
 	_test_spectator()
 	_test_dedicated_server()
+	_test_name_sanitization()
 	_test_name_reclaim()
 	_test_discovery_loopback()
 	print("=== %d passed, %d failed ===" % [_passed, _failed])
@@ -312,6 +313,16 @@ func _test_prediction() -> void:
 		client._pending_inputs.size() < 60, "pending=%d" % client._pending_inputs.size())
 	client.close()
 	host.close()
+
+func _test_name_sanitization() -> void:
+	_check("names: CJK and markup stripped, never empty",
+		NetProtocol.sanitize_name("李雷[color=red]x") == "COLORREDX"
+		and NetProtocol.sanitize_name("漢字漢字") == "PILOT"
+		and NetProtocol.sanitize_name("  ace_42-X  ") == "ACE_42-X"
+		and NetProtocol.sanitize_name("[b][/b]") == "BB"
+		and NetProtocol.sanitize_name("x".repeat(40)).length() == 16,
+		"got '%s' / '%s'" % [NetProtocol.sanitize_name("李雷[color=red]x"),
+			NetProtocol.sanitize_name("[b][/b]")])
 
 func _test_name_reclaim() -> void:
 	# Trusted servers: rejoining with the same name kicks the ghost and

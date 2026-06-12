@@ -226,7 +226,7 @@ func _on_hello(peer, data: Dictionary) -> void:
 	var sid: int = bot_ids[0]
 	session.bots.erase(sid)
 	_peers[peer] = sid
-	var pname := String(data.get("name", "")).strip_edges().left(16)
+	var pname := NetProtocol.sanitize_name(String(data.get("name", "")))
 	if pname == "":
 		pname = "PILOT-%d" % sid
 	# Trusted reclaim: same name = same pilot. Kick the old session (a

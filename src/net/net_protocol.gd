@@ -14,6 +14,23 @@ extends RefCounted
 
 const VERSION := 5
 
+## Callsign whitelist: A-Z 0-9 space dash underscore, max 16, never empty.
+## Applied authoritatively on the HOST (clients can send anything) — this is
+## what keeps BBCode injection, control characters, and unrenderable glyphs
+## out of every scoreboard and kill feed.
+static func sanitize_name(raw: String) -> String:
+	var up := raw.strip_edges().to_upper()
+	var out := ""
+	for ch in up:
+		var c := ch.unicode_at(0)
+		if (c >= 65 and c <= 90) or (c >= 48 and c <= 57) \
+				or ch == " " or ch == "-" or ch == "_":
+			out += ch
+		if out.length() >= 16:
+			break
+	out = out.strip_edges()
+	return out if out != "" else "PILOT"
+
 enum {
 	MSG_HELLO = 1,      ## client -> host: {v, name, spec?}
 	MSG_WELCOME = 2,    ## host -> client: {v, id, seed, prm, mode, dif, gen, ros}

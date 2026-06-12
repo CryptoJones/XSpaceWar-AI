@@ -2,6 +2,15 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [1.7.15] — 2026-06-12
+
+### Fixed
+- **Pilot names are whitelisted** (A-Z 0-9 space dash underscore, max 16,
+  never empty) — enforced authoritatively on the host, not just the UI.
+  Kills scoreboard BBCode injection from hand-crafted join packets and
+  strips unrenderable glyphs (CJK etc. become their alphanumeric residue
+  or PILOT).
+
 ## [1.7.14] — 2026-06-12
 
 ### Added

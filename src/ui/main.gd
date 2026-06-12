@@ -444,7 +444,12 @@ func _build_net_tab() -> Control:
 	_name_edit.placeholder_text = "shown on every scoreboard"
 	_name_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_name_edit.text_changed.connect(func(t: String):
-		_player_name = t.strip_edges().to_upper().left(16))
+		var clean := NetProtocol.sanitize_name(t)
+		_player_name = clean
+		if t != clean and t.strip_edges() != "":
+			var col := _name_edit.caret_column
+			_name_edit.text = clean
+			_name_edit.caret_column = mini(col, clean.length()))
 	_name_edit.focus_exited.connect(_save_settings)
 	name_row.add_child(_name_edit)
 	v.add_child(name_row)
