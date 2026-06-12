@@ -80,6 +80,11 @@ networked Spacewar is this game's direct ancestor.
   *JOIN CODE* or *BROWSE* (tick *Spectate* to watch without taking a ship).
   Full deployment guide (firewall, systemd): [`server/README.md`](server/README.md).
 
+- **Ports** (all UDP): `24642` game host (open this inbound to host
+  direct-internet games; LAN needs nothing) · `24643` LAN discovery
+  broadcast (never leaves your subnet) · `24645` relay server (open on
+  the VPS; relay *players* need no port forwarding at all).
+
 ## Project layout
 
 ```

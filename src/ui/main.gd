@@ -439,6 +439,7 @@ func _build_net_tab() -> Control:
 	join_row.add_theme_constant_override("separation", 8)
 	_ip_edit = LineEdit.new()
 	_ip_edit.placeholder_text = "host ip (or ip:port)"
+	_ip_edit.tooltip_text = "Game port defaults to UDP 24642"
 	_ip_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	join_row.add_child(_ip_edit)
 	var join_btn := Button.new()
@@ -459,6 +460,7 @@ func _build_net_tab() -> Control:
 	var env_relay := OS.get_environment("XSW_RELAY")
 	_relay_edit.text = env_relay if env_relay != "" else ""
 	_relay_edit.placeholder_text = "relay address (ip[:port])"
+	_relay_edit.tooltip_text = "Relay port defaults to UDP 24645"
 	_relay_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	online_row.add_child(_relay_edit)
 	var host_online_btn := Button.new()
@@ -884,7 +886,8 @@ func _on_host_pressed() -> void:
 	view.external_driver = func(dt: float): net_host.update(dt,
 		view.gather_local_input() if not _menu.visible else {})
 	_maybe_start_recording()
-	_net_status.text = ""
+	_net_status.text = "Hosting LAN on UDP %d — players on your network see you automatically." \
+		% NetHost.DEFAULT_PORT
 	set_menu_visible(false)
 
 func _on_join_ip_pressed() -> void:

@@ -2,6 +2,13 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [1.7.8] — 2026-06-12
+
+### Changed
+- Ports surfaced where people look: hosting confirms "LAN on UDP 24642",
+  the IP/relay fields tooltip their default ports, and the README gains
+  a ports reference (24642 game · 24643 LAN discovery · 24645 relay).
+
 ## [1.7.7] — 2026-06-12
 
 ### Added
