@@ -20,6 +20,8 @@ func _initialize() -> void:
 	_test_prediction()
 	_test_spectator()
 	_test_dedicated_server()
+	_test_dedicated_restart_keeps_players()
+	_test_stale_snapshot_dropped()
 	_test_name_sanitization()
 	_test_name_reclaim()
 	_test_discovery_loopback()
@@ -311,6 +313,75 @@ func _test_prediction() -> void:
 		"mean=%.1f worst=%.1f samples=%d" % [mean, worst, samples])
 	_check("prediction: unacked input buffer stays bounded",
 		client._pending_inputs.size() < 60, "pending=%d" % client._pending_inputs.size())
+	client.close()
+	host.close()
+
+func _test_dedicated_restart_keeps_players() -> void:
+	# A FULL dedicated server auto-restarts without kicking anyone: the
+	# session.dedicated flag keeps rebuilt rosters all-bot.
+	var hsession := GameSession.new()
+	hsession.score_limit = 0
+	hsession.start_skirmish(2, GameSession.Mode.FFA, BotController.Difficulty.ROOKIE)
+	NetHost.convert_to_dedicated(hsession)
+	var host := NetHost.new(hsession)
+	if host.open(TEST_PORT + 11, false, "restart-test", "127.0.0.1") != OK:
+		_check("dedicated-restart: binds", false)
+		return
+	var c1 := NetClient.new()
+	var c2 := NetClient.new()
+	c1.open("127.0.0.1", TEST_PORT + 11, "ALPHA")
+	c2.open("127.0.0.1", TEST_PORT + 11, "BRAVO")
+	for _i in range(900):
+		host.update(DT, {})
+		c1.update(DT, {})
+		c2.update(DT, {})
+		if c1.state == NetClient.State.READY and c2.state == NetClient.State.READY \
+				and c1.session.human_ship_id >= 0 and c2.session.human_ship_id >= 0:
+			break
+		OS.delay_msec(1)
+	_check("dedicated-restart: full server seated", host.player_count() == 2)
+	var gen_before := hsession.generation
+	hsession.start_skirmish(2, GameSession.Mode.FFA, BotController.Difficulty.ROOKIE)
+	for _i in range(600):
+		host.update(DT, {})
+		c1.update(DT, {})
+		c2.update(DT, {})
+		OS.delay_msec(1)
+	_check("dedicated-restart: nobody kicked on rebuild",
+		hsession.generation == gen_before + 1 and host.player_count() == 2
+		and c1.state == NetClient.State.READY and c2.state == NetClient.State.READY,
+		"players=%d c1=%d c2=%d" % [host.player_count(), c1.state, c2.state])
+	c1.close()
+	c2.close()
+	host.close()
+
+func _test_stale_snapshot_dropped() -> void:
+	# Old-generation snapshots in flight across a restart must not touch
+	# the rebuilt world (their removed-body ids overlap fresh ids).
+	var hsession := GameSession.new()
+	hsession.score_limit = 0
+	hsession.start_skirmish(2, GameSession.Mode.FFA, BotController.Difficulty.ROOKIE)
+	var host := NetHost.new(hsession)
+	if host.open(TEST_PORT + 13, false, "stale-test", "127.0.0.1") != OK:
+		_check("stale-snap: binds", false)
+		return
+	var client := NetClient.new()
+	client.open("127.0.0.1", TEST_PORT + 13, "GAMMA")
+	for _i in range(600):
+		host.update(DT, {})
+		client.update(DT, {})
+		if client.state == NetClient.State.READY and client.session.world != null:
+			break
+		OS.delay_msec(1)
+	var stale := NetProtocol.snapshot_of(hsession.world, [], [], {})  # gen N
+	stale["g"] = client.session.generation                # tag as current...
+	client.session.generation += 1                        # ...then move client on
+	var rocks_before := client.session.world.bodies.size()
+	stale["rb"] = [client.session.world.bodies[0].id] if rocks_before > 0 else []
+	client._on_packet(NetProtocol.pack(NetProtocol.MSG_SNAPSHOT, stale))
+	_check("stale-snap: old-generation snapshot is ignored",
+		client.session.world.bodies.size() == rocks_before,
+		"bodies %d -> %d" % [rocks_before, client.session.world.bodies.size()])
 	client.close()
 	host.close()
 

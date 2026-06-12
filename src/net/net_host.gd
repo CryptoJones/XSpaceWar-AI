@@ -44,7 +44,7 @@ func _on_session_rebuilt() -> void:
 		return
 	_inputs.clear()
 	_acked.clear()
-	for peer in _peers:
+	for peer in _peers.keys():
 		if int(_peers[peer]) < 0:
 			# Spectators just need the new arena recipe.
 			_t.send(peer,
@@ -151,6 +151,7 @@ func _broadcast_snapshot() -> void:
 		if String(ev.get("type", "")) == "thrust":
 			thrust_ids.append(ev["ship"])
 	var snap := NetProtocol.snapshot_of(session.world, thrust_ids, _event_accum, _acked)
+	snap["g"] = session.generation
 	snap["mo"] = NetProtocol.match_state_of(session)
 	var bytes := NetProtocol.pack(NetProtocol.MSG_SNAPSHOT, snap)
 	_event_accum = []
@@ -192,6 +193,7 @@ func _on_packet(peer, bytes: PackedByteArray) -> void:
 ## becomes one more bot for joiners to take over. Call again after each
 ## auto-restart (regeneration recreates the human slot).
 static func convert_to_dedicated(p_session: GameSession) -> void:
+	p_session.dedicated = true   # rebuilds keep every slot botted (no kick on restart)
 	var hid := p_session.human_ship_id
 	if hid < 0:
 		return
@@ -266,6 +268,16 @@ func _on_hello(peer, data: Dictionary) -> void:
 func _reject(peer, why: String) -> void:
 	_t.send(peer, NetProtocol.pack(NetProtocol.MSG_REJECT, {"why": why}),
 		true, NetProtocol.CH_CONTROL)
+	# Forget the peer NOW: a reject mid-rebuild otherwise leaves a stale
+	# old-generation sid in _peers, and the kick's later disconnect event
+	# would hand that sid "back" to a bot — hijacking whichever live ship
+	# owns the id in the new world.
+	var sid: int = _peers.get(peer, -1)
+	_peers.erase(peer)
+	_names.erase(peer)
+	if sid >= 0:
+		_inputs.erase(sid)
+		_acked.erase(sid)
 	_t.kick(peer)
 
 func _drop_peer(peer) -> void:

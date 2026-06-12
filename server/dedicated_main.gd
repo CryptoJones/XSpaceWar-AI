@@ -26,6 +26,8 @@ var host: NetHost
 var session := GameSession.new()
 var _last_usec := 0
 var _status_accum := 0.0
+var _accum := 0.0
+var _announced_code := false
 var _seen_gen := -1
 
 func _initialize() -> void:
@@ -81,20 +83,28 @@ func _initialize() -> void:
 
 func _tick() -> void:
 	var now := Time.get_ticks_usec()
-	var dt := clampf(float(now - _last_usec) / 1_000_000.0, 0.0, 0.1)
+	var wall := clampf(float(now - _last_usec) / 1_000_000.0, 0.0, 0.25)
 	_last_usec = now
-	host.update(dt, {})
-	# Auto-restarts recreate the host pilot slot — hand it back to a bot.
+	# Fixed-step accumulator: the deterministic sim integrates ONLY whole
+	# fixed_dt steps — exactly like the GUI host's _physics_process — so
+	# client prediction reconciles against identical integration.
+	_accum = minf(_accum + wall, 0.25)
+	var fixed: float = session.world.config.fixed_dt
+	while _accum >= fixed:
+		host.update(fixed, {})
+		_accum -= fixed
+	# Auto-restarts: the session.dedicated flag keeps rebuilds all-bot, so
+	# this is just bookkeeping/logging now.
 	if session.generation != _seen_gen:
 		_seen_gen = session.generation
-		NetHost.convert_to_dedicated(session)
 		print("dedicated: new match (gen %d)" % session.generation)
-	_status_accum += dt
+	if not _announced_code and host.room_code() != "":
+		_announced_code = true
+		print("dedicated: ROOM CODE %s — share this with players" % host.room_code())
+	_status_accum += wall
 	if _status_accum >= 30.0:
 		_status_accum = 0.0
 		print("dedicated: players %d  tick %d  gen %d  room %s" % [host.player_count(),
 			session.world.tick, session.generation,
 			host.room_code() if host.room_code() != "" else "-"])
-	if host.room_code() != "" and _seen_gen == session.generation:
-		pass  # room code printed via status line
-	OS.delay_msec(8)  # ~120Hz service loop, sim steps at its own fixed rate
+	OS.delay_msec(4)  # service loop; the accumulator owns sim timing

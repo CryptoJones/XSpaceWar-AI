@@ -12,7 +12,10 @@ extends RefCounted
 ## locally from the seed + params (ArenaGen is deterministic), then apply
 ## snapshots on top and dead-reckon between them.
 
-const VERSION := 5
+# BUMP THIS on ANY wire-schema change (welcome/snapshot/input fields) —
+# the strict equality check is the only thing standing between mixed
+# builds and silent desync.
+const VERSION := 6
 
 ## Callsign whitelist: A-Z 0-9 space dash underscore, max 16, never empty.
 ## Applied authoritatively on the HOST (clients can send anything) — this is

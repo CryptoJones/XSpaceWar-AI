@@ -206,6 +206,11 @@ func _on_packet(bytes: PackedByteArray) -> void:
 			rtt_ms = sample if rtt_ms < 0 else int(lerpf(float(rtt_ms), float(sample), 0.3))
 			session.net_rtt_ms = rtt_ms
 		NetProtocol.MSG_SNAPSHOT:
+			# A snapshot from a previous generation (in flight across a
+			# match restart) must not touch the rebuilt world — its stale
+			# removed-body ids overlap fresh ids and would delete live rocks.
+			if int(data.get("g", session.generation)) != session.generation:
+				return
 			if session.world != null:
 				var old_vis := {}
 				for s in session.world.ships:

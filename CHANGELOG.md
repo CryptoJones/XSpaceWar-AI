@@ -2,6 +2,31 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [1.7.23] — 2026-06-12
+
+Code-review fixes, batch 2 (restart lifecycle + protocol):
+
+### Fixed
+- **A rejected peer can no longer hijack a live player's ship**:
+  _reject now forgets the peer immediately, so the kick's later
+  disconnect event can't hand a stale old-generation ship id to a bot.
+- **Full dedicated servers no longer kick one player per restart**:
+  sessions remember they're dedicated, so rebuilt rosters stay all-bot
+  (tested: 2 players on a full 2-slot server survive a restart).
+- **The dedicated server now runs a true fixed-step sim** (accumulator
+  at fixed_dt) — identical integration to the GUI host, so client
+  prediction reconciles cleanly instead of perpetually correcting.
+- **Stale snapshots can't corrupt a rebuilt arena**: snapshots are
+  generation-tagged and clients drop ones from a previous match
+  (in-flight across a restart, their removed-body ids overlap fresh
+  ids and deleted live asteroids).
+- **Protocol VERSION bumped to 6** (first bump since v0.8.0 despite
+  schema growth) with a bump-on-any-schema-change policy comment —
+  mixed old/new builds now get a clean "protocol version mismatch"
+  instead of silently desyncing.
+- The dedicated server announces its relay room code the moment it is
+  assigned (was buried in the 30s status line).
+
 ## [1.7.22] — 2026-06-12
 
 Code-review fixes, batch 1 (guards and quick kills):

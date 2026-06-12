@@ -17,6 +17,9 @@ var difficulty: int = BotController.Difficulty.VETERAN
 
 # Movie Mode: all-AI spectator that regenerates everything on a timer.
 var movie_mode: bool = false
+## Dedicated-server session: NO slot is reserved for a local pilot — every
+## ship is a bot until a remote player takes it (survives auto-restarts).
+var dedicated: bool = false
 var regen_interval: float = 1800.0        ## 30 minutes
 var regen_timer: float = 0.0
 var generation: int = 0                   ## increments each regeneration
@@ -122,7 +125,7 @@ func _build(seed: int) -> void:
 		# In a skirmish the first ship is the human; everyone else is AI.
 		# Movie Mode mixes pilot skill (rookies crashing among aces makes
 		# better television than a uniform roster).
-		if not movie_mode and i == 0:
+		if not movie_mode and not dedicated and i == 0:
 			human_ship_id = ship.id
 		else:
 			var bot_diff := difficulty
