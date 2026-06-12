@@ -25,8 +25,25 @@ func _initialize() -> void:
 	root.add_child(node)
 	process_frame.connect(_on_frame)
 
+var _forced_kill := false
+
 func _on_frame() -> void:
 	_frames += 1
+	var m := root.get_node_or_null("Main")
+	# Mid-run: force a kill and assert it reaches the HUD kill feed — the
+	# whole event pipeline (stamp -> accumulate -> consume) regression-tested
+	# after the off-by-one that silently dropped every one-shot event.
+	if _frames == 150 and m != null and m.session.world != null \
+			and m.session.world.ships.size() >= 2:
+		var victim = m.session.world.ships[1]
+		if victim.alive:
+			m.session.world._destroy_ship(victim, m.session.world.ships[0].id, "torpedo")
+			_forced_kill = true
+	if _frames == 170 and _forced_kill and m != null:
+		if m.hud._feed.is_empty():
+			print("  [FAIL] forced kill never reached the HUD feed (event pipeline)")
+			quit(1)
+			return
 	if _frames == FRAMES:
 		var main := root.get_node_or_null("Main")
 		var ok: bool = main != null and main.session != null and main.session.world != null \

@@ -55,7 +55,9 @@ var key_binds := {
 	"fire": KEY_SPACE,
 	"mine": KEY_S,
 	"hyper": KEY_SHIFT,
-	"toggle_map": KEY_M,   # UI action (minimap), lives here so binds have one home
+	"toggle_map": KEY_M,   # UI actions live here so binds have one home
+	"toggle_feed": KEY_K,
+	"toggle_score": KEY_B,
 }
 
 ## When valid, replaces the built-in input+update drive each physics step —
@@ -213,8 +215,8 @@ func _physics_process(dt: float) -> void:
 		# Continuous-state events (thrust flames) are re-emitted every frame
 		# by design; one-shots are consumed exactly once via tick stamps.
 		if String(ev.get("type", "")) != "thrust" \
-				and int(ev.get("tk", -1)) <= _seen_ev_tick:
-			continue
+				and int(ev.get("tk", -1)) < _seen_ev_tick:
+			continue  # (stamps lag the post-step tick by one)
 		_audio.play_event(ev)
 		match ev.get("type", ""):
 			"thrust":

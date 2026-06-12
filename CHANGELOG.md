@@ -2,6 +2,24 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [1.8.2] — 2026-06-12
+
+### Fixed
+- **Kill feed (and all one-shot effects) work again**: 1.7.26's event
+  rework stamped events with the pre-increment tick, so consumers
+  skipped every kill/death line, explosion effect, and weapon sound —
+  an off-by-one in the consume guard. (Looked Mac-specific in testing,
+  but was version skew: the Mac was the only box running the newest
+  build.) A scene-level regression test now forces a kill and asserts
+  it reaches the feed.
+
+### Added
+- **K toggles the kill feed, B toggles the scoreboard** (rebindable,
+  persisted) — for those who want a cleaner screen.
+- **--debug flag**: launch with `--debug` for the F3 overlay on boot,
+  version/adapter banner, kill-feed echo to stdout, and a diagnostics
+  line every 5 seconds — made for grabbing logs on test machines.
+
 ## [1.8.1] — 2026-06-12
 
 ### Fixed

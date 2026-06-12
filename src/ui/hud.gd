@@ -121,6 +121,20 @@ func set_debug(text: String) -> void:
 	_debug_label.visible = text != ""
 	_debug_label.text = text
 
+var debug_echo := false   ## --debug: mirror feed lines to stdout
+
+func set_feed_visible(v: bool) -> void:
+	_feed_label.visible = v
+
+func feed_visible() -> bool:
+	return _feed_label.visible
+
+func set_score_visible(v: bool) -> void:
+	_score.visible = v
+
+func score_visible() -> bool:
+	return _score.visible
+
 func set_radar_visible(v: bool) -> void:
 	_radar.visible = v
 
@@ -243,8 +257,8 @@ func _update_feed(dt: float) -> void:
 		var last_seen := _seen_tick
 		_seen_tick = session.world.tick
 		for ev in session.world.events:
-			if int(ev.get("tk", -1)) <= last_seen:
-				continue
+			if int(ev.get("tk", -1)) < last_seen:
+				continue  # (events of step N are stamped N; tick is N+1 after)
 			match String(ev.get("type", "")):
 				"kill":
 					_push_feed("%s  ▸☠  %s" % [_ship_bb(int(ev["killer"])), _ship_bb(int(ev["victim"]))])
@@ -268,6 +282,9 @@ func _update_feed(dt: float) -> void:
 	_feed_label.text = "\n".join(lines)
 
 func _push_feed(text: String) -> void:
+	if debug_echo:
+		var rx := RegEx.create_from_string("\\[/?[^\\]]*\\]")
+		print("[feed] ", rx.sub(text, "", true))
 	_feed.append({"t": text, "ttl": FEED_TTL})
 	while _feed.size() > FEED_MAX:
 		_feed.pop_front()

@@ -64,6 +64,7 @@ var _stats_list: ItemList
 var _stats_detail: Label
 var _stats_career: Label
 var _stats_key := []               ## [session id, generation] last written to history
+var _debug_dump_accum := 0.0
 
 const BINDABLE := [
 	["turn_left", "Turn left"],
@@ -73,6 +74,8 @@ const BINDABLE := [
 	["mine", "Drop mine"],
 	["hyper", "Hyperspace"],
 	["toggle_map", "Toggle minimap"],
+	["toggle_feed", "Toggle kill feed"],
+	["toggle_score", "Toggle scoreboard"],
 ]
 
 ## OPENING credits — the lineage this game stands on, rolled flat (no Star
@@ -169,6 +172,14 @@ func _ready() -> void:
 		_player_name = user.to_upper().left(12) if user != "" else "PILOT"
 	_name_edit.text = _player_name
 	_lan = LanDiscovery.listener()
+	if "--debug" in OS.get_cmdline_args() or "--debug" in OS.get_cmdline_user_args():
+		_debug_overlay = true
+		hud.debug_echo = true
+		print("[debug] XSpaceWar-AI v%s — debug mode (F3 overlay on, logs verbose)"
+			% str(ProjectSettings.get_setting("application/config/version", "?")))
+		print("[debug] adapter: %s | renderer: %s" % [
+			RenderingServer.get_video_adapter_name(),
+			RenderingServer.get_current_rendering_method()])
 	session.start_movie()
 	# Boot sequence: credits roll -> splash (controls, press SPACE) -> menu.
 	set_menu_visible(false)
@@ -230,6 +241,11 @@ func _process(dt: float) -> void:
 		_refresh_server_list(dt)
 	if _debug_overlay:
 		hud.set_debug(_debug_text())
+		if hud.debug_echo:
+			_debug_dump_accum += dt
+			if _debug_dump_accum >= 5.0:
+				_debug_dump_accum = 0.0
+				print("[debug] ", _debug_text().replace("\n", " | "))
 
 # --------------------------------------------------------------------------
 # Menu
@@ -904,6 +920,12 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif key_pressed and event.physical_keycode == int(view.key_binds["toggle_map"]):
 		hud.set_radar_visible(not hud.radar_visible())
 		_save_settings()
+	elif key_pressed and event.physical_keycode == int(view.key_binds["toggle_feed"]):
+		hud.set_feed_visible(not hud.feed_visible())
+		_save_settings()
+	elif key_pressed and event.physical_keycode == int(view.key_binds["toggle_score"]):
+		hud.set_score_visible(not hud.score_visible())
+		_save_settings()
 	elif key_pressed and event.physical_keycode == KEY_ESCAPE:
 		set_menu_visible(not _menu.visible)
 	elif pad_pressed and event.button_index == JOY_BUTTON_START:
@@ -1126,6 +1148,8 @@ func _load_settings() -> void:
 		_record_check.set_pressed_no_signal(bool(cfg.get_value("replay", "record", false)))
 		_music_check.set_pressed_no_signal(bool(cfg.get_value("audio", "music", true)))
 		hud.set_radar_visible(bool(cfg.get_value("display", "minimap", true)))
+		hud.set_feed_visible(bool(cfg.get_value("display", "kill_feed", true)))
+		hud.set_score_visible(bool(cfg.get_value("display", "scoreboard", true)))
 		# Match setup: restore the player's favorite configuration.
 		_mode_btn.select(int(cfg.get_value("match", "mode", 0)))
 		_diff_slider.set_value_no_signal(float(cfg.get_value("match", "difficulty", BotController.Difficulty.VETERAN)))
@@ -1169,6 +1193,8 @@ func _save_settings() -> void:
 	cfg.set_value("replay", "record", _record_check.button_pressed)
 	cfg.set_value("audio", "music", _music_check.button_pressed)
 	cfg.set_value("display", "minimap", hud.radar_visible())
+	cfg.set_value("display", "kill_feed", hud.feed_visible())
+	cfg.set_value("display", "scoreboard", hud.score_visible())
 	for pair in BINDABLE:
 		cfg.set_value("keys", String(pair[0]), int(view.key_binds[String(pair[0])]))
 	cfg.set_value("match", "mode", _mode_btn.selected)

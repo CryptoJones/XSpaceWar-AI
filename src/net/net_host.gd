@@ -125,8 +125,8 @@ func update(dt: float, local_input: Dictionary) -> void:
 	session.update(dt)
 
 	for ev in session.world.events:
-		if int(ev.get("tk", -1)) <= _ev_tick:
-			continue  # events accumulate now; forward each exactly once
+		if int(ev.get("tk", -1)) < _ev_tick:
+			continue  # forward exactly once (stamps lag the post-step tick by one)
 		if String(ev.get("type", "")) in NetProtocol.FORWARDED_EVENTS:
 			_event_accum.append(ev)
 	_ev_tick = session.world.tick
