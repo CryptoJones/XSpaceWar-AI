@@ -2,6 +2,17 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [1.8.1] — 2026-06-12
+
+### Fixed
+- **macOS packages launch again**: the export now ad-hoc signs the app
+  bundle. Godot's export template ships pre-signed; inserting the game
+  data invalidated that signature, and Apple Silicon kills invalid-
+  signature apps at exec — the misleading ""damaged" and can't be
+  opened" dialog. (Until you re-download, the local workaround is:
+  codesign --force --deep -s - XSpaceWar-AI.app && xattr -dr
+  com.apple.quarantine XSpaceWar-AI.app)
+
 ## [1.8.0] — 2026-06-12
 
 **The review-hardened release.** A 9-angle, 26-verifier audit of the whole
