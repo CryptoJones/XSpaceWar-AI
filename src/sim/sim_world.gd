@@ -104,7 +104,12 @@ func place_in_orbit(s: SimShip) -> void:
 		ang = wrapf(float(s.team) * 2.399963 + rng.randf_range(-0.6, 0.6), 0.0, TAU)
 	else:
 		ang = rng.randf() * TAU
+	# The ring respects the ACTUAL star: a maxed star-size slider must not
+	# leave pilots spawning inside the well (and never at the map's wall).
 	var r := config.spawn_orbit_radius
+	if primary != null:
+		r = maxf(r, primary.radius * 2.2 + 120.0)
+	r = minf(r, config.arena_size * 0.5 * 0.85)
 	s.pos = center + Vector2(cos(ang), sin(ang)) * r
 	# Circular-orbit speed, perpendicular to the radius, random direction.
 	var speed := 0.0

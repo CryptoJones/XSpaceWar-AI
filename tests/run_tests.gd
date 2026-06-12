@@ -22,6 +22,7 @@ func _initialize() -> void:
 	_test_hazard_slider()
 	_test_ship_colors()
 	_test_star_scale()
+	_test_giant_star_spawns()
 	_test_map_size()
 	_test_lives()
 	_test_eternal_torpedoes()
@@ -384,6 +385,20 @@ func _test_lives() -> void:
 			survivor_id = ship.id
 	_check("lives: last pilot standing wins",
 		s2.match_over and s2.winner_ship == survivor_id)
+
+func _test_giant_star_spawns() -> void:
+	# Max star size: nobody spawns inside (or hugging) the well.
+	var s := GameSession.new()
+	s.star_scale = 4.0
+	s.score_limit = 0
+	s.start_skirmish(16, GameSession.Mode.FFA, BotController.Difficulty.ROOKIE)
+	var star := s.world.primary_body()
+	var worst := INF
+	for ship in s.world.ships:
+		worst = minf(worst, ship.pos.distance_to(star.pos))
+	_check("spawn: giant star pushes the spawn ring out",
+		worst >= star.radius * 2.0,
+		"star r=%.0f closest spawn=%.0f" % [star.radius, worst])
 
 func _test_map_size() -> void:
 	var s := GameSession.new()

@@ -2,6 +2,13 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [1.7.12] — 2026-06-12
+
+### Fixed
+- **Giant stars no longer eat fresh spawns**: the spawn/respawn ring now
+  scales with the star's actual radius (2.2x + margin) instead of a
+  fixed distance, and never sits at the map wall on tiny arenas.
+
 ## [1.7.11] — 2026-06-12
 
 ### Added
