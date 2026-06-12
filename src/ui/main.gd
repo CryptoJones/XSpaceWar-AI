@@ -877,17 +877,26 @@ func _on_host_pressed() -> void:
 	session.host_name = _player_name
 	session.start_skirmish(int(_ships_slider.value), mode, int(_diff_slider.value))
 	net_host = NetHost.new(session)
-	var err := net_host.open(NetHost.DEFAULT_PORT, true, "%s's arena" % _player_name)
+	# If the default port is squatted (another host, another app), walk up a
+	# small range — LAN discovery advertises the ACTUAL port, so joins still
+	# work automatically; manual joiners use ip:port from the status line.
+	var err := ERR_CANT_CREATE
+	var bound_port := NetHost.DEFAULT_PORT
+	for try in range(8):
+		bound_port = NetHost.DEFAULT_PORT + try
+		err = net_host.open(bound_port, true, "%s's arena" % _player_name)
+		if err == OK:
+			break
 	if err != OK:
-		_net_status.text = "Host failed (error %d) — is another host on port %d?" \
-			% [err, NetHost.DEFAULT_PORT]
+		_net_status.text = "Host failed (error %d) — UDP %d-%d all busy." \
+			% [err, NetHost.DEFAULT_PORT, NetHost.DEFAULT_PORT + 7]
 		net_host = null
 		return
 	view.external_driver = func(dt: float): net_host.update(dt,
 		view.gather_local_input() if not _menu.visible else {})
 	_maybe_start_recording()
-	_net_status.text = "Hosting LAN on UDP %d — players on your network see you automatically." \
-		% NetHost.DEFAULT_PORT
+	_net_status.text = "Hosting LAN on UDP %d%s — players on your network see you automatically." \
+		% [bound_port, "" if bound_port == NetHost.DEFAULT_PORT else " (default was busy)"]
 	set_menu_visible(false)
 
 func _on_join_ip_pressed() -> void:

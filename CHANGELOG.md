@@ -2,6 +2,12 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [1.7.9] — 2026-06-12
+
+### Changed
+- Hosting walks UDP 24642–24649 if the default port is taken (LAN
+  discovery advertises the actual port, so auto-joins keep working).
+
 ## [1.7.8] — 2026-06-12
 
 ### Changed
