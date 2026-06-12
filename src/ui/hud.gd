@@ -20,6 +20,7 @@ var _spec_hint: Label
 var _feed: Array[Dictionary] = []   ## {"t": text, "ttl": seconds}
 var _seen_tick := -1
 var _seen_gen := -1
+var _rtl := false                   ## true under a right-to-left locale (Arabic)
 
 const FEED_TTL := 6.0
 const FEED_MAX := 6
@@ -116,6 +117,57 @@ func _ready() -> void:
 	_radar.size = Vector2(RADAR_SIZE, RADAR_SIZE)
 	_radar.draw.connect(_draw_radar)
 	add_child(_radar)
+
+	_apply_layout_direction()
+
+## Mirror the corner HUD for right-to-left locales (Arabic): the text is already
+## translated, this flips WHERE each panel sits. Scoreboard ⇄ feed swap sides,
+## the radar moves to the opposite bottom corner, the watcher hint to the
+## opposite bottom corner. Centered elements (banner, bars, respawn, final
+## standings, edge warning) are symmetric; the off-screen arrows are
+## world-relative; the F3 debug overlay is dev-facing — all left in place.
+func _apply_layout_direction() -> void:
+	if _score == null:
+		return  # a translation-changed notification can arrive before _ready builds the HUD
+	var ts := TextServerManager.get_primary_interface()
+	_rtl = ts != null and ts.is_locale_right_to_left(TranslationServer.get_locale())
+	if _rtl:
+		_score.set_anchors_preset(Control.PRESET_TOP_LEFT)
+		_score.grow_horizontal = Control.GROW_DIRECTION_END
+		_score.position = Vector2(16, 14)
+		_feed_label.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+		_feed_label.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+		_feed_label.position = Vector2(-16 - 360, 14)
+		_radar.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+		_radar.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+		_radar.grow_vertical = Control.GROW_DIRECTION_BEGIN
+		_radar.position = Vector2(-16 - RADAR_SIZE, -16 - RADAR_SIZE)
+		_spec_hint.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+		_spec_hint.grow_horizontal = Control.GROW_DIRECTION_END
+		_spec_hint.grow_vertical = Control.GROW_DIRECTION_BEGIN
+		_spec_hint.position = Vector2(16, -16)
+	else:
+		_score.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+		_score.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+		_score.position = Vector2(-16 - 320, 14)
+		_feed_label.set_anchors_preset(Control.PRESET_TOP_LEFT)
+		_feed_label.grow_horizontal = Control.GROW_DIRECTION_END
+		_feed_label.position = Vector2(16, 14)
+		_radar.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+		_radar.grow_horizontal = Control.GROW_DIRECTION_END
+		_radar.grow_vertical = Control.GROW_DIRECTION_BEGIN
+		_radar.position = Vector2(16, -16 - RADAR_SIZE)
+		_spec_hint.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+		_spec_hint.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+		_spec_hint.grow_vertical = Control.GROW_DIRECTION_BEGIN
+		_spec_hint.position = Vector2(-16, -16)
+	_radar.size = Vector2(RADAR_SIZE, RADAR_SIZE)
+	_score.custom_minimum_size = Vector2(320, 0)
+
+## Re-mirror live when the player switches language (Arabic ⇄ LTR).
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_TRANSLATION_CHANGED:
+		_apply_layout_direction()
 
 func set_debug(text: String) -> void:
 	_debug_label.visible = text != ""
@@ -430,7 +482,10 @@ func _update_banner() -> void:
 			_banner.text = spec
 
 func _update_scoreboard() -> void:
-	var lines: Array[String] = ["[right]  " + tr("SCORE  K  D")]
+	# Right-aligned in the top-right corner (LTR); left-aligned once it moves to
+	# the top-left for RTL, so the columns hug the screen edge either way.
+	var align := "left" if _rtl else "right"
+	var lines: Array[String] = ["[%s]  " % align + tr("SCORE  K  D")]
 	if session.mode == GameSession.Mode.TEAM:
 		var totals := session.team_scores()
 		var keys := totals.keys()
@@ -445,7 +500,7 @@ func _update_scoreboard() -> void:
 		var team_tag := "" if s.team < 0 else " [T%d]" % (s.team + 1)
 		var dead := "" if s.alive else " †"
 		lines.append("%s%s  %d  %d/%d%s" % [_ship_bb(s.id), team_tag, s.score, s.kills, s.deaths, dead])
-	_score.text = "\n".join(lines) + "[/right]"
+	_score.text = "\n".join(lines) + "[/%s]" % align
 
 func _draw_bars() -> void:
 	var human := session.human_ship() if session != null else null

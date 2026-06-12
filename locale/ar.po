@@ -1,0 +1,489 @@
+# XSpaceWar-AI — Arabic (ar)
+# MACHINE-DRAFTED 2026-06-12 — flagged for native review (issue #5).
+# Modern Standard Arabic. Pilot names stay Latin-whitelisted; the Orbitron
+# wordmark stays untranslated. Arabic shaping + in-line BiDi are handled by
+# Godot's TextServer; UI layout mirrors RTL via root_node_layout_direction.
+msgid ""
+msgstr ""
+"Project-Id-Version: XSpaceWar-AI\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: ar\n"
+"X-Review-Status: machine-draft\n"
+
+msgid "MATCH"
+msgstr "مباراة"
+
+msgid "MULTIPLAYER"
+msgstr "متعدد اللاعبين"
+
+msgid "OPTIONS"
+msgstr "الخيارات"
+
+msgid "Mode"
+msgstr "النمط"
+
+msgid "Free-for-all"
+msgstr "الكل ضد الكل"
+
+msgid "Team battle"
+msgstr "معركة الفرق"
+
+msgid "AI difficulty"
+msgstr "صعوبة الذكاء الاصطناعي"
+
+msgid "Rookie"
+msgstr "مبتدئ"
+
+msgid "Veteran"
+msgstr "مخضرم"
+
+msgid "Ace"
+msgstr "بارع"
+
+msgid "Insane"
+msgstr "جنوني"
+
+msgid "Ships"
+msgstr "عدد السفن"
+
+msgid "1 (solo)"
+msgstr "1 (فردي)"
+
+msgid "Score limit"
+msgstr "حد النقاط"
+
+msgid "endless"
+msgstr "بلا نهاية"
+
+msgid "Time limit"
+msgstr "حد الوقت"
+
+msgid "no clock"
+msgstr "بدون مؤقت"
+
+msgid "%d min"
+msgstr "%d دقيقة"
+
+msgid "Respawn"
+msgstr "إعادة الظهور"
+
+msgid "%d s"
+msgstr "%d ثانية"
+
+msgid "Lives"
+msgstr "الأرواح"
+
+msgid "unlimited"
+msgstr "غير محدود"
+
+msgid "Asteroids"
+msgstr "الكويكبات"
+
+msgid "none"
+msgstr "لا شيء"
+
+msgid "%d%%"
+msgstr "%d%%"
+
+msgid "Star size"
+msgstr "حجم النجم"
+
+msgid "%d (classic)"
+msgstr "%d (كلاسيكي)"
+
+msgid "Planets"
+msgstr "الكواكب"
+
+msgid "Map size"
+msgstr "حجم الخريطة"
+
+msgid "%d u"
+msgstr "%d وحدة"
+
+msgid "Boundary"
+msgstr "الحدود"
+
+msgid "Lethal map edge"
+msgstr "حافة خريطة قاتلة"
+
+msgid "Off: the map wraps around · On: the border destroys ships"
+msgstr "إيقاف: الخريطة تلتف · تشغيل: الحدود تدمّر السفن"
+
+msgid "WATCH — Movie Mode"
+msgstr "شاهد — وضع الفيلم"
+
+msgid "Pilot name"
+msgstr "اسم الطيار"
+
+msgid "shown on every scoreboard"
+msgstr "يظهر على كل لوحة نتائج"
+
+msgid "HOST — LAN skirmish"
+msgstr "استضافة — مناوشة شبكة محلية"
+
+msgid "host ip (or ip:port)"
+msgstr "عنوان IP للمضيف (أو ip:المنفذ)"
+
+msgid "Game port defaults to UDP 24642"
+msgstr "منفذ اللعبة الافتراضي هو UDP 24642"
+
+msgid "JOIN IP"
+msgstr "الانضمام عبر IP"
+
+msgid "Spectate"
+msgstr "مشاهدة"
+
+msgid "Join without taking a ship — the action camera directs"
+msgstr "انضم دون أخذ سفينة — كاميرا الحركة تتولى الإخراج"
+
+msgid "relay address (ip[:port])"
+msgstr "عنوان المُرحِّل (ip[:المنفذ])"
+
+msgid "Relay port defaults to UDP 24645"
+msgstr "منفذ المُرحِّل الافتراضي هو UDP 24645"
+
+msgid "HOST ONLINE"
+msgstr "استضافة عبر الإنترنت"
+
+msgid "BROWSE"
+msgstr "استعراض"
+
+msgid "room code"
+msgstr "رمز الغرفة"
+
+msgid "JOIN CODE"
+msgstr "الانضمام عبر الرمز"
+
+msgid "Servers — LAN auto-discovered + online via BROWSE (double-click to join):"
+msgstr "الخوادم — اكتشاف تلقائي للشبكة المحلية + عبر الإنترنت بالاستعراض (انقر نقرًا مزدوجًا للانضمام):"
+
+msgid "Volume"
+msgstr "مستوى الصوت"
+
+msgid "Nebula"
+msgstr "السديم"
+
+msgid "Colored nebula wisps (0 = pure black space)"
+msgstr "خيوط سديم ملونة (0 = فضاء أسود خالص)"
+
+msgid "Stars"
+msgstr "النجوم"
+
+msgid "Background star brightness"
+msgstr "سطوع نجوم الخلفية"
+
+msgid "Music"
+msgstr "الموسيقى"
+
+msgid "Fullscreen"
+msgstr "ملء الشاشة"
+
+msgid "Far stars"
+msgstr "النجوم البعيدة"
+
+msgid "Extra layer of large, slow distant stars"
+msgstr "طبقة إضافية من نجوم بعيدة كبيرة وبطيئة"
+
+msgid "Record matches"
+msgstr "تسجيل المباريات"
+
+msgid "Save input recordings (tiny files; bit-exact playback)"
+msgstr "حفظ تسجيلات الإدخال (ملفات صغيرة جدًا؛ تشغيل مطابق تمامًا)"
+
+msgid "Language"
+msgstr "اللغة"
+
+msgid "REPLAYS…"
+msgstr "الإعادات…"
+
+msgid "MATCH HISTORY…"
+msgstr "سجل المباريات…"
+
+msgid "QUIT"
+msgstr "خروج"
+
+msgid "CREDITS"
+msgstr "صنّاع اللعبة"
+
+msgid "KEY BINDINGS"
+msgstr "إعداد المفاتيح"
+
+msgid "PLAY — Skirmish vs AI"
+msgstr "ابدأ — مناوشة ضد الذكاء الاصطناعي"
+
+msgid "a networked space-fighter, est. 1962"
+msgstr "لعبة قتال فضائي عبر الشبكة، منذ 1962"
+
+msgid "a networked space-fighter, est. 1962  ·  v%s"
+msgstr "لعبة قتال فضائي عبر الشبكة، منذ 1962  ·  v%s"
+
+msgid "PRESS SPACE BAR TO CONTINUE"
+msgstr "اضغط مفتاح المسافة للمتابعة"
+
+msgid "KEYBOARD"
+msgstr "لوحة المفاتيح"
+
+msgid "GAMEPAD"
+msgstr "ذراع التحكم"
+
+msgid "turn"
+msgstr "الدوران"
+
+msgid "thrust"
+msgstr "الدفع"
+
+msgid "fire torpedo"
+msgstr "إطلاق طوربيد"
+
+msgid "drop mine"
+msgstr "إسقاط لغم"
+
+msgid "hyperspace"
+msgstr "الفضاء الفائق"
+
+msgid "toggle minimap"
+msgstr "تبديل الخريطة المصغرة"
+
+msgid "menu"
+msgstr "القائمة"
+
+msgid "SPACE to skip"
+msgstr "المسافة للتخطي"
+
+msgid "Turn left"
+msgstr "الدوران يسارًا"
+
+msgid "Turn right"
+msgstr "الدوران يمينًا"
+
+msgid "Thrust"
+msgstr "الدفع"
+
+msgid "Fire torpedo"
+msgstr "إطلاق طوربيد"
+
+msgid "Drop mine"
+msgstr "إسقاط لغم"
+
+msgid "Hyperspace"
+msgstr "الفضاء الفائق"
+
+msgid "Toggle minimap"
+msgstr "تبديل الخريطة المصغرة"
+
+msgid "Toggle kill feed"
+msgstr "تبديل سجل القتل"
+
+msgid "Toggle scoreboard"
+msgstr "تبديل لوحة النتائج"
+
+msgid "REBIND"
+msgstr "إعادة التعيين"
+
+msgid "DONE"
+msgstr "تم"
+
+msgid "Arrows / Enter always work as alternates."
+msgstr "الأسهم / Enter تعمل دائمًا كبدائل."
+
+msgid "Press a key for %s… (ESC cancels)"
+msgstr "اضغط مفتاحًا لـ %s… (ESC للإلغاء)"
+
+msgid "That key is reserved (camera/debug) — pick another."
+msgstr "هذا المفتاح محجوز (الكاميرا/التصحيح) — اختر غيره."
+
+msgid "Already bound to '%s' — pick another (ESC cancels)."
+msgstr "معيّن بالفعل لـ '%s' — اختر غيره (ESC للإلغاء)."
+
+msgid "Career:  %d matches  ·  %d wins  ·  %d kills / %d deaths"
+msgstr "المسيرة:  %d مباراة  ·  %d فوز  ·  %d قتل / %d موت"
+
+msgid "BACK"
+msgstr "رجوع"
+
+msgid "(no finished matches yet — set a score or time limit and play)"
+msgstr "(لا توجد مباريات منتهية بعد — حدّد حد نقاط أو وقت وابدأ اللعب)"
+
+msgid "REPLAYS"
+msgstr "الإعادات"
+
+msgid "DELETE"
+msgstr "حذف"
+
+msgid "WATCH"
+msgstr "مشاهدة"
+
+msgid "(no replays yet — enable 'Record matches' and play)"
+msgstr "(لا توجد إعادات بعد — فعّل «تسجيل المباريات» وابدأ اللعب)"
+
+msgid "⚠ BOUNDARY  %d"
+msgstr "⚠ الحدود  %d"
+
+msgid "RESPAWNING IN %d"
+msgstr "إعادة الظهور خلال %d"
+
+msgid "ELIMINATED  ·  TAB follows the next pilot"
+msgstr "أُقصيت  ·  TAB يتابع الطيار التالي"
+
+msgid "TAB follows a pilot"
+msgstr "TAB يتابع طيارًا"
+
+msgid "FINAL STANDINGS"
+msgstr "الترتيب النهائي"
+
+msgid "TEAM %d"
+msgstr "الفريق %d"
+
+msgid "TEAM %d  —  %d"
+msgstr "الفريق %d  —  %d"
+
+msgid "%d.  %s%s   %d   (%d kills / %d deaths)"
+msgstr "%d.  %s%s   %d   (%d قتل / %d موت)"
+
+msgid "★ %s WIN%s ★ — next round in %d"
+msgstr "★ %s فاز%s ★ — الجولة التالية خلال %d"
+
+msgid "MOVIE MODE — arena %d — next regeneration in %02d:%02d"
+msgstr "وضع الفيلم — الساحة %d — إعادة التوليد خلال %02d:%02d"
+
+msgid "TEAM BATTLE"
+msgstr "معركة الفرق"
+
+msgid "FREE-FOR-ALL"
+msgstr "الكل ضد الكل"
+
+msgid "SPECTATING — "
+msgstr "مشاهدة — "
+
+msgid "  ·  following "
+msgstr "  ·  يتابع "
+
+msgid "SCORE  K  D"
+msgstr "النقاط  ق  م"
+
+msgid "Team %d: %d"
+msgstr "الفريق %d: %d"
+
+msgid "FUEL"
+msgstr "الوقود"
+
+msgid "AMMO"
+msgstr "الذخيرة"
+
+msgid "MINE"
+msgstr "الألغام"
+
+msgid "LOW"
+msgstr "منخفض"
+
+msgid "Replay finished."
+msgstr "انتهت الإعادة."
+
+msgid "Disconnected: %s"
+msgstr "انقطع الاتصال: %s"
+
+msgid "Hosting online — room code: %s"
+msgstr "استضافة عبر الإنترنت — رمز الغرفة: %s"
+
+msgid "Relay link lost — clients can no longer reach this game."
+msgstr "فُقد اتصال المُرحِّل — لم يعد بإمكان العملاء الوصول إلى هذه اللعبة."
+
+msgid "Browse failed: %s"
+msgstr "فشل الاستعراض: %s"
+
+msgid "No online games right now."
+msgstr "لا توجد ألعاب عبر الإنترنت حاليًا."
+
+msgid "Host failed (error %d) — UDP %d-%d all busy."
+msgstr "فشلت الاستضافة (خطأ %d) — منافذ UDP %d-%d كلها مشغولة."
+
+msgid "Hosting LAN on UDP %d%s — players on your network see you automatically."
+msgstr "استضافة على الشبكة المحلية عبر UDP %d%s — يراك اللاعبون على شبكتك تلقائيًا."
+
+msgid " (default was busy)"
+msgstr " (المنفذ الافتراضي كان مشغولًا)"
+
+msgid "Enter a host IP first."
+msgstr "أدخل عنوان IP للمضيف أولًا."
+
+msgid "Join failed (error %d)."
+msgstr "فشل الانضمام (خطأ %d)."
+
+msgid "Enter a relay address first (or set XSW_RELAY)."
+msgstr "أدخل عنوان المُرحِّل أولًا (أو عيّن XSW_RELAY)."
+
+msgid "Relay host failed (error %d)."
+msgstr "فشلت الاستضافة عبر المُرحِّل (خطأ %d)."
+
+msgid "Registering with relay…"
+msgstr "جارٍ التسجيل لدى المُرحِّل…"
+
+msgid "Could not reach the relay."
+msgstr "تعذّر الوصول إلى المُرحِّل."
+
+msgid "Browsing online games…"
+msgstr "جارٍ استعراض الألعاب عبر الإنترنت…"
+
+msgid "Room codes are %d characters."
+msgstr "رموز الغرف مكوّنة من %d أحرف."
+
+msgid "Relay join failed (error %d)."
+msgstr "فشل الانضمام عبر المُرحِّل (خطأ %d)."
+
+msgid "Camera: action director"
+msgstr "الكاميرا: مخرج الحركة"
+
+msgid "Camera: following %s (TAB cycles)"
+msgstr "الكاميرا: يتابع %s (TAB للتبديل)"
+
+msgid "Replay saved (%.0fs): %s"
+msgstr "حُفظت الإعادة (%.0f ث): %s"
+
+msgid "Could not read %s."
+msgstr "تعذّرت قراءة %s."
+
+msgid "Replaying %s — P pause, F speed, ◄/► seek 10s, ESC menu"
+msgstr "إعادة تشغيل %s — P إيقاف مؤقت، F السرعة، ◄/► تنقل 10 ث، ESC القائمة"
+
+msgid "Replay is out of sync with this game version."
+msgstr "الإعادة غير متوافقة مع إصدار اللعبة هذا."
+
+msgid "searching LAN…"
+msgstr "جارٍ البحث في الشبكة المحلية…"
+
+msgid "LAN discovery unavailable"
+msgstr "اكتشاف الشبكة المحلية غير متاح"
+
+msgid "(%s — BROWSE checks the relay)"
+msgstr "(%s — الاستعراض يفحص المُرحِّل)"
+
+msgid "PLAYERS"
+msgstr "اللاعبون"
+
+msgid "MANAGE PLAYERS"
+msgstr "إدارة اللاعبين"
+
+msgid "KICK"
+msgstr "طرد"
+
+msgid "BAN"
+msgstr "حظر"
+
+msgid "Kick and block this callsign (and address, on LAN) from rejoining"
+msgstr "اطرد واحظر هذا الاسم (والعنوان، في الشبكة المحلية) من إعادة الانضمام"
+
+msgid "(no players connected — bots hold every slot)"
+msgstr "(لا يوجد لاعبون متصلون — الروبوتات تشغل كل المقاعد)"
+
+msgid "%d connected · %d banned · %d flagged"
+msgstr "%d متصل · %d محظور · %d مُعلَّم"
+
+msgid "Aim looks human — nothing flagged."
+msgstr "التصويب يبدو بشريًا — لا شيء مُعلَّم."
+
+msgid "Kicked %s."
+msgstr "طُرد %s."
+
+msgid "Banned %s."
+msgstr "حُظر %s."

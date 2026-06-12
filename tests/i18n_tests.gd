@@ -20,6 +20,7 @@ const CATALOGS := [
 	["es", "res://locale/es.po"],
 	["fr", "res://locale/fr.po"],
 	["zh_CN", "res://locale/zh_CN.po"],
+	["ar", "res://locale/ar.po"],
 ]
 
 # A handful of anchor strings asserted exactly, so a corrupted catalog (wrong
@@ -28,6 +29,7 @@ const ANCHORS := {
 	"es": {"Free-for-all": "Todos contra todos", "QUIT": "SALIR", "FUEL": "COMB."},
 	"fr": {"Free-for-all": "Chacun pour soi", "QUIT": "QUITTER", "FUEL": "CARB."},
 	"zh_CN": {"Free-for-all": "混战", "QUIT": "退出", "FUEL": "燃料"},
+	"ar": {"Free-for-all": "الكل ضد الكل", "QUIT": "خروج", "FUEL": "الوقود"},
 }
 
 var _passed := 0
