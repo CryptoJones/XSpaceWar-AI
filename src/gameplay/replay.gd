@@ -72,6 +72,9 @@ static func from_bytes(bytes: PackedByteArray) -> Replay:
 	var r := Replay.new()
 	r.header = d.get("h", {})
 	r.frames = d.get("f", [])
+	for f in r.frames:
+		if typeof(f) != TYPE_ARRAY or (f as Array).size() < 4:
+			return null  # corrupt/crafted tape: refuse instead of error-storming
 	r.final_tick = int(d.get("end", 0))
 	if int(r.header.get("v", -1)) != VERSION or typeof(r.header.get("ros")) != TYPE_ARRAY:
 		return null

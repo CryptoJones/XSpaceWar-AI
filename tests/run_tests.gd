@@ -39,6 +39,7 @@ func _initialize() -> void:
 	_test_mines()
 	_test_pickups()
 	_test_match_stats()
+	_test_corrupt_replay_rejected()
 	_test_replay()
 	print("=== %d passed, %d failed ===" % [_passed, _failed])
 	quit(1 if _failed > 0 else 0)
@@ -782,6 +783,11 @@ func _test_match_stats() -> void:
 	_check("stats: career aggregates",
 		career["matches"] == 2 and career["wins"] == 2)
 	DirAccess.remove_absolute(path)
+
+func _test_corrupt_replay_rejected() -> void:
+	var bogus := var_to_bytes({"h": {"v": 1, "ros": []}, "f": [1, 2, 3], "end": 100})
+	_check("replay: corrupt frame shapes are refused at load",
+		Replay.from_bytes(bogus) == null)
 
 func _test_replay() -> void:
 	# Record a real match (ACE bots + scripted human), then play the tape into

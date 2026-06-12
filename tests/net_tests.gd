@@ -351,6 +351,10 @@ func _test_dedicated_restart_keeps_players() -> void:
 		hsession.generation == gen_before + 1 and host.player_count() == 2
 		and c1.state == NetClient.State.READY and c2.state == NetClient.State.READY,
 		"players=%d c1=%d c2=%d" % [host.player_count(), c1.state, c2.state])
+	_check("names: existing clients learn other players' names",
+		c1.session.ship_names.values().has("BRAVO")
+		and c2.session.ship_names.values().has("ALPHA"),
+		"c1 sees %s" % [c1.session.ship_names.values()])
 	c1.close()
 	c2.close()
 	host.close()
@@ -437,6 +441,8 @@ func _test_name_reclaim() -> void:
 		and hsession.world.ship_by_id(back_sid).score == 5
 		and host.player_count() == 1,
 		"sid %d/%d players=%d" % [ghost_sid, back_sid, host.player_count()])
+	_check("reclaim: the probed bot ship is handed back (no orphan)",
+		hsession.bots.size() == 2, "bots=%d" % hsession.bots.size())
 	back.close()
 	ghost.close()
 	host.close()

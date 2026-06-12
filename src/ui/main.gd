@@ -63,7 +63,7 @@ var _stats_panel: CanvasLayer
 var _stats_list: ItemList
 var _stats_detail: Label
 var _stats_career: Label
-var _stats_gen := -1               ## last generation written to match history
+var _stats_key := []               ## [session id, generation] last written to history
 
 const BINDABLE := [
 	["turn_left", "Turn left"],
@@ -187,9 +187,10 @@ func _process(dt: float) -> void:
 	# Record finished matches to the history (once per match, authoritative
 	# or synced view alike — but only matches we actually flew in).
 	var active := view.session
+	var stats_key := [active.get_instance_id(), active.generation]
 	if active.match_over and replay_player == null and active.human_ship_id >= 0 \
-			and _stats_gen != active.generation:
-		_stats_gen = active.generation
+			and _stats_key != stats_key:
+		_stats_key = stats_key
 		MatchStats.append_entry(MatchStats.entry_from_session(active,
 			Time.get_datetime_string_from_system(false, true)))
 	# Rotate recordings across auto-restarts; bounce to menu when a replay ends.
@@ -1060,6 +1061,7 @@ func _on_host_online_pressed() -> void:
 	_shown_room_code = ""
 	view.external_driver = func(dt: float): net_host.update(dt,
 		view.gather_local_input() if not _modal_open() else {})
+	_maybe_start_recording()
 	_net_status.text = "Registering with relay…"
 	_save_settings()
 	set_menu_visible(false)

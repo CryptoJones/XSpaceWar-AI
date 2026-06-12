@@ -64,6 +64,13 @@ func poll(dt: float) -> Array:
 		var d: Dictionary = v
 		if String(d.get("magic", "")) != MAGIC:
 			continue
+		# Untrusted broadcast: validate field types (a crafted packet with
+		# port/players/max as Arrays would raise in int()) and cap the name.
+		for k in ["port", "players", "max", "mode"]:
+			var fv: Variant = d.get(k, 0)
+			if typeof(fv) != TYPE_INT and typeof(fv) != TYPE_FLOAT:
+				d[k] = 0
+		d["name"] = String(d.get("name", "?")).left(24)
 		d.erase("magic")
 		d["ip"] = ip
 		d["last_seen"] = _clock

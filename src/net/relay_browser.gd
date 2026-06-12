@@ -46,7 +46,14 @@ func update(dt: float) -> void:
 			ENetConnection.EVENT_RECEIVE:
 				var msg := NetProtocol.unpack(_relay.get_packet())
 				if not msg.is_empty() and int(msg["type"]) == RelayProtocol.SERVERS:
-					servers = (msg["data"] as Dictionary).get("list", [])
+					# Shape-check the untrusted list: keep only Dictionary
+					# entries (a hostile relay must not error the menu loop).
+					var lv: Variant = (msg["data"] as Dictionary).get("list", [])
+					servers = []
+					if typeof(lv) == TYPE_ARRAY:
+						for entry in lv:
+							if typeof(entry) == TYPE_DICTIONARY:
+								servers.append(entry)
 					_finish("")
 					return
 

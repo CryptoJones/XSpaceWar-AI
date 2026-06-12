@@ -21,7 +21,7 @@ const VERSION := 6
 ## Applied authoritatively on the HOST (clients can send anything) — this is
 ## what keeps BBCode injection, control characters, and unrenderable glyphs
 ## out of every scoreboard and kill feed.
-static func sanitize_name(raw: String) -> String:
+static func filter_name(raw: String) -> String:
 	var up := raw.strip_edges().to_upper()
 	var out := ""
 	for ch in up:
@@ -31,7 +31,10 @@ static func sanitize_name(raw: String) -> String:
 			out += ch
 		if out.length() >= 16:
 			break
-	out = out.strip_edges()
+	return out.strip_edges()
+
+static func sanitize_name(raw: String) -> String:
+	var out := filter_name(raw)
 	return out if out != "" else "PILOT"
 
 enum {

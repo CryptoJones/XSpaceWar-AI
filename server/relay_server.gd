@@ -70,14 +70,22 @@ func _on_packet(peer: ENetPacketPeer, bytes: PackedByteArray) -> void:
 		RelayProtocol.KICK:
 			_kick(peer, d)
 
+## int() that tolerates hostile Variant types instead of raising.
+static func _as_int(v: Variant, fallback: int) -> int:
+	match typeof(v):
+		TYPE_INT: return v
+		TYPE_FLOAT: return int(v)
+		TYPE_STRING: return int(v) if String(v).is_valid_int() else fallback
+		_: return fallback
+
 func _register(peer: ENetPacketPeer, d: Dictionary) -> void:
 	if _peer_info.has(peer):
 		return
 	var code := _new_code()
 	_rooms[code] = {"host": peer, "clients": {}, "info": {
 		"name": String(d.get("name", "?")).left(24),
-		"max": clampi(int(d.get("max", 16)), 2, 16),
-		"mode": int(d.get("mode", 0)),
+		"max": clampi(_as_int(d.get("max", 16), 16), 2, 16),
+		"mode": _as_int(d.get("mode", 0), 0),
 		"players": 1,
 	}}
 	_peer_info[peer] = {"role": "host", "code": code}
@@ -86,7 +94,7 @@ func _register(peer: ENetPacketPeer, d: Dictionary) -> void:
 func _update(peer: ENetPacketPeer, d: Dictionary) -> void:
 	var room := _room_of(peer, "host")
 	if not room.is_empty():
-		room["info"]["players"] = int(d.get("players", 1))
+		room["info"]["players"] = _as_int(d.get("players", 1), 1)
 
 func _join(peer: ENetPacketPeer, d: Dictionary) -> void:
 	if _peer_info.has(peer):
@@ -96,7 +104,7 @@ func _join(peer: ENetPacketPeer, d: Dictionary) -> void:
 		_send(peer, RelayProtocol.JOINED, {"ok": false, "why": "room not found"}, true)
 		return
 	var room: Dictionary = _rooms[code]
-	if room["clients"].size() + 1 >= int(room["info"]["max"]):
+	if room["clients"].size() >= int(room["info"]["max"]) + 8:
 		_send(peer, RelayProtocol.JOINED, {"ok": false, "why": "room full"}, true)
 		return
 	var pid := _next_pid
@@ -113,11 +121,20 @@ func _forward(peer: ENetPacketPeer, d: Dictionary) -> void:
 	var room: Dictionary = _rooms.get(inf["code"], {})
 	if room.is_empty():
 		return
-	var ch := int(d.get("ch", NetProtocol.CH_STATE))
+	# Untrusted fields: validate types before use — a crafted FWD with a
+	# non-buffer "d" or non-numeric "ch"/"pid" must be dropped, not raise.
+	var ch_v: Variant = d.get("ch", NetProtocol.CH_STATE)
+	var d_v: Variant = d.get("d")
+	var pid_v: Variant = d.get("pid", -1)
+	if typeof(d_v) != TYPE_PACKED_BYTE_ARRAY \
+			or (typeof(ch_v) != TYPE_INT and typeof(ch_v) != TYPE_FLOAT) \
+			or (typeof(pid_v) != TYPE_INT and typeof(pid_v) != TYPE_FLOAT):
+		return
+	var ch := int(ch_v)
 	var reliable := ch == NetProtocol.CH_CONTROL
-	var payload: PackedByteArray = d.get("d", PackedByteArray())
+	var payload: PackedByteArray = d_v
 	if String(inf["role"]) == "host":
-		var target: ENetPacketPeer = room["clients"].get(int(d.get("pid", -1)))
+		var target: ENetPacketPeer = room["clients"].get(int(pid_v))
 		if target != null:
 			_send(target, RelayProtocol.FWD, {"ch": ch, "d": payload}, reliable)
 	else:

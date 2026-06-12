@@ -2,6 +2,35 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [1.7.24] — 2026-06-12
+
+Code-review fixes, batch 3 (multiplayer UX + ingress hardening):
+
+### Fixed
+- **Everyone sees real pilot names now**: roster names ride snapshots
+  whenever they change, so existing players learn newcomers' names
+  (joins, reclaims, restarts) instead of seeing bot callsigns forever.
+- **Name sanitization at every ingress**: client welcome rosters,
+  snapshot name updates, replay-file rosters, and the settings-loaded
+  host name — markup injection is dead even against modified hosts and
+  crafted replays.
+- The name field filters as you type without the PILOT-fallback
+  mangling; collision tags now fit the 16-character invariant (so
+  tagged players can still reclaim).
+- **Reclaim no longer orphans a slot** — the probed bot ship is handed
+  back when a ghost is reclaimed.
+- **Relay-link death hands every ship back to bots** (was: derelicts
+  flying their last inputs forever with inflated player counts).
+- Relay rooms no longer count the host against capacity (dedicated
+  N-ship rooms seat N players; spectators get headroom).
+- **Hostile packets can't error-storm the servers**: relay FWD/REGISTER
+  fields, LAN-discovery broadcasts, and relay browser lists are
+  type-validated before use; corrupt replay files are refused at load
+  instead of erroring during playback.
+- HOST ONLINE now starts recording when "Record matches" is on.
+- Match history can't silently skip a match after switching sessions
+  (history key includes the session identity, not just the counter).
+
 ## [1.7.23] — 2026-06-12
 
 Code-review fixes, batch 2 (restart lifecycle + protocol):

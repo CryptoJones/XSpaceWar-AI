@@ -34,8 +34,8 @@ func load_replay(r: Replay) -> bool:
 		var s := world.add_ship(int(entry[1]))  # consumes RNG exactly like the original
 		if s.id != int(entry[0]):
 			return false  # roster out of sync with the build path
-		var pname := String(entry[3])
-		if pname != "":
+		var pname := NetProtocol.sanitize_name(String(entry[3]))
+		if String(entry[3]).strip_edges() != "":
 			session.ship_names[s.id] = pname
 	session.world = world
 	session.mode = int(h.get("mode", GameSession.Mode.FFA))

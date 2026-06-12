@@ -21,6 +21,8 @@ var port := DEFAULT_PORT
 ## lives, everything. Default OFF: on public servers a name is not an
 ## identity, and reclaim would let anyone hijack by typing your name.
 var reclaim_names := false
+var _names_hash := 0          ## last broadcast roster-names hash
+var _failure_handled := false ## transport-death cleanup ran
 var server_name := "XSpaceWar"
 
 var _t = null                 ## duck-typed host transport (direct or relay)
@@ -102,6 +104,13 @@ func update(dt: float, local_input: Dictionary) -> void:
 	if not _open:
 		return
 	_pump()
+	# Relay-link death emits no per-peer disconnects — without this, every
+	# joined ship stays assigned to an unreachable peer (stale inputs
+	# reapplied forever). Hand them all back to bots once.
+	if bool(_t.failed) and not _failure_handled:
+		_failure_handled = true
+		for peer in _peers.keys():
+			_drop_peer(peer)
 
 	var human := session.human_ship()
 	if human != null and human.alive and not local_input.is_empty():
@@ -152,6 +161,13 @@ func _broadcast_snapshot() -> void:
 			thrust_ids.append(ev["ship"])
 	var snap := NetProtocol.snapshot_of(session.world, thrust_ids, _event_accum, _acked)
 	snap["g"] = session.generation
+	# Roster names ride snapshots whenever they change (joins, reclaims,
+	# restarts) — previously only YOUR OWN welcome carried them, so other
+	# players saw newcomers as bot callsigns forever.
+	var names_now := hash(session.ship_names)
+	if names_now != _names_hash:
+		_names_hash = names_now
+		snap["nm"] = session.ship_names.duplicate()
 	snap["mo"] = NetProtocol.match_state_of(session)
 	var bytes := NetProtocol.pack(NetProtocol.MSG_SNAPSHOT, snap)
 	_event_accum = []
@@ -246,6 +262,9 @@ func _on_hello(peer, data: Dictionary) -> void:
 				_peers[peer] = keep_sid
 				_names[peer] = pname
 				session.ship_names[keep_sid] = pname
+				# Give back the bot ship we grabbed before matching: without
+				# this every reclaim orphaned one slot for the whole match.
+				session.bots[sid] = BotController.new(session.world, sid, session.difficulty)
 				_t.send(peer, NetProtocol.pack(NetProtocol.MSG_WELCOME,
 					NetProtocol.welcome_of(session, keep_sid)), true, NetProtocol.CH_CONTROL)
 				return
@@ -255,9 +274,10 @@ func _on_hello(peer, data: Dictionary) -> void:
 	for n in session.ship_names.values():
 		taken[String(n).to_upper()] = true
 	if taken.has(pname.to_upper()):
+		var base := pname.left(11)   # tag fits the 16-char name invariant
 		var tagged := pname
 		while taken.has(tagged.to_upper()):
-			tagged = "%s-%04d" % [pname, randi_range(0, 9999)]
+			tagged = "%s-%04d" % [base, randi_range(0, 9999)]
 		pname = tagged
 	_names[peer] = pname
 	session.ship_names[sid] = pname

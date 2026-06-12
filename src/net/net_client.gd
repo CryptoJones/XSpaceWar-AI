@@ -211,6 +211,9 @@ func _on_packet(bytes: PackedByteArray) -> void:
 			# removed-body ids overlap fresh ids and would delete live rocks.
 			if int(data.get("g", session.generation)) != session.generation:
 				return
+			if data.has("nm") and typeof(data["nm"]) == TYPE_DICTIONARY:
+				for k in data["nm"]:
+					session.ship_names[int(k)] = NetProtocol.sanitize_name(String(data["nm"][k]))
 			if session.world != null:
 				var old_vis := {}
 				for s in session.world.ships:
@@ -249,8 +252,8 @@ func _on_welcome(data: Dictionary) -> void:
 		s.radius = cfg.ship_radius
 		s.palette_idx = world.ships.size()  # roster order matches the host
 		world.ships.append(s)
-		var pname := String(entry[3])
-		if pname != "":
+		var pname := NetProtocol.sanitize_name(String(entry[3]))
+		if String(entry[3]).strip_edges() != "":
 			session.ship_names[s.id] = pname
 	session.world = world
 	session.mode = int(data.get("mode", GameSession.Mode.FFA))
