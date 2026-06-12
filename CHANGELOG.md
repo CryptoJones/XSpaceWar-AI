@@ -2,6 +2,13 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [1.7.16] — 2026-06-12
+
+### Fixed
+- `git pull` no longer conflicts on `docs/*.png.import`: the docs folder
+  is now `.gdignore`d (Godot never imports README images) and the two
+  accidentally committed import caches are removed.
+
 ## [1.7.15] — 2026-06-12
 
 ### Fixed

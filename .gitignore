@@ -27,3 +27,4 @@ Thumbs.db
 # Local-only
 *.log
 /tmp/
+*.png.import
