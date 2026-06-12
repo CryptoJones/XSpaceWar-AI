@@ -107,7 +107,7 @@ func _build(seed: int) -> void:
 	var cfg := SimConfig.from_seed(seed)
 	cfg.arena_size = clampf(map_size, 2000.0, 40000.0)
 	# Spawn ring scales down with small maps (and never sits outside them).
-	cfg.spawn_orbit_radius = clampf(cfg.arena_size * 0.0275, 550.0, 1100.0)
+	cfg.spawn_orbit_radius = clampf(cfg.arena_size * 0.035, 550.0, 1400.0)
 	cfg.respawn_time = clampf(respawn_seconds, 1.0, 15.0)
 	cfg.lives = maxi(0, lives) if not movie_mode else 0
 	cfg.lethal_edges = lethal_edges

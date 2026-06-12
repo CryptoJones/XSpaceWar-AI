@@ -108,7 +108,7 @@ func place_in_orbit(s: SimShip) -> void:
 	# leave pilots spawning inside the well (and never at the map's wall).
 	var r := config.spawn_orbit_radius
 	if primary != null:
-		r = maxf(r, primary.radius * 2.2 + 120.0)
+		r = maxf(r, primary.radius * 3.0 + 200.0)
 	r = minf(r, config.arena_size * 0.5 * 0.85)
 	# Clearance: never materialize inside (or kissing) a rock/satellite —
 	# re-roll the ring angle a few times; deterministic via the world rng.
