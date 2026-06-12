@@ -29,22 +29,27 @@ jobs:
       # aborts a test function silently, skipping its remaining checks.
       - name: Sim tests
         run: |
+          set -o pipefail
           godot --headless --path . --script res://tests/run_tests.gd 2>&1 | tee /tmp/t.log
           ! grep -q "SCRIPT ERROR" /tmp/t.log
       - name: Net tests
         run: |
+          set -o pipefail
           godot --headless --path . --script res://tests/net_tests.gd 2>&1 | tee /tmp/t.log
           ! grep -q "SCRIPT ERROR" /tmp/t.log
       - name: Relay tests
         run: |
+          set -o pipefail
           godot --headless --path . --script res://tests/relay_tests.gd 2>&1 | tee /tmp/t.log
           ! grep -q "SCRIPT ERROR" /tmp/t.log
       - name: Audio tests
         run: |
+          set -o pipefail
           godot --headless --path . --script res://tests/audio_tests.gd 2>&1 | tee /tmp/t.log
           ! grep -q "SCRIPT ERROR" /tmp/t.log
       - name: Scene smoke test
         run: |
+          set -o pipefail
           godot --headless --path . --script res://tests/scene_smoke.gd 2>&1 | tee /tmp/t.log
           ! grep -q "SCRIPT ERROR" /tmp/t.log
 
@@ -110,6 +115,8 @@ jobs:
       - name: Zip per platform
         run: |
           cd dist
+          # download-artifact strips POSIX modes — restore the executable bit
+          chmod +x */xspacewar-ai.x86_64 2>/dev/null || true
           for d in */; do (cd "$d" && zip -r "../${d%/}.zip" .); done
           ls -la *.zip
 

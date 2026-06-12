@@ -34,6 +34,7 @@ func _initialize() -> void:
 	_test_pick_duel()
 	_test_bot_character()
 	_test_ai_temperament()
+	_test_no_backwards_fire()
 	_test_timid_mining()
 	_test_mines()
 	_test_pickups()
@@ -597,6 +598,28 @@ func _test_ai_temperament() -> void:
 	var want := Vector2(cos(timid._want_angle), sin(timid._want_angle))
 	_check("ai: aggression 1 flees from nearby ships", want.dot(away) > 0.4,
 		"dot=%.2f" % want.dot(away))
+
+func _test_no_backwards_fire() -> void:
+	# A fleeing pilot whose nose points away from the enemy must not fire.
+	var cfg := SimConfig.from_seed(404)
+	cfg.wrap_edges = false
+	var w := SimWorld.new(cfg)
+	var runner := w.add_ship()
+	var chaser := w.add_ship()
+	runner.pos = Vector2(6000, 0)
+	runner.angle = 0.0          # nose +x, fleeing direction
+	runner.spawn_grace = 0.0
+	chaser.spawn_grace = 0.0
+	var bot := BotController.new(w, runner.id, BotController.Difficulty.ACE,
+		BotController.Personality.BRAWLER, 50, 1)
+	var dt := 1.0 / 60.0
+	for _i in range(120):
+		chaser.pos = runner.pos - Vector2(500, 0)  # always directly behind
+		chaser.vel = runner.vel
+		bot.update(dt)
+		w.step(dt)
+	_check("ai: no firing away from the target while fleeing",
+		w.torpedoes.is_empty(), "torps=%d" % w.torpedoes.size())
 
 func _test_timid_mining() -> void:
 	# A timid pilot (aggression 1) of a personality OUTSIDE the old

@@ -2,6 +2,28 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [1.7.22] — 2026-06-12
+
+Code-review fixes, batch 1 (guards and quick kills):
+
+### Fixed
+- **CI now fails on failing tests** — the test pipelines lacked
+  pipefail, so a suite exiting 1 on [FAIL] still passed; only script
+  errors gated. The hole is closed on all five suites.
+- **Linux release zips launch out of the box** — artifact download
+  strips the executable bit; the release job restores it before zipping.
+- **Panels no longer leak input to the live ship**: opening KEY
+  BINDINGS / REPLAYS / MATCH HISTORY (or the credits/splash) now gates
+  ship input and pauses solo matches exactly like the menu — no more
+  thrusting and firing while you rebind, solo or networked.
+- **Bots only fire when the shot can land**: the fire gate now checks
+  the nose against the lead-aim firing solution instead of the nav
+  heading — fleeing/patrolling pilots stop spraying torpedoes away
+  from their target.
+- **Difficulty affects aggression again**: the preset multiplier had
+  been dead since the temperament rework (rookies hunted as hard as
+  insane pilots); it now scales each pilot's aggression roll.
+
 ## [1.7.21] — 2026-06-12
 
 ### Fixed

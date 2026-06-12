@@ -763,6 +763,7 @@ func _start_credits(from_boot: bool) -> void:
 	_credits.visible = true
 
 func _end_credits() -> void:
+	_refresh_input_gate_deferred()
 	if not _credits.visible:
 		return
 	_credits.visible = false
@@ -772,6 +773,7 @@ func _end_credits() -> void:
 		set_menu_visible(true)
 
 func _dismiss_splash() -> void:
+	_refresh_input_gate_deferred()
 	_splash.visible = false
 	set_menu_visible(true)
 
@@ -779,14 +781,29 @@ func _on_credits_pressed() -> void:
 	set_menu_visible(false)
 	_start_credits(false)
 
+## True while ANY modal UI sits over the game: the menu, a panel, the
+## credits roll, or the splash. Ship input must never flow then.
+func _modal_open() -> bool:
+	return _menu.visible or _keys_panel.visible or _replays_panel.visible \
+		or _stats_panel.visible or _credits.visible or _splash.visible
+
+## Re-derive the input/pause gates from modal state. Call after ANY
+## menu/panel visibility change — keystrokes in a rebind panel must not
+## fly the live ship (solo OR networked).
+func _refresh_input_gate() -> void:
+	var blocked := _modal_open()
+	view.input_enabled = not blocked and session.human_ship_id >= 0
+	# Modal UI pauses SOLO skirmishes only — Movie Mode keeps playing as the
+	# attract backdrop, and net/replay sessions own their own time.
+	view.sim_paused = blocked and session.human_ship_id >= 0 \
+		and net_host == null and net_client == null and replay_player == null
+
+func _refresh_input_gate_deferred() -> void:
+	_refresh_input_gate.call_deferred()
+
 func set_menu_visible(v: bool) -> void:
 	_menu.visible = v
-	# Human input only flows when the menu is closed during a skirmish.
-	view.input_enabled = not v and session.human_ship_id >= 0
-	# Opening the menu pauses SOLO skirmishes only — Movie Mode keeps playing
-	# as the attract backdrop, and net/replay sessions own their own time.
-	view.sim_paused = v and session.human_ship_id >= 0 \
-		and net_host == null and net_client == null and replay_player == null
+	_refresh_input_gate()
 
 func _on_play_pressed() -> void:
 	_teardown_net()
@@ -850,7 +867,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		if (key_pressed and event.physical_keycode == KEY_ESCAPE) \
 				or (pad_pressed and event.button_index == JOY_BUTTON_START):
 			_replays_panel.visible = false
+			_refresh_input_gate()
 			_stats_panel.visible = false
+			_refresh_input_gate()
 			set_menu_visible(true)
 		return
 	if key_pressed and event.physical_keycode == KEY_F3:
@@ -923,7 +942,7 @@ func _on_host_pressed() -> void:
 		net_host = null
 		return
 	view.external_driver = func(dt: float): net_host.update(dt,
-		view.gather_local_input() if not _menu.visible else {})
+		view.gather_local_input() if not _modal_open() else {})
 	_maybe_start_recording()
 	_net_status.text = "Hosting LAN on UDP %d%s — players on your network see you automatically." \
 		% [bound_port, "" if bound_port == NetHost.DEFAULT_PORT else " (default was busy)"]
@@ -964,7 +983,7 @@ func _join(ip: String, port: int) -> void:
 	view.session = net_client.session
 	hud.session = net_client.session
 	view.external_driver = func(dt: float): net_client.update(dt,
-		view.gather_local_input() if not _menu.visible else {})
+		view.gather_local_input() if not _modal_open() else {})
 	_net_status.text = ""
 	_save_settings()
 	set_menu_visible(false)
@@ -1040,7 +1059,7 @@ func _on_host_online_pressed() -> void:
 		return
 	_shown_room_code = ""
 	view.external_driver = func(dt: float): net_host.update(dt,
-		view.gather_local_input() if not _menu.visible else {})
+		view.gather_local_input() if not _modal_open() else {})
 	_net_status.text = "Registering with relay…"
 	_save_settings()
 	set_menu_visible(false)
@@ -1080,7 +1099,7 @@ func _join_relay(code: String) -> void:
 	view.session = net_client.session
 	hud.session = net_client.session
 	view.external_driver = func(dt: float): net_client.update(dt,
-		view.gather_local_input() if not _menu.visible else {})
+		view.gather_local_input() if not _modal_open() else {})
 	_net_status.text = ""
 	set_menu_visible(false)
 
@@ -1280,6 +1299,7 @@ func _build_keys_panel() -> void:
 	_keys_panel = CanvasLayer.new()
 	_keys_panel.layer = 26
 	_keys_panel.visible = false
+	_refresh_input_gate()
 	var center := CenterContainer.new()
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_keys_panel.add_child(center)
@@ -1346,9 +1366,11 @@ func _on_keys_pressed() -> void:
 	_awaiting_rebind = ""
 	set_menu_visible(false)
 	_keys_panel.visible = true
+	_refresh_input_gate()
 
 func _close_keys_panel() -> void:
 	_keys_panel.visible = false
+	_refresh_input_gate()
 	_awaiting_rebind = ""
 	_save_settings()
 	_rebuild_splash()
@@ -1365,6 +1387,7 @@ func _build_stats_panel() -> void:
 	_stats_panel = CanvasLayer.new()
 	_stats_panel.layer = 25
 	_stats_panel.visible = false
+	_refresh_input_gate()
 	var center := CenterContainer.new()
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_stats_panel.add_child(center)
@@ -1420,6 +1443,7 @@ func _on_stats_pressed() -> void:
 		_stats_list.set_item_metadata(idx, e)
 	set_menu_visible(false)
 	_stats_panel.visible = true
+	_refresh_input_gate()
 
 func _on_stats_selected(idx: int) -> void:
 	var e: Variant = _stats_list.get_item_metadata(idx)
@@ -1439,6 +1463,7 @@ func _build_replays_panel() -> void:
 	_replays_panel = CanvasLayer.new()
 	_replays_panel.layer = 25
 	_replays_panel.visible = false
+	_refresh_input_gate()
 	var center := CenterContainer.new()
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_replays_panel.add_child(center)
@@ -1517,6 +1542,7 @@ func _on_replays_browse_pressed() -> void:
 	_refresh_replays_list()
 	set_menu_visible(false)
 	_replays_panel.visible = true
+	_refresh_input_gate()
 
 func _selected_replay_path() -> String:
 	var sel := _replays_list.get_selected_items()
@@ -1541,6 +1567,7 @@ func _watch_replay(path: String) -> void:
 	_finalize_recording()
 	_teardown_net()
 	_replays_panel.visible = false
+	_refresh_input_gate()
 	var rec := Replay.from_bytes(FileAccess.get_file_as_bytes(path))
 	if rec == null:
 		_net_status.text = "Could not read %s." % path.get_file()

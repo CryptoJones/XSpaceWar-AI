@@ -81,7 +81,10 @@ func _init(p_world: SimWorld, p_ship_id: int, p_difficulty: int = Difficulty.VET
 	roam = _rng.randi_range(1, 100) if p_roam < 0 else clampi(p_roam, 1, 100)
 	aggression = _rng.randi_range(1, 100) if p_aggression < 0 else clampi(p_aggression, 1, 100)
 	if p_aggression < 0:
-		aggression = clampi(int(float(aggression) * float(pp["aggr"])), 1, 100)
+		# Personality tilts the roll; difficulty scales it (rookies hunt
+		# gently, insane pilots relentlessly).
+		aggression = clampi(int(float(aggression) * float(pp["aggr"])
+			* float(_p["aggression"])), 1, 100)
 
 static func difficulty_from_name(n: String) -> int:
 	match n.to_lower():
@@ -177,6 +180,18 @@ func _imminent_mine(ship: SimShip) -> SimMine:
 			if (ship.pos + ship.vel * t).distance_to(m.pos + m.vel * t) < margin:
 				return m
 	return null
+
+## The lead-aim firing solution angle for hitting `target` from `ship`
+## (iterative intercept against relative velocity) — shared by the attack
+## steering and the fire gate so bots only shoot when the shot can land.
+func _lead_angle(ship: SimShip, target: SimShip) -> float:
+	var muzzle := world.config.torpedo_speed
+	var rel := target.pos - ship.pos
+	var t_hit := rel.length() / maxf(muzzle, 1.0)
+	for _i in range(2):
+		var predicted := rel + (target.vel - ship.vel) * t_hit
+		t_hit = predicted.length() / maxf(muzzle, 1.0)
+	return (rel + (target.vel - ship.vel) * t_hit).angle()
 
 ## This pilot's preferred hunting ring radius around the star.
 func _roam_radius(star_r: float) -> float:
@@ -295,13 +310,8 @@ func _decide(ship: SimShip) -> void:
 		return
 
 	# 2) Lead-aim: predict intercept accounting for relative velocity.
-	var muzzle := world.config.torpedo_speed
 	var rel := target.pos - ship.pos
-	var t_hit := rel.length() / maxf(muzzle, 1.0)
-	for _i in range(2):  # refine the intercept time twice
-		var predicted := rel + (target.vel - ship.vel) * t_hit
-		t_hit = predicted.length() / maxf(muzzle, 1.0)
-	var aim := rel + (target.vel - ship.vel) * t_hit
+	var aim := Vector2.from_angle(_lead_angle(ship, target))
 	_want_angle = aim.angle() + _aim_noise
 
 	# 3) Range management per personality; slingshotters bias their approach
@@ -321,11 +331,14 @@ func _apply(ship: SimShip, dt: float) -> void:
 		ship.in_turn = 0.0
 	ship.in_thrust = _want_thrust
 
-	# Fire when lined up, in range, and armed.
+	# Fire when the NOSE crosses the firing solution, in range, and armed —
+	# delta only measures error to the nav heading, which in flee/patrol
+	# modes points away from the enemy entirely.
 	var target := world.ship_by_id(_target_id)
-	if target != null and ship.ammo > 0 and absf(delta) < float(_p["fire_cone"]):
-		var dist := ship.pos.distance_to(target.pos)
-		if dist < _fire_range:
+	if target != null and ship.ammo > 0:
+		var sol_err := absf(wrapf(_lead_angle(ship, target) - ship.angle, -PI, PI))
+		if sol_err < float(_p["fire_cone"]) \
+				and ship.pos.distance_to(target.pos) < _fire_range:
 			ship.in_fire = true
 
 	# Defensive mining: brawlers and opportunists drop one when an enemy is
