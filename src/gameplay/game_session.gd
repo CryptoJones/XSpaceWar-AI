@@ -279,6 +279,14 @@ func _check_match_over() -> void:
 # Queries (for HUD / scoreboard)
 # --------------------------------------------------------------------------
 
+## The one authority for what a pilot is CALLED on screen — the HUD
+## scoreboard/feed and the kill popups must never disagree.
+func display_name(id: int) -> String:
+	if id == human_ship_id:
+		return "YOU"
+	var n := String(ship_names.get(id, ""))
+	return n if n != "" else "BOT-%d" % id
+
 func human_ship() -> SimShip:
 	return world.ship_by_id(human_ship_id) if human_ship_id >= 0 else null
 

@@ -32,6 +32,30 @@ var spawn_orbit_radius: float = 1100.0
 var respawn_time: float = 6.0
 var lives: int = 0                      ## deaths before elimination (0 = unlimited)
 
+## ---- Wire serialization -------------------------------------------------
+## EVERY config override a session applies must round-trip here: the net
+## welcome, replay headers, and any future carrier call these instead of
+## hand-syncing field lists (drift here shipped two desync bugs).
+func to_wire() -> Dictionary:
+	return {
+		"seed": seed,
+		"rs": respawn_time,
+		"le": lethal_edges,
+		"as": arena_size,
+		"so": spawn_orbit_radius,
+		"lv": lives,
+	}
+
+static func from_wire(d: Dictionary) -> SimConfig:
+	var cfg := SimConfig.from_seed(int(d.get("seed", 0)))
+	cfg.respawn_time = float(d.get("rs", cfg.respawn_time))
+	cfg.lethal_edges = bool(d.get("le", false))
+	cfg.wrap_edges = not cfg.lethal_edges
+	cfg.arena_size = float(d.get("as", cfg.arena_size))
+	cfg.spawn_orbit_radius = float(d.get("so", cfg.spawn_orbit_radius))
+	cfg.lives = int(d.get("lv", 0))
+	return cfg
+
 # --- Torpedoes ---
 var fire_cooldown: float = 0.5          ## 2 shots / second (matches the original feel)
 var torpedo_radius: float = 4.0

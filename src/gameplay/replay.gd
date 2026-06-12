@@ -23,19 +23,14 @@ static func begin(session: GameSession) -> Replay:
 	var roster := []
 	for s in session.world.ships:
 		roster.append([s.id, s.team, s.hull_seed, String(session.ship_names.get(s.id, ""))])
-	r.header = {
+	r.header = session.world.config.to_wire()
+	r.header.merge({
 		"v": VERSION,
-		"seed": session.world.config.seed,
-		"rs": session.world.config.respawn_time,
-		"as": session.world.config.arena_size,
-		"so": session.world.config.spawn_orbit_radius,
-		"lv": session.world.config.lives,
-		"le": session.world.config.lethal_edges,
 		"prm": session.arena_params,
 		"mode": session.mode,
 		"ros": roster,
 		"limit": session.score_limit,
-	}
+	})
 	return r
 
 ## Capture all ships' pending inputs for the step about to run. Called by

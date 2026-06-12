@@ -57,13 +57,8 @@ func _initialize() -> void:
 	var server_name := String(a.get("name", "Dedicated Arena"))
 	var err: Error
 	if a.has("relay"):
-		var rip := String(a["relay"])
-		var rport := RelayProtocol.DEFAULT_PORT
-		if ":" in rip:
-			var parts := rip.rsplit(":", false, 1)
-			rip = parts[0]
-			rport = int(parts[1])
-		err = host.open_relay(rip, rport, server_name)
+		var addr := NetProtocol.parse_addr(String(a["relay"]), RelayProtocol.DEFAULT_PORT)
+		err = host.open_relay(String(addr.get("ip", "")), int(addr.get("port", RelayProtocol.DEFAULT_PORT)), server_name)
 		if err == OK:
 			print("dedicated: hosting via relay %s:%d" % [rip, rport])
 	else:

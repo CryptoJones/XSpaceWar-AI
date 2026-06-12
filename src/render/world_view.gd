@@ -338,41 +338,20 @@ func _read_human_input() -> void:
 # Camera
 # --------------------------------------------------------------------------
 
-func _update_camera(dt: float) -> void:
-	# Per-tick camera state: _cam_pos/_cam_zoom are the simulation-rate truth;
-	# _process() blends prev->curr each display frame (render interpolation).
-	_cam_pos_prev = _cam_pos
-	_cam_zoom_prev = _cam_zoom
-	var target_pos := _cam_pos
-	var target_zoom := _cam_zoom
-	var clamp_to := Vector2.INF   # followed ship's position; INF = no clamp
-	# `pilot` is your real ship (for killcam decisions); `human` is the
-	# camera's view of it — null whenever dead, so the watcher branches
-	# below (TAB target, action director) actually run while you wait.
+## Resolve WHO the camera is on this tick, in strict priority order:
+## own living ship > explicit TAB watch target > killcam > action director.
+## Returns {pos, zoom, clamp} — clamp is the followed ship's position
+## (Vector2.INF = no bleed-zone clamp, director wide shots only).
+func _resolve_camera_target(dt: float) -> Dictionary:
 	var pilot := session.human_ship()
-	var human := pilot
-	if human != null and not human.alive:
-		human = null
-	var killcam_active := false
 
-	if pilot != null and not pilot.alive and _killcam_id >= 0 \
-			and session.watch_ship_id < 0:
-		# Killcam: ride with whoever got you until you respawn (TAB overrides).
-		var killer := session.world.ship_by_id(_killcam_id)
-		if killer != null and killer.alive:
-			target_pos = killer.pos + killer.render_pos_offset
-			target_zoom = 1.0
-			clamp_to = target_pos
-			killcam_active = true
-	if killcam_active:
-		pass
-	elif human != null:
+	# 1) Your own living ship.
+	if pilot != null and pilot.alive:
 		_killcam_id = -1
 		session.watch_ship_id = -1
-		# When the followed ship wraps the toroidal edge (or hyperspaces), jump
-		# the camera by the same leap instead of lerping across the whole map.
-		if _follow_id == human.id:
-			var jump := human.pos - _follow_pos
+		# Wrap/hyperspace: jump the camera by the same leap, never pan the map.
+		if _follow_id == pilot.id:
+			var jump := pilot.pos - _follow_pos
 			var half := session.world.config.arena_size * 0.5
 			if absf(jump.x) > half:
 				_cam_pos.x += signf(jump.x) * session.world.config.arena_size
@@ -380,66 +359,71 @@ func _update_camera(dt: float) -> void:
 			if absf(jump.y) > half:
 				_cam_pos.y += signf(jump.y) * session.world.config.arena_size
 				_cam_pos_prev.y = _cam_pos.y
-		_follow_id = human.id
-		_follow_pos = human.pos
-		target_pos = human.pos + human.render_pos_offset
-		target_zoom = 1.15
-		# Failsafe: whatever else happens, never let the player lose their own
-		# ship — if the camera is absurdly far from it, snap instead of pan
-		# (and leave a breadcrumb so the root cause can be reported).
-		if _cam_pos.distance_to(target_pos) > 6000.0:
+		_follow_id = pilot.id
+		_follow_pos = pilot.pos
+		var p := pilot.pos + pilot.render_pos_offset
+		# Failsafe: never let the player lose their own ship — snap, don't pan.
+		if _cam_pos.distance_to(p) > 6000.0:
 			push_warning("camera failsafe: snapped %s -> ship %s (gen %d tick %d)"
-				% [_cam_pos, target_pos, session.generation, session.world.tick])
-			_cam_pos = target_pos
-			_cam_pos_prev = target_pos
-	elif session.watch_ship_id >= 0 \
-			and session.world.ship_by_id(session.watch_ship_id) != null \
-			and session.world.ship_by_id(session.watch_ship_id).alive:
-		# Spectator/replay follow-cam: locked onto a chosen pilot (TAB cycles).
-		var watched := session.world.ship_by_id(session.watch_ship_id)
-		target_pos = watched.pos + watched.render_pos_offset
-		target_zoom = 1.0
-		clamp_to = target_pos
-	else:
-		# Movie Mode action camera: frame the closest hostile pair (a duel)
-		# and recut to a fresh fight every few seconds or when one dies.
-		var world := session.world
-		_focus_timer -= dt
-		var fa := world.ship_by_id(_focus_a)
-		var fb := world.ship_by_id(_focus_b)
-		if _focus_timer <= 0.0 or fa == null or not fa.alive \
-				or (_focus_b >= 0 and (fb == null or not fb.alive)):
-			var duel := pick_duel(world)
-			_focus_a = duel[0] if duel.size() > 0 else -1
-			_focus_b = duel[1] if duel.size() > 1 else -1
-			_focus_timer = DUEL_SHOT_TIME
-			fa = world.ship_by_id(_focus_a)
-			fb = world.ship_by_id(_focus_b)
-		var vp := get_viewport_rect().size
-		if fa != null and fb != null:
-			target_pos = (fa.pos + fb.pos) * 0.5
-			var span := (fa.pos - fb.pos).abs() + Vector2(750, 750)
-			target_zoom = clampf(minf(vp.x / span.x, vp.y / span.y), 0.5, 1.15)
-			clamp_to = fa.pos  # the primary duelist never leaves the screen
-		elif fa != null:
-			target_pos = fa.pos
-			target_zoom = 0.9
-			clamp_to = fa.pos  # lone survivor: hyperspace/slingshot can't lose them
-		else:
-			var primary := world.primary_body()
-			target_pos = primary.pos if primary != null else Vector2.ZERO
-			target_zoom = 0.5
+				% [_cam_pos, p, session.generation, session.world.tick])
+			_cam_pos = p
+			_cam_pos_prev = p
+		return {"pos": p, "zoom": 1.15, "clamp": p}
 
+	# 2) An explicit TAB choice (spectate, replay, dead, eliminated).
+	if session.watch_ship_id >= 0:
+		var watched := session.world.ship_by_id(session.watch_ship_id)
+		if watched != null and watched.alive:
+			var wp := watched.pos + watched.render_pos_offset
+			return {"pos": wp, "zoom": 1.0, "clamp": wp}
+
+	# 3) Killcam: ride whoever got you until you respawn.
+	if pilot != null and not pilot.alive and _killcam_id >= 0:
+		var killer := session.world.ship_by_id(_killcam_id)
+		if killer != null and killer.alive:
+			var kp := killer.pos + killer.render_pos_offset
+			return {"pos": kp, "zoom": 1.0, "clamp": kp}
+
+	# 4) Action director: frame the best duel, recut every few seconds.
+	var world := session.world
+	_focus_timer -= dt
+	var fa := world.ship_by_id(_focus_a)
+	var fb := world.ship_by_id(_focus_b)
+	if _focus_timer <= 0.0 or fa == null or not fa.alive \
+			or (_focus_b >= 0 and (fb == null or not fb.alive)):
+		var duel := pick_duel(world)
+		_focus_a = duel[0] if duel.size() > 0 else -1
+		_focus_b = duel[1] if duel.size() > 1 else -1
+		_focus_timer = DUEL_SHOT_TIME
+		fa = world.ship_by_id(_focus_a)
+		fb = world.ship_by_id(_focus_b)
+	var vp := get_viewport_rect().size
+	if fa != null and fb != null:
+		var span := (fa.pos - fb.pos).abs() + Vector2(750, 750)
+		return {"pos": (fa.pos + fb.pos) * 0.5,
+			"zoom": clampf(minf(vp.x / span.x, vp.y / span.y), 0.5, 1.15),
+			"clamp": fa.pos}  # the primary duelist never leaves the screen
+	if fa != null:
+		return {"pos": fa.pos, "zoom": 0.9, "clamp": fa.pos}
+	var primary := world.primary_body()
+	return {"pos": primary.pos if primary != null else Vector2.ZERO,
+		"zoom": 0.5, "clamp": Vector2.INF}
+
+func _update_camera(dt: float) -> void:
+	# Per-tick camera state: _cam_pos/_cam_zoom are the simulation-rate truth;
+	# _process() blends prev->curr each display frame (render interpolation).
+	_cam_pos_prev = _cam_pos
+	_cam_zoom_prev = _cam_zoom
+
+	var t := _resolve_camera_target(dt)
 	var k := 1.0 - exp(-2.5 * dt)
-	_cam_pos = _cam_pos.lerp(target_pos, k)
-	_cam_zoom = lerpf(_cam_zoom, target_zoom, k)
+	_cam_pos = _cam_pos.lerp(t["pos"], k)
+	_cam_zoom = lerpf(_cam_zoom, float(t["zoom"]), k)
 
 	# The bleed-zone rule (Aaron's): the FOLLOWED ship may NEVER leave the
-	# screen — your own ship, a killcam target, or any follow-cam pilot.
-	# The lerp above lags proportionally to speed, so a fast pilot can
-	# outrun it; when they reach the outer buffer, the map moves instead.
-	if human != null and not killcam_active:
-		clamp_to = human.pos + human.render_pos_offset
+	# screen. The lerp lags proportionally to speed; when the followed ship
+	# reaches the outer buffer of the view, the map moves instead.
+	var clamp_to: Vector2 = t["clamp"]
 	if clamp_to.x != INF:
 		var half_view := get_viewport_rect().size * 0.5 / _cam_zoom
 		var limit := half_view * 0.72
@@ -730,11 +714,7 @@ func _add_kill_popup(killer_id: int, victim_id: int) -> void:
 	var killer := session.world.ship_by_id(killer_id)
 	if victim == null or killer == null:
 		return
-	var kname: String = session.ship_names.get(killer_id, "")
-	if killer_id == session.human_ship_id:
-		kname = "YOU"
-	elif kname == "":
-		kname = "BOT-%d" % killer_id
+	var kname := session.display_name(killer_id)
 	_popups.append({"pos": victim.pos, "vel": Vector2(0, -46), "ttl": 1.7,
 		"text": "+1  %s" % kname, "color": ship_color(killer)})
 

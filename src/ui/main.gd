@@ -807,9 +807,10 @@ func set_menu_visible(v: bool) -> void:
 	_menu.visible = v
 	_refresh_input_gate()
 
-func _on_play_pressed() -> void:
-	_teardown_net()
-	_finalize_recording()
+## THE one place menu sliders become a running match — every start path
+## (solo, LAN host, relay host) calls this; adding a MATCH option means
+## touching exactly here plus the slider itself.
+func _start_configured_match() -> void:
 	var mode := GameSession.Mode.TEAM if _mode_btn.selected == 1 else GameSession.Mode.FFA
 	session.score_limit = int(_limit_slider.value)
 	session.time_limit = _time_slider.value * 60.0
@@ -823,6 +824,11 @@ func _on_play_pressed() -> void:
 	_save_settings()
 	session.host_name = _player_name
 	session.start_skirmish(int(_ships_slider.value), mode, int(_diff_slider.value))
+
+func _on_play_pressed() -> void:
+	_teardown_net()
+	_finalize_recording()
+	_start_configured_match()
 	_maybe_start_recording()
 	set_menu_visible(false)
 
@@ -931,19 +937,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func _on_host_pressed() -> void:
 	_teardown_net()
 	_finalize_recording()
-	var mode := GameSession.Mode.TEAM if _mode_btn.selected == 1 else GameSession.Mode.FFA
-	session.score_limit = int(_limit_slider.value)
-	session.time_limit = _time_slider.value * 60.0
-	session.hazard = _hazard_slider.value / 100.0
-	session.respawn_seconds = _respawn_slider.value
-	session.lethal_edges = _edge_check.button_pressed
-	session.star_scale = _star_slider.value / 25.0
-	session.map_size = _map_slider.value
-	session.lives = int(_lives_slider.value)
-	session.planet_count = int(_planets_slider.value)
-	_save_settings()
-	session.host_name = _player_name
-	session.start_skirmish(int(_ships_slider.value), mode, int(_diff_slider.value))
+	_start_configured_match()
 	net_host = NetHost.new(session)
 	# If the default port is squatted (another host, another app), walk up a
 	# small range — LAN discovery advertises the ACTUAL port, so joins still
@@ -968,17 +962,12 @@ func _on_host_pressed() -> void:
 	set_menu_visible(false)
 
 func _on_join_ip_pressed() -> void:
-	var txt := _ip_edit.text.strip_edges()
-	if txt == "":
+	var addr := NetProtocol.parse_addr(_ip_edit.text, NetHost.DEFAULT_PORT)
+	if addr.is_empty():
 		_net_status.text = "Enter a host IP first."
 		return
-	var ip := txt
-	var port := NetHost.DEFAULT_PORT
-	if ":" in txt:
-		var parts := txt.rsplit(":", false, 1)
-		ip = parts[0]
-		if parts.size() > 1 and parts[1].is_valid_int():
-			port = int(parts[1])
+	var ip: String = addr["ip"]
+	var port: int = addr["port"]
 	_join(ip, port)
 
 func _on_server_activated(index: int) -> void:
@@ -1038,17 +1027,7 @@ func _refresh_server_list(dt: float) -> void:
 
 ## Parse the relay address field: "ip" or "ip:port". Empty -> error.
 func _relay_addr() -> Dictionary:
-	var txt := _relay_edit.text.strip_edges()
-	if txt == "":
-		return {}
-	var ip := txt
-	var port := RelayProtocol.DEFAULT_PORT
-	if ":" in txt:
-		var parts := txt.rsplit(":", false, 1)
-		ip = parts[0]
-		if parts.size() > 1 and parts[1].is_valid_int():
-			port = int(parts[1])
-	return {"ip": ip, "port": port}
+	return NetProtocol.parse_addr(_relay_edit.text, RelayProtocol.DEFAULT_PORT)
 
 func _on_host_online_pressed() -> void:
 	var addr := _relay_addr()
@@ -1056,19 +1035,7 @@ func _on_host_online_pressed() -> void:
 		_net_status.text = "Enter a relay address first (or set XSW_RELAY)."
 		return
 	_teardown_net()
-	var mode := GameSession.Mode.TEAM if _mode_btn.selected == 1 else GameSession.Mode.FFA
-	session.score_limit = int(_limit_slider.value)
-	session.time_limit = _time_slider.value * 60.0
-	session.hazard = _hazard_slider.value / 100.0
-	session.respawn_seconds = _respawn_slider.value
-	session.lethal_edges = _edge_check.button_pressed
-	session.star_scale = _star_slider.value / 25.0
-	session.map_size = _map_slider.value
-	session.lives = int(_lives_slider.value)
-	session.planet_count = int(_planets_slider.value)
-	_save_settings()
-	session.host_name = _player_name
-	session.start_skirmish(int(_ships_slider.value), mode, int(_diff_slider.value))
+	_start_configured_match()
 	net_host = NetHost.new(session)
 	var err: Error = net_host.open_relay(String(addr["ip"]), int(addr["port"]),
 		"%s's arena" % _player_name)

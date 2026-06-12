@@ -317,10 +317,10 @@ func _step_torpedoes(dt: float) -> void:
 			t.vel += gravity_accel(t.pos) * dt
 		t.pos += t.vel * dt
 		if config.wrap_edges:
-			var wrapped := _wrap_point(t.pos)
-			if wrapped != t.pos:
-				t.pos = wrapped
-				t.vel = (t.vel * WRAP_BOOST).limit_length(WRAP_SPEED_CAP)
+			var wb_t := _wrap_with_boost(t.pos, t.vel)
+			if not wb_t.is_empty():
+				t.pos = wb_t[0]
+				t.vel = wb_t[1]
 		survivors.append(t)
 	torpedoes = survivors
 
@@ -349,10 +349,10 @@ func _step_pickups(dt: float) -> void:
 		p.vel += gravity_accel(p.pos) * dt
 		p.pos += p.vel * dt
 		if config.wrap_edges:
-			var wrapped := _wrap_point(p.pos)
-			if wrapped != p.pos:
-				p.pos = wrapped
-				p.vel = (p.vel * WRAP_BOOST).limit_length(WRAP_SPEED_CAP)
+			var wb_p := _wrap_with_boost(p.pos, p.vel)
+			if not wb_p.is_empty():
+				p.pos = wb_p[0]
+				p.vel = wb_p[1]
 		var claimed := false
 		for s in ships:
 			if not s.alive:
@@ -385,10 +385,10 @@ func _step_mines(dt: float) -> void:
 		m.vel += gravity_accel(m.pos) * dt
 		m.pos += m.vel * dt
 		if config.wrap_edges:
-			var wrapped := _wrap_point(m.pos)
-			if wrapped != m.pos:
-				m.pos = wrapped
-				m.vel = (m.vel * WRAP_BOOST).limit_length(WRAP_SPEED_CAP)
+			var wb_m := _wrap_with_boost(m.pos, m.vel)
+			if not wb_m.is_empty():
+				m.pos = wb_m[0]
+				m.vel = wb_m[1]
 		survivors.append(m)
 	mines = survivors
 
@@ -420,10 +420,10 @@ func step_ship_kinematics(s: SimShip, turn: float, thrust: bool, dt: float) -> v
 	s.vel += gravity_accel(s.pos) * dt
 	s.pos += s.vel * dt
 	if config.wrap_edges:
-		var wrapped := _wrap_point(s.pos)
-		if wrapped != s.pos:
-			s.pos = wrapped
-			s.vel = (s.vel * WRAP_BOOST).limit_length(WRAP_SPEED_CAP)
+		var wb := _wrap_with_boost(s.pos, s.vel)
+		if not wb.is_empty():
+			s.pos = wb[0]
+			s.vel = wb[1]
 
 # --------------------------------------------------------------------------
 # Collisions
@@ -609,12 +609,22 @@ func _destroy_ship(s: SimShip, killer_id: int, cause: String) -> void:
 const WRAP_BOOST := 2.0
 const WRAP_SPEED_CAP := 20000.0
 
+## Apply the toroidal wrap (+ Aaron's slingshot: speed doubles per seam
+## crossing, capped). ONE implementation — the sim has five wrappable
+## entity kinds, and a missed copy desyncs prediction from the host.
+## Returns [wrapped_pos, boosted_vel] or empty if no wrap occurred.
+func _wrap_with_boost(pos: Vector2, vel: Vector2) -> Array:
+	var wrapped := _wrap_point(pos)
+	if wrapped == pos:
+		return []
+	return [wrapped, (vel * WRAP_BOOST).limit_length(WRAP_SPEED_CAP)]
+
 func _wrap_positions() -> void:
 	for s in ships:
-		var wrapped := _wrap_point(s.pos)
-		if wrapped != s.pos:
-			s.pos = wrapped
-			s.vel = (s.vel * WRAP_BOOST).limit_length(WRAP_SPEED_CAP)
+		var wb := _wrap_with_boost(s.pos, s.vel)
+		if not wb.is_empty():
+			s.pos = wb[0]
+			s.vel = wb[1]
 			events.append({"tk": tick, "type": "wrap", "ship": s.id, "pos": s.pos})
 
 ## Lethal-edge mode: the border is a wall of death. Ships crossing it are

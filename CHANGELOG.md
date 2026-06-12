@@ -2,6 +2,29 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [1.8.0] — 2026-06-12
+
+**The review-hardened release.** A 9-angle, 26-verifier audit of the whole
+project surfaced 33 confirmed findings; v1.7.22 through this release fix
+every confirmed correctness bug and the structural causes behind them.
+See the batch entries below (1.7.22–1.7.27) for the full list.
+
+## [1.7.27] — 2026-06-12
+
+Code-review fixes, batch 5 (structural):
+
+### Changed
+- **One home for match-config wire format**: SimConfig.to_wire/from_wire
+  now feed the net welcome, replay headers, and client/replay loaders —
+  the hand-synced field lists that shipped two desync bugs are gone.
+- **One camera-target resolver**: priority is explicit (own ship > TAB
+  choice > killcam > director) with the bleed clamp applied uniformly —
+  the if/elif chain that shipped three camera bugs is gone.
+- One wrap+slingshot implementation (was five copies — a missed copy
+  desynced prediction), one ip[:port] parser (was three, one already
+  drifted), one match-start path (was three), one display-name authority
+  (feed and kill popups can no longer disagree).
+
 ## [1.7.26] — 2026-06-12
 
 Code-review fixes, batch 4b (collision, events, camera, rebinding):

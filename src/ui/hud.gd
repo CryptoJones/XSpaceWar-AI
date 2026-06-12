@@ -234,10 +234,7 @@ func _process(dt: float) -> void:
 
 ## Resolve a ship id to what the local player should read.
 func _ship_name(id: int) -> String:
-	if id == session.human_ship_id:
-		return "YOU"
-	var n: String = session.ship_names.get(id, "")
-	return n if n != "" else "BOT-%d" % id
+	return session.display_name(id)
 
 func _update_feed(dt: float) -> void:
 	# Consume each event exactly once: events accumulate with tick stamps,

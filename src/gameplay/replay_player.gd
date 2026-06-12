@@ -21,13 +21,7 @@ var _accum := 0.0
 func load_replay(r: Replay) -> bool:
 	replay = r
 	var h := r.header
-	var cfg := SimConfig.from_seed(int(h.get("seed", 0)))
-	cfg.respawn_time = float(h.get("rs", cfg.respawn_time))
-	cfg.arena_size = float(h.get("as", cfg.arena_size))
-	cfg.spawn_orbit_radius = float(h.get("so", cfg.spawn_orbit_radius))
-	cfg.lives = int(h.get("lv", 0))
-	cfg.lethal_edges = bool(h.get("le", false))
-	cfg.wrap_edges = not cfg.lethal_edges
+	var cfg := SimConfig.from_wire(h)
 	var world := SimWorld.new(cfg)
 	ArenaGen.populate(world, h.get("prm", {}))
 	for entry in h.get("ros", []):

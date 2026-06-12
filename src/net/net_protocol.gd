@@ -21,6 +21,21 @@ const VERSION := 6
 ## Applied authoritatively on the HOST (clients can send anything) — this is
 ## what keeps BBCode injection, control characters, and unrenderable glyphs
 ## out of every scoreboard and kill feed.
+## Parse "ip" / "ip:port" (one home for the three places that need it —
+## the dedicated server's copy had already drifted a validation guard).
+static func parse_addr(txt: String, default_port: int) -> Dictionary:
+	var t := txt.strip_edges()
+	if t == "":
+		return {}
+	var ip := t
+	var port := default_port
+	if ":" in t:
+		var parts := t.rsplit(":", false, 1)
+		ip = parts[0]
+		if parts.size() > 1 and parts[1].is_valid_int():
+			port = int(parts[1])
+	return {"ip": ip, "port": port}
+
 static func filter_name(raw: String) -> String:
 	var up := raw.strip_edges().to_upper()
 	var out := ""
@@ -87,21 +102,17 @@ static func welcome_of(session: GameSession, your_ship_id: int) -> Dictionary:
 	var roster := []
 	for s in session.world.ships:
 		roster.append([s.id, s.team, s.hull_seed, String(session.ship_names.get(s.id, ""))])
-	return {
+	var out := session.world.config.to_wire()
+	out.merge({
 		"v": VERSION,
 		"id": your_ship_id,
-		"seed": session.world.config.seed,
-		"rs": session.world.config.respawn_time,
-		"as": session.world.config.arena_size,
-		"so": session.world.config.spawn_orbit_radius,
-		"lv": session.world.config.lives,
-		"le": session.world.config.lethal_edges,
 		"prm": session.arena_params,
 		"mode": session.mode,
 		"dif": session.difficulty,
 		"gen": session.generation,
 		"ros": roster,
-	}
+	})
+	return out
 
 # --------------------------------------------------------------------------
 # Snapshots
