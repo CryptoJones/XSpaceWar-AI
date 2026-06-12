@@ -2,6 +2,12 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [1.12.1] — 2026-06-12
+
+### Changed
+- Credits: added **Beaux Onofrio**, **Nick Onofrio**, and **Shannon (Learn)
+  Koski** to the playtesters.
+
 ## [1.12.0] — 2026-06-12
 
 ### Added

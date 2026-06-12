@@ -120,6 +120,7 @@ const CREDITS_LINES := [
 	["", 35, 3],
 	["PLAY TESTERS", 65, 1],
 	["Claude Fable 5 · Trevor Flurry · Patrick Hannah · Adam Testagrossa", 53, 2],
+	["Beaux Onofrio · Nick Onofrio · Shannon (Learn) Koski", 53, 2],
 	["", 35, 3],
 	["PROGRAMMING", 65, 1],
 	["Claude Fable 5", 53, 2],
