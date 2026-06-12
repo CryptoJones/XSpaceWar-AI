@@ -83,9 +83,9 @@ func _on_frame() -> void:
 			print("  [FAIL] join refused")
 			quit(1)
 			return
-		if nc.state == NetClient.State.READY and main.session.human_ship_id >= 0 \
-				and main.session.world != null:
-			var s2: GameSession = main.session
+		if nc.state == NetClient.State.READY and main.view.session.human_ship_id >= 0 \
+				and main.view.session.world != null:
+			var s2: GameSession = main.view.session
 			_pilot = BotController.new(s2.world, s2.human_ship_id,
 				BotController.Difficulty.INSANE, BotController.Personality.BRAWLER, 35, 100)
 			# Drive the NET client with my pilot's inputs instead of the keyboard.
@@ -138,7 +138,7 @@ func _on_frame() -> void:
 	if _frames < 40:
 		return
 
-	var session: GameSession = main.session
+	var session: GameSession = main.view.session  # net joins swap the session
 	if session.world == null:
 		return
 	var human := session.human_ship()
