@@ -19,10 +19,12 @@ Built with **Godot 4** for **Windows, Linux, and macOS**. Licensed under
 
 ## Screenshots
 
-A free-for-all dogfight — sixteen distinct ship colors, kill feed, live
-scoreboard, and the minimap:
+**The first networked match.** Dedicated server on one machine, two pilots
+joining from two more — and the human (holding nearly still) beats the AI
+**3 to −19**, while the bot drowns in the star fifty-nine times. Newtonian
+gravity is undefeated:
 
-![Free-for-all combat](docs/screenshot-combat.png)
+![Victory — the first networked deathmatch](docs/screenshot-victory.png)
 
 The gravity well takes another victim:
 
