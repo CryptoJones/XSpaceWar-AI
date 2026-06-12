@@ -25,6 +25,7 @@ func load_replay(r: Replay) -> bool:
 	cfg.respawn_time = float(h.get("rs", cfg.respawn_time))
 	cfg.arena_size = float(h.get("as", cfg.arena_size))
 	cfg.spawn_orbit_radius = float(h.get("so", cfg.spawn_orbit_radius))
+	cfg.lives = int(h.get("lv", 0))
 	cfg.lethal_edges = bool(h.get("le", false))
 	cfg.wrap_edges = not cfg.lethal_edges
 	var world := SimWorld.new(cfg)

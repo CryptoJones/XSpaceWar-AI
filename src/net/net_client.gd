@@ -231,6 +231,7 @@ func _on_welcome(data: Dictionary) -> void:
 	cfg.respawn_time = float(data.get("rs", cfg.respawn_time))
 	cfg.arena_size = float(data.get("as", cfg.arena_size))
 	cfg.spawn_orbit_radius = float(data.get("so", cfg.spawn_orbit_radius))
+	cfg.lives = int(data.get("lv", 0))
 	cfg.lethal_edges = bool(data.get("le", false))
 	cfg.wrap_edges = not cfg.lethal_edges
 	var world := SimWorld.new(cfg)

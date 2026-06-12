@@ -43,6 +43,7 @@ var respawn_seconds := 6.0         ## death cooldown (player-configurable)
 var lethal_edges := false          ## border kills instead of wrapping
 var star_scale := 1.0              ## star size+gravity multiplier (slider 25 = 1.0)
 var map_size := 40000.0            ## arena edge length (slider 2000-40000)
+var lives := 0                     ## deaths before elimination (0 = unlimited)
 var planet_count := 2              ## planets orbiting the star (0 = none)
 var net_rtt_ms := -1               ## display-only: client's measured ping
 var watch_ship_id := -1            ## spectator/replay follow-cam target (-1 = director)
@@ -95,6 +96,7 @@ func _build(seed: int) -> void:
 	# Spawn ring scales down with small maps (and never sits outside them).
 	cfg.spawn_orbit_radius = clampf(cfg.arena_size * 0.0275, 550.0, 1100.0)
 	cfg.respawn_time = clampf(respawn_seconds, 1.0, 15.0)
+	cfg.lives = maxi(0, lives) if not movie_mode else 0
 	cfg.lethal_edges = lethal_edges
 	cfg.wrap_edges = not lethal_edges
 	world = SimWorld.new(cfg)
@@ -177,6 +179,8 @@ func update(dt: float) -> void:
 		match_time += dt
 		if score_limit > 0:
 			_check_match_over()
+		if not match_over and lives > 0:
+			_check_elimination()
 		if not match_over and time_limit > 0.0 and match_time >= time_limit:
 			_time_out()
 
@@ -197,6 +201,34 @@ func _time_out() -> void:
 		var lead := leaderboard()
 		if not lead.is_empty():
 			winner_ship = lead[0].id
+
+## Lives mode: a pilot with no lives left is out of the match for good.
+func is_eliminated(s: SimShip) -> bool:
+	return world.config.lives > 0 and s.deaths >= world.config.lives
+
+## Last one standing (or last team with a live pilot) takes the match.
+func _check_elimination() -> void:
+	if mode == Mode.TEAM:
+		var teams_left := {}
+		for s in world.ships:
+			if not is_eliminated(s):
+				teams_left[s.team] = true
+		if teams_left.size() == 1:
+			match_over = true
+			winner_team = int(teams_left.keys()[0])
+			restart_timer = RESTART_DELAY
+	else:
+		var left: Array[SimShip] = []
+		for s in world.ships:
+			if not is_eliminated(s):
+				left.append(s)
+		if left.size() <= 1:
+			match_over = true
+			if left.size() == 1:
+				winner_ship = left[0].id
+			elif not leaderboard().is_empty():
+				winner_ship = leaderboard()[0].id
+			restart_timer = RESTART_DELAY
 
 func _check_match_over() -> void:
 	if mode == Mode.TEAM:

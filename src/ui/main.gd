@@ -17,12 +17,13 @@ var _ships_slider: HSlider
 var _limit_slider: HSlider
 var _time_slider: HSlider
 var _respawn_slider: HSlider
+var _lives_slider: HSlider
 var _hazard_slider: HSlider
 var _star_slider: HSlider
 var _planets_slider: HSlider
 var _map_slider: HSlider
 var _edge_check: CheckButton
-var _slider_readouts := {}         ## HSlider -> [value Label, fmt Callable]
+var _slider_readouts := {}         ## HSlider -> [readout LineEdit, fmt Callable]
 var _ip_edit: LineEdit
 var _server_list: ItemList
 var _net_status: Label
@@ -325,22 +326,35 @@ func _slider_row(grid: GridContainer, text: String, lo: float, hi: float,
 	s.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	s.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	box.add_child(s)
-	var readout := Label.new()
+	# The readout doubles as an integer input: click, type an exact value,
+	# Enter (or click away) applies it — the slider follows.
+	var readout := LineEdit.new()
 	readout.custom_minimum_size.x = 92
-	readout.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	readout.alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	readout.add_theme_font_size_override("font_size", 14)
 	readout.add_theme_color_override("font_color", Color(0.6, 0.9, 1.0))
 	readout.text = String(fmt.call(init))
 	box.add_child(readout)
 	_slider_readouts[s] = [readout, fmt]
 	s.value_changed.connect(func(v: float): readout.text = String(fmt.call(v)))
+	var apply_text := func() -> void:
+		var digits := ""
+		for ch in readout.text:
+			if ch >= "0" and ch <= "9":
+				digits += ch
+		if digits != "":
+			s.value = clampf(float(int(digits)), s.min_value, s.max_value)
+		readout.text = String(fmt.call(s.value))
+	readout.focus_entered.connect(func(): readout.text = str(int(s.value)); readout.select_all.call_deferred())
+	readout.text_submitted.connect(func(_t: String): apply_text.call(); readout.release_focus())
+	readout.focus_exited.connect(apply_text)
 	_grid_row(grid, text, box)
 	return s
 
 func _refresh_slider_readouts() -> void:
 	for s in _slider_readouts:
 		var pair: Array = _slider_readouts[s]
-		(pair[0] as Label).text = String((pair[1] as Callable).call((s as HSlider).value))
+		(pair[0] as LineEdit).text = String((pair[1] as Callable).call((s as HSlider).value))
 
 ## One labelled row in a settings grid: fixed label column, control expands.
 func _grid_row(grid: GridContainer, text: String, control: Control) -> void:
@@ -386,6 +400,8 @@ func _build_match_tab() -> Control:
 		func(x: float) -> String: return "no clock" if int(x) == 0 else "%d min" % int(x))
 	_respawn_slider = _slider_row(grid, "Respawn", 1, 15, 1, 6,
 		func(x: float) -> String: return "%d s" % int(x))
+	_lives_slider = _slider_row(grid, "Lives", 0, 64, 1, 0,
+		func(x: float) -> String: return "unlimited" if int(x) == 0 else str(int(x)))
 	_hazard_slider = _slider_row(grid, "Asteroids", 0, 100, 1, 30,
 		func(x: float) -> String: return "none" if int(x) == 0 else "%d%%" % int(x))
 	_star_slider = _slider_row(grid, "Star size", 5, 100, 1, 25,
@@ -757,6 +773,7 @@ func _on_play_pressed() -> void:
 	session.lethal_edges = _edge_check.button_pressed
 	session.star_scale = _star_slider.value / 25.0
 	session.map_size = _map_slider.value
+	session.lives = int(_lives_slider.value)
 	session.planet_count = int(_planets_slider.value)
 	_save_settings()
 	session.host_name = _player_name
@@ -822,7 +839,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif pad_pressed and event.button_index == JOY_BUTTON_START:
 		set_menu_visible(not _menu.visible)
 	elif key_pressed and event.physical_keycode == KEY_TAB \
-			and (replay_player != null or (net_client != null and net_client.spectate)):
+			and (replay_player != null or (net_client != null and net_client.spectate)
+				or (view.session.human_ship() != null
+					and view.session.is_eliminated(view.session.human_ship()))):
 		_cycle_watch_target()
 	elif replay_player != null and key_pressed:
 		if event.physical_keycode == KEY_P:
@@ -850,6 +869,7 @@ func _on_host_pressed() -> void:
 	session.lethal_edges = _edge_check.button_pressed
 	session.star_scale = _star_slider.value / 25.0
 	session.map_size = _map_slider.value
+	session.lives = int(_lives_slider.value)
 	session.planet_count = int(_planets_slider.value)
 	_save_settings()
 	session.host_name = _player_name
@@ -964,6 +984,7 @@ func _on_host_online_pressed() -> void:
 	session.lethal_edges = _edge_check.button_pressed
 	session.star_scale = _star_slider.value / 25.0
 	session.map_size = _map_slider.value
+	session.lives = int(_lives_slider.value)
 	session.planet_count = int(_planets_slider.value)
 	_save_settings()
 	session.host_name = _player_name
@@ -1066,6 +1087,7 @@ func _load_settings() -> void:
 		_planets_slider.set_value_no_signal(float(cfg.get_value("match", "planets", 2.0)))
 		_edge_check.set_pressed_no_signal(bool(cfg.get_value("match", "lethal_edges", false)))
 		_map_slider.set_value_no_signal(float(cfg.get_value("match", "map_size", 40000.0)))
+		_lives_slider.set_value_no_signal(float(cfg.get_value("match", "lives", 0.0)))
 		_refresh_slider_readouts()
 		var binds_changed := false
 		for pair in BINDABLE:
@@ -1108,6 +1130,7 @@ func _save_settings() -> void:
 	cfg.set_value("match", "planets", _planets_slider.value)
 	cfg.set_value("match", "lethal_edges", _edge_check.button_pressed)
 	cfg.set_value("match", "map_size", _map_slider.value)
+	cfg.set_value("match", "lives", _lives_slider.value)
 	cfg.save(SETTINGS_PATH)
 
 ## F3 diagnostics: everything needed to pin down a bug report in one glance.

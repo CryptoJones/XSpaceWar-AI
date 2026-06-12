@@ -30,6 +30,7 @@ var ammo_regen_interval: float = 1.5    ## seconds per +1 torpedo
 var spawn_grace: float = 1.5            ## seconds of invulnerability after (re)spawn
 var spawn_orbit_radius: float = 1100.0
 var respawn_time: float = 6.0
+var lives: int = 0                      ## deaths before elimination (0 = unlimited)
 
 # --- Torpedoes ---
 var fire_cooldown: float = 0.5          ## 2 shots / second (matches the original feel)

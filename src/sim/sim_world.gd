@@ -168,6 +168,10 @@ func _advance_bodies(dt: float) -> void:
 
 func _step_ship(s: SimShip, dt: float) -> void:
 	if not s.alive:
+		# Lives mode: out of lives means out of the match — no respawn.
+		if config.lives > 0 and s.deaths >= config.lives:
+			s.clear_inputs()
+			return
 		s.respawn_timer -= dt
 		if s.respawn_timer <= 0.0:
 			place_in_orbit(s)

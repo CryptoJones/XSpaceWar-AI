@@ -23,6 +23,7 @@ func _initialize() -> void:
 	_test_ship_colors()
 	_test_star_scale()
 	_test_map_size()
+	_test_lives()
 	_test_solo_practice()
 	_test_lethal_edges()
 	_test_team_spawns()
@@ -338,6 +339,37 @@ func _test_lethal_edges() -> void:
 		h2.alive and absf(h2.vel.length() - v_before * 2.0) < 5.0
 		and h2.pos.x < 0.0,
 		"v %.0f -> %.0f x=%.0f" % [v_before, h2.vel.length(), h2.pos.x])
+
+func _test_lives() -> void:
+	# World level: a pilot out of lives never respawns.
+	var s := GameSession.new()
+	s.lives = 2
+	s.score_limit = 0
+	s.start_skirmish(3, GameSession.Mode.FFA, BotController.Difficulty.ROOKIE)
+	var human := s.human_ship()
+	human.deaths = 2
+	human.alive = false
+	human.respawn_timer = 0.5
+	for _i in range(240):
+		s.update(1.0 / 60.0)
+	_check("lives: out of lives means no respawn",
+		not human.alive and s.is_eliminated(human))
+
+	# Session level: last one standing takes the match.
+	var s2 := GameSession.new()
+	s2.lives = 1
+	s2.score_limit = 0
+	s2.start_skirmish(2, GameSession.Mode.FFA, BotController.Difficulty.ROOKIE)
+	var loser := s2.human_ship()
+	loser.deaths = 1
+	loser.alive = false
+	s2.update(1.0 / 60.0)
+	var survivor_id := -1
+	for ship in s2.world.ships:
+		if ship.id != loser.id:
+			survivor_id = ship.id
+	_check("lives: last pilot standing wins",
+		s2.match_over and s2.winner_ship == survivor_id)
 
 func _test_map_size() -> void:
 	var s := GameSession.new()

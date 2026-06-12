@@ -2,6 +2,21 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [1.7.7] — 2026-06-12
+
+### Added
+- **Lives** (MATCH slider, default 0 = unlimited): with lives set, a
+  pilot who burns them all is **eliminated** — no respawn, camera hands
+  off to the spectator director (TAB cycles pilots), and the last pilot
+  (or team) standing takes the match. Works alongside score/time limits.
+- **Editable value boxes**: every slider's readout is now an integer
+  input — click, type an exact value, Enter applies it.
+
+## [1.7.6] — 2026-06-12
+
+### Changed
+- Score limit slider maximum raised to 1024.
+
 ## [1.7.5] — 2026-06-12
 
 ### Added

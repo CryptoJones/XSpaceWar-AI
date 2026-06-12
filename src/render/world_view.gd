@@ -338,6 +338,8 @@ func _update_camera(dt: float) -> void:
 	var target_pos := _cam_pos
 	var target_zoom := _cam_zoom
 	var human := session.human_ship()
+	if human != null and session.is_eliminated(human) and _killcam_id < 0:
+		human = null  # eliminated: the spectator director takes over
 	var killcam_active := false
 
 	if human != null and not human.alive and _killcam_id >= 0:

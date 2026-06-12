@@ -187,7 +187,10 @@ func _process(dt: float) -> void:
 	# Big center countdown while you're dead (skirmish only).
 	if human != null and not human.alive and not session.match_over:
 		_respawn_label.visible = true
-		_respawn_label.text = "RESPAWNING IN %d" % maxi(1, ceili(human.respawn_timer))
+		if session.is_eliminated(human):
+			_respawn_label.text = "ELIMINATED — spectating (TAB cycles pilots)"
+		else:
+			_respawn_label.text = "RESPAWNING IN %d" % maxi(1, ceili(human.respawn_timer))
 		_respawn_label.modulate.a = 0.65 + 0.35 * sin(Time.get_ticks_msec() / 1000.0 * 6.0)
 	else:
 		_respawn_label.visible = false
