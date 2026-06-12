@@ -302,10 +302,39 @@ networked *Spacewar!* / `xspacewar`. Godot 4.6, Apache 2.0. Plan file:
   #2 SteamPipe CI, #3 localization (Latin-callsign decision recorded).
 - Suites: 75 sim / 38 net / 15 relay / 10 audio / smoke / camera probe.
 
+## DONE (v1.7.16 → v1.8.0, 2026-06-12 morning)
+- v1.7.16-21: pull-conflict fix (docs/.gdignore), TAB-everywhere watcher
+  UX, follow clamp on all targets, dead-state director handoff + frozen-
+  camera fix, eternal torpedoes, star-size-aware spawns, N-key, ports.
+- **FULL CODE REVIEW** (9 finder angles, 26 verifiers, 1 sweep → 33
+  confirmed findings, JSON + tiers in session transcript) followed by
+  **five fix batches (v1.7.22-v1.8.0)** — every confirmed correctness
+  finding fixed: CI pipefail + Linux zip exec bit; modal input gate;
+  bot fire-solution gate + difficulty-aggression rewire; _reject peer
+  cleanup; dedicated flag (no restart kicks) + fixed-step accumulator;
+  generation-tagged snapshots; VERSION 5→6 + policy; names broadcast
+  via snapshots + sanitize at all ingresses + 16-char tags + reclaim
+  bot restore; transport-failure re-botting; relay capacity + type
+  guards (relay/LAN/browser); corrupt-replay refusal; HOST ONLINE
+  recording; stats session-key; elimination edges (team draw, solo);
+  spawn clearance + grace vs bodies; hyperspace economy; recorder
+  parked across restarts; movie settings reset; swept collisions;
+  tick-stamped durable events; director clamp; rebind conflicts.
+  Structural: SimConfig.to_wire/from_wire, _resolve_camera_target,
+  _wrap_with_boost, parse_addr, _start_configured_match, display_name.
+- **v1.8.0 RELEASED** ("the review-hardened release", curated notes).
+- Suites: 85 sim / 43 net / 15 relay / 10 audio / smoke / camera probe.
+
+## DEFERRED (recorded, not forgotten)
+- Eternal-torpedo scaling (spatial hash) + delta/interest snapshots —
+  perf cliffs in very long matches, design work.
+- HUD per-frame string-rebuild gating; main.gd god-object split; relay
+  transport base class; shared test harness w/ injectable seeds;
+  Replay.VERSION bump policy vs sim-semantics changes.
+
 ## NEXT
-- Aaron's live feedback is the driver (rapid-fire design session).
-- Steam: blocked on partner account (Aaron); then issues #1-#3.
-- Releases: tag when batches accumulate; version bumps every push.
+- Aaron's live feedback drives. Steam: blocked on partner account
+  (issues #1-#3). Multi-machine tester session = next big input.
 - M4 online: `server/` master/relay (hole-punch + relay), server browser, `PlatformServices`
   (steam/null) so non-Steam builds compile without GodotSteam.
 - M5 wire procedural map params + difficulty into a real lobby; M6 polish/audio (procedural);
