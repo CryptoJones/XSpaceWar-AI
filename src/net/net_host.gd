@@ -16,6 +16,11 @@ const SNAPSHOT_INTERVAL := 1.0 / 20.0
 
 var session: GameSession
 var port := DEFAULT_PORT
+## Trusted-server mode: a joiner whose name matches a connected player
+## KICKS that session (ghost or otherwise) and inherits its ship — score,
+## lives, everything. Default OFF: on public servers a name is not an
+## identity, and reclaim would let anyone hijack by typing your name.
+var reclaim_names := false
 var server_name := "XSpaceWar"
 
 var _t = null                 ## duck-typed host transport (direct or relay)
@@ -224,16 +229,34 @@ func _on_hello(peer, data: Dictionary) -> void:
 	var pname := String(data.get("name", "")).strip_edges().left(16)
 	if pname == "":
 		pname = "PILOT-%d" % sid
+	# Trusted reclaim: same name = same pilot. Kick the old session (a
+	# ghost that hasn't timed out, usually) and hand over its ship intact.
+	if reclaim_names:
+		for old_peer in _peers.keys():
+			if String(_names.get(old_peer, "")).to_upper() == pname.to_upper() \
+					and int(_peers[old_peer]) >= 0:
+				var keep_sid: int = _peers[old_peer]
+				_t.kick(old_peer)
+				_peers.erase(old_peer)
+				_names.erase(old_peer)
+				_inputs.erase(keep_sid)
+				_acked.erase(keep_sid)
+				_peers[peer] = keep_sid
+				_names[peer] = pname
+				session.ship_names[keep_sid] = pname
+				_t.send(peer, NetProtocol.pack(NetProtocol.MSG_WELCOME,
+					NetProtocol.welcome_of(session, keep_sid)), true, NetProtocol.CH_CONTROL)
+				return
 	# A name already on the roster (live player, ghost not yet timed out,
-	# or a bot callsign) gets a numeric suffix: PILOT, PILOT-2, PILOT-3…
+	# or a bot callsign) gets a random four-digit tag: PILOT-4827.
 	var taken := {}
 	for n in session.ship_names.values():
 		taken[String(n).to_upper()] = true
 	if taken.has(pname.to_upper()):
-		var k := 2
-		while taken.has(("%s-%d" % [pname, k]).to_upper()):
-			k += 1
-		pname = "%s-%d" % [pname, k]
+		var tagged := pname
+		while taken.has(tagged.to_upper()):
+			tagged = "%s-%04d" % [pname, randi_range(0, 9999)]
+		pname = tagged
 	_names[peer] = pname
 	session.ship_names[sid] = pname
 	_t.send(peer,

@@ -18,6 +18,9 @@ extends SceneTree
 ##   --hazard 0-100   asteroid level        --star 5-100    star size (25=classic)
 ##   --planets 0-6    (default 2)           --map 2000-40000 arena edge
 ##   --respawn SEC    1-15 (default 6)      --edges          lethal boundary
+##   --reclaim        TRUSTED servers: rejoining with the same name kicks
+##                    the old session (ghosts) and inherits its ship/score.
+##                    Leave OFF for public servers — names are not identity.
 
 var host: NetHost
 var session := GameSession.new()
@@ -48,6 +51,7 @@ func _initialize() -> void:
 	_seen_gen = session.generation
 
 	host = NetHost.new(session)
+	host.reclaim_names = a.has("reclaim")
 	var server_name := String(a.get("name", "Dedicated Arena"))
 	var err: Error
 	if a.has("relay"):

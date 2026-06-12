@@ -2,6 +2,18 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [1.7.14] — 2026-06-12
+
+### Added
+- **Trusted-server name reclaim** (`--reclaim` on the dedicated server,
+  default OFF): rejoining with your name kicks the ghost session and you
+  inherit its ship — score and lives intact. Left off for public/Steam
+  servers, where a name is not an identity.
+
+### Changed
+- Name collisions (no reclaim) now get a **random four-digit tag**
+  (PILOT-4827) instead of -2/-3 suffixes.
+
 ## [1.7.13] — 2026-06-12
 
 ### Added

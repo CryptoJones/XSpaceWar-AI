@@ -20,6 +20,7 @@ func _initialize() -> void:
 	_test_prediction()
 	_test_spectator()
 	_test_dedicated_server()
+	_test_name_reclaim()
 	_test_discovery_loopback()
 	print("=== %d passed, %d failed ===" % [_passed, _failed])
 	quit(1 if _failed > 0 else 0)
@@ -205,6 +206,22 @@ func _test_dedicated_server() -> void:
 		and hsession.bots.size() == 3 and host.player_count() == 1
 		and hsession.ship_names.values().has("VISITOR"),
 		"bots=%d players=%d" % [hsession.bots.size(), host.player_count()])
+	# Same name, no reclaim: the twin gets a random four-digit tag.
+	var twin := NetClient.new()
+	twin.open("127.0.0.1", TEST_PORT + 7, "VISITOR")
+	var twin_name := ""
+	for _i in range(600):
+		host.update(DT, {})
+		client.update(DT, {})
+		twin.update(DT, {})
+		if twin.state == NetClient.State.READY and twin.session.human_ship_id >= 0:
+			twin_name = String(hsession.ship_names.get(twin.session.human_ship_id, ""))
+			break
+		OS.delay_msec(1)
+	var re := RegEx.create_from_string("^VISITOR-\\d{4}$")
+	_check("dedicated: name twin gets a random 4-digit tag",
+		re.search(twin_name) != null, "name='%s'" % twin_name)
+	twin.close()
 	client.close()
 	host.close()
 
@@ -294,6 +311,52 @@ func _test_prediction() -> void:
 	_check("prediction: unacked input buffer stays bounded",
 		client._pending_inputs.size() < 60, "pending=%d" % client._pending_inputs.size())
 	client.close()
+	host.close()
+
+func _test_name_reclaim() -> void:
+	# Trusted servers: rejoining with the same name kicks the ghost and
+	# inherits its ship — score intact.
+	var hsession := GameSession.new()
+	hsession.score_limit = 0
+	hsession.start_skirmish(3, GameSession.Mode.FFA, BotController.Difficulty.ROOKIE)
+	NetHost.convert_to_dedicated(hsession)
+	var host := NetHost.new(hsession)
+	host.reclaim_names = true
+	var err := host.open(TEST_PORT + 9, false, "reclaim-test", "127.0.0.1")
+	if err != OK:
+		_check("reclaim: binds", false, "err=%d" % err)
+		return
+	var ghost := NetClient.new()
+	ghost.open("127.0.0.1", TEST_PORT + 9, "ACE")
+	var ghost_sid := -1
+	for _i in range(600):
+		host.update(DT, {})
+		ghost.update(DT, {})
+		if ghost.state == NetClient.State.READY and ghost.session.human_ship_id >= 0:
+			ghost_sid = ghost.session.human_ship_id
+			break
+		OS.delay_msec(1)
+	_check("reclaim: first session takes a ship", ghost_sid >= 0)
+	hsession.world.ship_by_id(ghost_sid).score = 5
+	# The "ghost" stays connected (it never timed out); the SAME NAME rejoins.
+	var back := NetClient.new()
+	back.open("127.0.0.1", TEST_PORT + 9, "ACE")
+	var back_sid := -1
+	for _i in range(600):
+		host.update(DT, {})
+		back.update(DT, {})
+		ghost.update(DT, {})
+		if back.state == NetClient.State.READY and back.session.human_ship_id >= 0:
+			back_sid = back.session.human_ship_id
+			break
+		OS.delay_msec(1)
+	_check("reclaim: rejoiner inherits the ghost's ship and score",
+		back_sid == ghost_sid
+		and hsession.world.ship_by_id(back_sid).score == 5
+		and host.player_count() == 1,
+		"sid %d/%d players=%d" % [ghost_sid, back_sid, host.player_count()])
+	back.close()
+	ghost.close()
 	host.close()
 
 func _test_discovery_loopback() -> void:
