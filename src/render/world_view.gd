@@ -78,6 +78,8 @@ var _follow_pos := Vector2.ZERO
 var _focus_a := -1                  ## movie-mode action camera: current duel
 var _focus_b := -1
 var _focus_timer := 0.0
+var race_gates: Array[Vector2] = [] ## easter egg: checkpoint ring positions
+var race_next_gate := 0             ## index of the gate to highlight
 var _killcam_id := -1               ## while dead: ride along with your killer
 var _seen_ev_tick := -1             ## events are consumed once (they accumulate)
 
@@ -479,6 +481,13 @@ func _draw() -> void:
 		if s.alive:
 			for off in _ghost_offsets(_ipos("s%d" % s.id, s.pos) + s.render_pos_offset, wrap, half, 240.0):
 				_draw_ship(s, world.time, off)
+	if not race_gates.is_empty():
+		for i in range(race_gates.size()):
+			var hot := i == race_next_gate % race_gates.size()
+			var col := Color(0.3, 2.0, 2.2, 0.9) if hot else Color(0.4, 0.8, 1.0, 0.35)
+			draw_arc(race_gates[i], 110.0, 0.0, TAU, 40, col, 6.0 if hot else 3.0)
+			if hot:
+				draw_arc(race_gates[i], 140.0, 0.0, TAU, 40, Color(0.3, 2.0, 2.2, 0.4), 2.0)
 	_draw_popups()
 
 ## Offsets at which to additionally draw an entity so it appears on both sides

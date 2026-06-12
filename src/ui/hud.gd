@@ -122,6 +122,7 @@ func set_debug(text: String) -> void:
 	_debug_label.text = text
 
 var debug_echo := false   ## --debug: mirror feed lines to stdout
+var banner_override := ""  ## non-empty: replaces the mode banner (race egg)
 
 func set_feed_visible(v: bool) -> void:
 	_feed_label.visible = v
@@ -396,6 +397,9 @@ func _radar_in_view(mp: Vector2, size: Vector2) -> bool:
 	return mp.x >= 0.0 and mp.y >= 0.0 and mp.x <= size.x and mp.y <= size.y
 
 func _update_banner() -> void:
+	if banner_override != "":
+		_banner.text = banner_override
+		return
 	if session.match_over:
 		var who := ""
 		if session.winner_team >= 0:

@@ -65,6 +65,9 @@ var _stats_detail: Label
 var _stats_career: Label
 var _stats_key := []               ## [session id, generation] last written to history
 var _debug_dump_accum := 0.0
+var _race_active := false
+var _race_gate := 0          ## next gate index (4 gates x 2 laps = 8 passes)
+var _race_t := 0.0
 
 const BINDABLE := [
 	["turn_left", "Turn left"],
@@ -242,6 +245,7 @@ func _process(dt: float) -> void:
 			_server_repr = "force"  # rebuild the merged list
 	if _menu.visible:
 		_refresh_server_list(dt)
+	_update_race(dt)
 	if _debug_overlay:
 		hud.set_debug(_debug_text())
 		if hud.debug_echo:
@@ -288,6 +292,18 @@ func _build_menu() -> void:
 	subtitle.add_theme_color_override("font_color", Color(0.6, 0.7, 0.85, 0.7))
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	outer.add_child(subtitle)
+	# ----------------------------------------------------------------------
+	# (psst: nothing to see here. certainly not a stock car race in space.)
+	var secret := Button.new()
+	secret.flat = true
+	secret.text = ""
+	secret.custom_minimum_size = Vector2(54, 18)
+	secret.focus_mode = Control.FOCUS_NONE
+	secret.mouse_default_cursor_shape = Control.CURSOR_ARROW
+	secret.pressed.connect(_start_race_egg)
+	subtitle.add_child(secret)
+	secret.set_anchors_preset(Control.PRESET_CENTER_RIGHT)
+	secret.position += Vector2(-92, -9)
 
 	# Three calm tabs instead of one crowded column.
 	var tabs := TabContainer.new()
@@ -829,6 +845,64 @@ func set_menu_visible(v: bool) -> void:
 ## THE one place menu sliders become a running match — every start path
 ## (solo, LAN host, relay host) calls this; adding a MATCH option means
 ## touching exactly here plus the slider itself.
+## EASTER EGG — THE NEBRASKA 500. Click the year in the subtitle: you,
+## alone with the star, four glowing gates, two laps. Gentlemen, etc.
+func _start_race_egg() -> void:
+	_teardown_net()
+	_finalize_recording()
+	session.score_limit = 0
+	session.time_limit = 0.0
+	session.lives = 0
+	session.hazard = 0.0
+	session.lethal_edges = false
+	session.star_scale = 1.0
+	session.planet_count = 0
+	session.map_size = 12000.0
+	session.respawn_seconds = 2.0
+	session.host_name = _player_name
+	session.start_skirmish(1, GameSession.Mode.FFA, BotController.Difficulty.ROOKIE)
+	var star := session.world.primary_body()
+	var c: Vector2 = star.pos if star != null else Vector2.ZERO
+	var r: float = session.world.config.spawn_orbit_radius * 1.5
+	view.race_gates = [c + Vector2(r, 0), c + Vector2(0, r),
+		c + Vector2(-r, 0), c + Vector2(0, -r)]
+	view.race_next_gate = 1   # spawn ring is near gate 0's radius; head for E
+	_race_active = true
+	_race_gate = 1
+	_race_t = 0.0
+	set_menu_visible(false)
+
+func _update_race(dt: float) -> void:
+	if not _race_active:
+		return
+	if session.match_over or session.world == null or _menu.visible:
+		_end_race(false)
+		return
+	_race_t += dt
+	var human := session.human_ship()
+	if human == null:
+		return
+	var total := 8   # 4 gates x 2 laps
+	var gate: Vector2 = view.race_gates[_race_gate % 4]
+	hud.banner_override = "🏁 THE NEBRASKA 500 — LAP %d/2 · GATE %d/4 · %.1fs" % [
+		((_race_gate - 1) / 4) + 1, ((_race_gate - 1) % 4) + 1, _race_t]
+	if human.alive and human.pos.distance_to(gate) < 150.0:
+		_race_gate += 1
+		view.race_next_gate = _race_gate
+		if _race_gate >= total + 1:
+			hud.banner_override = ""
+			_net_status.text = "🏁 NEBRASKA 500 WON — %.1fs. (You found it.)" % _race_t
+			session.match_over = true
+			session.winner_ship = session.human_ship_id
+			session.restart_timer = GameSession.RESTART_DELAY
+			_end_race(true)
+
+func _end_race(won: bool) -> void:
+	_race_active = false
+	hud.banner_override = ""
+	view.race_gates = []
+	view.race_next_gate = 0
+
 func _start_configured_match() -> void:
 	var mode := GameSession.Mode.TEAM if _mode_btn.selected == 1 else GameSession.Mode.FFA
 	session.score_limit = int(_limit_slider.value)
