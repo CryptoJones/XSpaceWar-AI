@@ -32,8 +32,8 @@ func _lobotomize_opponents(s: GameSession) -> void:
 		if int(sid) == s.human_ship_id:
 			continue
 		var b: BotController = s.bots[sid]
-		b._p["reaction"] = 2.5
-		b._p["aim_error"] = 1.4
+		b._p["reaction"] = 1.2
+		b._p["aim_error"] = 1.0
 		b._p["fire_cone"] = 0.02
 		b._p["panic"] = 0.0
 		b._p["hyper"] = false
@@ -72,7 +72,8 @@ func _on_frame() -> void:
 		main._lives_slider.value = 0
 		main._limit_slider.value = 3 if _win_mode else 0
 		main._time_slider.value = 0
-		main._hazard_slider.value = 30
+		main._hazard_slider.value = 0 if _dumb else 30  # mercy v2: at -5 they
+		# out-suicided me into the rocks — give them nothing to crash into
 		main._map_slider.value = 8000 if _win_mode else 40000
 		main._diff_slider.value = BotController.Difficulty.ROOKIE if _win_mode \
 			else BotController.Difficulty.VETERAN  # Aaron's mercy rule: I kinda suck
