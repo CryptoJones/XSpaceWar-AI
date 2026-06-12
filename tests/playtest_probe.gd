@@ -23,12 +23,29 @@ var _win_mode := false
 var _pilot: BotController = null     ## --win: my combat AI flies the ship
 var _won := false
 var _win_capture_at := -1
+var _dumb := false
+
+## --dumb: one-off mercy-minus-five — lobotomize every OPPONENT bot.
+## (Probe-only. The shipped game's Rookies keep their dignity.)
+func _lobotomize_opponents(s: GameSession) -> void:
+	for sid in s.bots:
+		if int(sid) == s.human_ship_id:
+			continue
+		var b: BotController = s.bots[sid]
+		b._p["reaction"] = 2.5
+		b._p["aim_error"] = 1.4
+		b._p["fire_cone"] = 0.02
+		b._p["panic"] = 0.0
+		b._p["hyper"] = false
+		b.aggression = 5
+	print("  [mercy] opponents set to difficulty: -5")
 
 func _initialize() -> void:
 	for i in range(OS.get_cmdline_user_args().size() - 1):
 		if OS.get_cmdline_user_args()[i] == "--shots":
 			_shots_dir = OS.get_cmdline_user_args()[i + 1]
 	_win_mode = "--win" in OS.get_cmdline_user_args()
+	_dumb = "--dumb" in OS.get_cmdline_user_args()
 	if "--fast" in OS.get_cmdline_user_args():
 		Engine.time_scale = 5.0  # dry runs only: the pilot decides per frame
 	DirAccess.make_dir_recursive_absolute(_shots_dir)
@@ -68,6 +85,8 @@ func _on_frame() -> void:
 			# Register into the session so the SIM drives my decisions every
 			# tick (frame-rate updates degrade reflexes under time_scale).
 			s.bots[s.human_ship_id] = _pilot
+			if _dumb:
+				_lobotomize_opponents(s)
 			print("  [t+%02ds] FIRST TO 3 — my AI has the stick" % (_frames / 60))
 		else:
 			print("  [t+%02ds] match started" % (_frames / 60))
@@ -89,6 +108,8 @@ func _on_frame() -> void:
 			_pilot = BotController.new(session.world, session.human_ship_id,
 				BotController.Difficulty.INSANE, BotController.Personality.BRAWLER, 35, 100)
 			session.bots[session.human_ship_id] = _pilot
+			if _dumb:
+				_lobotomize_opponents(session)
 		if session.match_over and not _won:
 			_won = true
 			_win_capture_at = _frames + 45   # let the WINNER banner + standings render
