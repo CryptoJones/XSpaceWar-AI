@@ -27,6 +27,8 @@ static func begin(session: GameSession) -> Replay:
 		"v": VERSION,
 		"seed": session.world.config.seed,
 		"rs": session.world.config.respawn_time,
+		"as": session.world.config.arena_size,
+		"so": session.world.config.spawn_orbit_radius,
 		"le": session.world.config.lethal_edges,
 		"prm": session.arena_params,
 		"mode": session.mode,

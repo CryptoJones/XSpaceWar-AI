@@ -12,15 +12,17 @@ var net_client: NetClient
 
 var _menu: CanvasLayer
 var _mode_btn: OptionButton
-var _diff_btn: OptionButton
-var _ships_spin: SpinBox
-var _limit_spin: SpinBox
-var _time_spin: SpinBox
-var _respawn_spin: SpinBox
+var _diff_slider: HSlider
+var _ships_slider: HSlider
+var _limit_slider: HSlider
+var _time_slider: HSlider
+var _respawn_slider: HSlider
 var _hazard_slider: HSlider
 var _star_slider: HSlider
-var _planets_spin: SpinBox
+var _planets_slider: HSlider
+var _map_slider: HSlider
 var _edge_check: CheckButton
+var _slider_readouts := {}         ## HSlider -> [value Label, fmt Callable]
 var _ip_edit: LineEdit
 var _server_list: ItemList
 var _net_status: Label
@@ -309,6 +311,37 @@ func _build_menu() -> void:
 
 	add_child(_menu)
 
+## A labelled slider row with a live value readout (the standard control for
+## every numeric match option — sliders everywhere, per Aaron).
+func _slider_row(grid: GridContainer, text: String, lo: float, hi: float,
+		step: float, init: float, fmt: Callable) -> HSlider:
+	var s := HSlider.new()
+	s.min_value = lo
+	s.max_value = hi
+	s.step = step
+	s.value = init
+	var box := HBoxContainer.new()
+	box.add_theme_constant_override("separation", 10)
+	s.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	s.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	box.add_child(s)
+	var readout := Label.new()
+	readout.custom_minimum_size.x = 92
+	readout.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	readout.add_theme_font_size_override("font_size", 14)
+	readout.add_theme_color_override("font_color", Color(0.6, 0.9, 1.0))
+	readout.text = String(fmt.call(init))
+	box.add_child(readout)
+	_slider_readouts[s] = [readout, fmt]
+	s.value_changed.connect(func(v: float): readout.text = String(fmt.call(v)))
+	_grid_row(grid, text, box)
+	return s
+
+func _refresh_slider_readouts() -> void:
+	for s in _slider_readouts:
+		var pair: Array = _slider_readouts[s]
+		(pair[0] as Label).text = String((pair[1] as Callable).call((s as HSlider).value))
+
 ## One labelled row in a settings grid: fixed label column, control expands.
 func _grid_row(grid: GridContainer, text: String, control: Control) -> void:
 	var l := Label.new()
@@ -334,7 +367,7 @@ func _build_match_tab() -> Control:
 	var grid := GridContainer.new()
 	grid.columns = 2
 	grid.add_theme_constant_override("h_separation", 18)
-	grid.add_theme_constant_override("v_separation", 14)
+	grid.add_theme_constant_override("v_separation", 12)
 	v.add_child(grid)
 
 	_mode_btn = OptionButton.new()
@@ -342,66 +375,29 @@ func _build_match_tab() -> Control:
 	_mode_btn.add_item("Team battle")
 	_grid_row(grid, "Mode", _mode_btn)
 
-	_diff_btn = OptionButton.new()
-	for n in ["Rookie", "Veteran", "Ace", "Insane"]:
-		_diff_btn.add_item(n)
-	_diff_btn.select(BotController.Difficulty.VETERAN)
-	_grid_row(grid, "AI difficulty", _diff_btn)
-
-	_ships_spin = SpinBox.new()
-	_ships_spin.min_value = 1
-	_ships_spin.tooltip_text = "1 = solo practice flight (no opponents)"
-	_ships_spin.max_value = 16
-	_ships_spin.value = 8
-	_grid_row(grid, "Ships", _ships_spin)
-
-	_limit_spin = SpinBox.new()
-	_limit_spin.min_value = 0
-	_limit_spin.max_value = 50
-	_limit_spin.value = 10
-	_limit_spin.tooltip_text = "First to this score wins (0 = endless)"
-	_grid_row(grid, "Score limit", _limit_spin)
-
-	_time_spin = SpinBox.new()
-	_time_spin.min_value = 0
-	_time_spin.max_value = 30
-	_time_spin.value = 0
-	_time_spin.suffix = "min"
-	_time_spin.tooltip_text = "Match clock \u2014 leader wins at zero (0 = no clock)"
-	_grid_row(grid, "Time limit", _time_spin)
-
-	_respawn_spin = SpinBox.new()
-	_respawn_spin.min_value = 1
-	_respawn_spin.max_value = 15
-	_respawn_spin.value = 6
-	_respawn_spin.suffix = "s"
-	_respawn_spin.tooltip_text = "Cooldown before you respawn after dying"
-	_grid_row(grid, "Respawn", _respawn_spin)
-
-	_hazard_slider = HSlider.new()
-	_hazard_slider.min_value = 0
-	_hazard_slider.max_value = 100
-	_hazard_slider.value = 30
-	_hazard_slider.tooltip_text = "0 = clean space \u00b7 100 = every 3rd cell is a rock"
-	_grid_row(grid, "Asteroids", _hazard_slider)
-
-	_planets_spin = SpinBox.new()
-	_planets_spin.min_value = 0
-	_planets_spin.max_value = 6
-	_planets_spin.value = 2
-	_planets_spin.tooltip_text = "Planets orbiting the star (0 = none; moons follow)"
-	_grid_row(grid, "Planets", _planets_spin)
-
-	_star_slider = HSlider.new()
-	_star_slider.min_value = 5
-	_star_slider.max_value = 100
-	_star_slider.value = 25
-	_star_slider.tooltip_text = "Star size \u2014 bigger star, stronger gravity (25 = classic)"
-	_grid_row(grid, "Star size", _star_slider)
+	_diff_slider = _slider_row(grid, "AI difficulty", 0, 3, 1,
+		BotController.Difficulty.VETERAN,
+		func(x: float) -> String: return ["Rookie", "Veteran", "Ace", "Insane"][int(x)])
+	_ships_slider = _slider_row(grid, "Ships", 1, 16, 1, 8,
+		func(x: float) -> String: return "1 (solo)" if int(x) == 1 else str(int(x)))
+	_limit_slider = _slider_row(grid, "Score limit", 0, 50, 1, 10,
+		func(x: float) -> String: return "endless" if int(x) == 0 else str(int(x)))
+	_time_slider = _slider_row(grid, "Time limit", 0, 30, 1, 0,
+		func(x: float) -> String: return "no clock" if int(x) == 0 else "%d min" % int(x))
+	_respawn_slider = _slider_row(grid, "Respawn", 1, 15, 1, 6,
+		func(x: float) -> String: return "%d s" % int(x))
+	_hazard_slider = _slider_row(grid, "Asteroids", 0, 100, 1, 30,
+		func(x: float) -> String: return "none" if int(x) == 0 else "%d%%" % int(x))
+	_star_slider = _slider_row(grid, "Star size", 5, 100, 1, 25,
+		func(x: float) -> String: return "%d (classic)" % int(x) if int(x) == 25 else str(int(x)))
+	_planets_slider = _slider_row(grid, "Planets", 0, 6, 1, 2,
+		func(x: float) -> String: return "none" if int(x) == 0 else str(int(x)))
+	_map_slider = _slider_row(grid, "Map size", 2000, 40000, 1000, 40000,
+		func(x: float) -> String: return "%d u" % int(x))
 
 	_edge_check = CheckButton.new()
 	_edge_check.text = "Lethal map edge"
-	_edge_check.tooltip_text = "Off: the map wraps around \u00b7 On: the border destroys ships"
+	_edge_check.tooltip_text = "Off: the map wraps around · On: the border destroys ships"
 	_grid_row(grid, "Boundary", _edge_check)
 
 	var stretch := Control.new()
@@ -409,7 +405,7 @@ func _build_match_tab() -> Control:
 	v.add_child(stretch)
 
 	var movie := Button.new()
-	movie.text = "WATCH \u2014 Movie Mode"
+	movie.text = "WATCH — Movie Mode"
 	movie.pressed.connect(_on_movie_pressed)
 	v.add_child(movie)
 	return parts[0]
@@ -754,16 +750,17 @@ func _on_play_pressed() -> void:
 	_teardown_net()
 	_finalize_recording()
 	var mode := GameSession.Mode.TEAM if _mode_btn.selected == 1 else GameSession.Mode.FFA
-	session.score_limit = int(_limit_spin.value)
-	session.time_limit = _time_spin.value * 60.0
+	session.score_limit = int(_limit_slider.value)
+	session.time_limit = _time_slider.value * 60.0
 	session.hazard = _hazard_slider.value / 100.0
-	session.respawn_seconds = _respawn_spin.value
+	session.respawn_seconds = _respawn_slider.value
 	session.lethal_edges = _edge_check.button_pressed
 	session.star_scale = _star_slider.value / 25.0
-	session.planet_count = int(_planets_spin.value)
+	session.map_size = _map_slider.value
+	session.planet_count = int(_planets_slider.value)
 	_save_settings()
 	session.host_name = _player_name
-	session.start_skirmish(int(_ships_spin.value), mode, _diff_btn.selected)
+	session.start_skirmish(int(_ships_slider.value), mode, int(_diff_slider.value))
 	_maybe_start_recording()
 	set_menu_visible(false)
 
@@ -846,16 +843,17 @@ func _on_host_pressed() -> void:
 	_teardown_net()
 	_finalize_recording()
 	var mode := GameSession.Mode.TEAM if _mode_btn.selected == 1 else GameSession.Mode.FFA
-	session.score_limit = int(_limit_spin.value)
-	session.time_limit = _time_spin.value * 60.0
+	session.score_limit = int(_limit_slider.value)
+	session.time_limit = _time_slider.value * 60.0
 	session.hazard = _hazard_slider.value / 100.0
-	session.respawn_seconds = _respawn_spin.value
+	session.respawn_seconds = _respawn_slider.value
 	session.lethal_edges = _edge_check.button_pressed
 	session.star_scale = _star_slider.value / 25.0
-	session.planet_count = int(_planets_spin.value)
+	session.map_size = _map_slider.value
+	session.planet_count = int(_planets_slider.value)
 	_save_settings()
 	session.host_name = _player_name
-	session.start_skirmish(int(_ships_spin.value), mode, _diff_btn.selected)
+	session.start_skirmish(int(_ships_slider.value), mode, int(_diff_slider.value))
 	net_host = NetHost.new(session)
 	var err := net_host.open(NetHost.DEFAULT_PORT, true, "%s's arena" % _player_name)
 	if err != OK:
@@ -959,16 +957,17 @@ func _on_host_online_pressed() -> void:
 		return
 	_teardown_net()
 	var mode := GameSession.Mode.TEAM if _mode_btn.selected == 1 else GameSession.Mode.FFA
-	session.score_limit = int(_limit_spin.value)
-	session.time_limit = _time_spin.value * 60.0
+	session.score_limit = int(_limit_slider.value)
+	session.time_limit = _time_slider.value * 60.0
 	session.hazard = _hazard_slider.value / 100.0
-	session.respawn_seconds = _respawn_spin.value
+	session.respawn_seconds = _respawn_slider.value
 	session.lethal_edges = _edge_check.button_pressed
 	session.star_scale = _star_slider.value / 25.0
-	session.planet_count = int(_planets_spin.value)
+	session.map_size = _map_slider.value
+	session.planet_count = int(_planets_slider.value)
 	_save_settings()
 	session.host_name = _player_name
-	session.start_skirmish(int(_ships_spin.value), mode, _diff_btn.selected)
+	session.start_skirmish(int(_ships_slider.value), mode, int(_diff_slider.value))
 	net_host = NetHost.new(session)
 	var err: Error = net_host.open_relay(String(addr["ip"]), int(addr["port"]),
 		"%s's arena" % _player_name)
@@ -1057,15 +1056,17 @@ func _load_settings() -> void:
 		hud.set_radar_visible(bool(cfg.get_value("display", "minimap", true)))
 		# Match setup: restore the player's favorite configuration.
 		_mode_btn.select(int(cfg.get_value("match", "mode", 0)))
-		_diff_btn.select(int(cfg.get_value("match", "difficulty", BotController.Difficulty.VETERAN)))
-		_ships_spin.set_value_no_signal(float(cfg.get_value("match", "ships", 8.0)))
-		_limit_spin.set_value_no_signal(float(cfg.get_value("match", "score_limit", 10.0)))
-		_time_spin.set_value_no_signal(float(cfg.get_value("match", "time_limit", 0.0)))
-		_respawn_spin.set_value_no_signal(float(cfg.get_value("match", "respawn", 6.0)))
+		_diff_slider.set_value_no_signal(float(cfg.get_value("match", "difficulty", BotController.Difficulty.VETERAN)))
+		_ships_slider.set_value_no_signal(float(cfg.get_value("match", "ships", 8.0)))
+		_limit_slider.set_value_no_signal(float(cfg.get_value("match", "score_limit", 10.0)))
+		_time_slider.set_value_no_signal(float(cfg.get_value("match", "time_limit", 0.0)))
+		_respawn_slider.set_value_no_signal(float(cfg.get_value("match", "respawn", 6.0)))
 		_hazard_slider.set_value_no_signal(float(cfg.get_value("match", "hazard", 30.0)))
 		_star_slider.set_value_no_signal(float(cfg.get_value("match", "star_size", 25.0)))
-		_planets_spin.set_value_no_signal(float(cfg.get_value("match", "planets", 2.0)))
+		_planets_slider.set_value_no_signal(float(cfg.get_value("match", "planets", 2.0)))
 		_edge_check.set_pressed_no_signal(bool(cfg.get_value("match", "lethal_edges", false)))
+		_map_slider.set_value_no_signal(float(cfg.get_value("match", "map_size", 40000.0)))
+		_refresh_slider_readouts()
 		var binds_changed := false
 		for pair in BINDABLE:
 			var action := String(pair[0])
@@ -1097,15 +1098,16 @@ func _save_settings() -> void:
 	for pair in BINDABLE:
 		cfg.set_value("keys", String(pair[0]), int(view.key_binds[String(pair[0])]))
 	cfg.set_value("match", "mode", _mode_btn.selected)
-	cfg.set_value("match", "difficulty", _diff_btn.selected)
-	cfg.set_value("match", "ships", _ships_spin.value)
-	cfg.set_value("match", "score_limit", _limit_spin.value)
-	cfg.set_value("match", "time_limit", _time_spin.value)
-	cfg.set_value("match", "respawn", _respawn_spin.value)
+	cfg.set_value("match", "difficulty", int(_diff_slider.value))
+	cfg.set_value("match", "ships", _ships_slider.value)
+	cfg.set_value("match", "score_limit", _limit_slider.value)
+	cfg.set_value("match", "time_limit", _time_slider.value)
+	cfg.set_value("match", "respawn", _respawn_slider.value)
 	cfg.set_value("match", "hazard", _hazard_slider.value)
 	cfg.set_value("match", "star_size", _star_slider.value)
-	cfg.set_value("match", "planets", _planets_spin.value)
+	cfg.set_value("match", "planets", _planets_slider.value)
 	cfg.set_value("match", "lethal_edges", _edge_check.button_pressed)
+	cfg.set_value("match", "map_size", _map_slider.value)
 	cfg.save(SETTINGS_PATH)
 
 ## F3 diagnostics: everything needed to pin down a bug report in one glance.

@@ -22,6 +22,7 @@ func _initialize() -> void:
 	_test_hazard_slider()
 	_test_ship_colors()
 	_test_star_scale()
+	_test_map_size()
 	_test_solo_practice()
 	_test_lethal_edges()
 	_test_team_spawns()
@@ -337,6 +338,25 @@ func _test_lethal_edges() -> void:
 		h2.alive and absf(h2.vel.length() - v_before * 2.0) < 5.0
 		and h2.pos.x < 0.0,
 		"v %.0f -> %.0f x=%.0f" % [v_before, h2.vel.length(), h2.pos.x])
+
+func _test_map_size() -> void:
+	var s := GameSession.new()
+	s.map_size = 2000.0
+	s.score_limit = 0
+	s.start_skirmish(8, GameSession.Mode.FFA, BotController.Difficulty.VETERAN)
+	var half := s.world.config.arena_size * 0.5
+	_check("map: small arena applies with scaled spawn ring",
+		is_equal_approx(s.world.config.arena_size, 2000.0)
+		and s.world.config.spawn_orbit_radius <= half * 0.6,
+		"orbit=%.0f" % s.world.config.spawn_orbit_radius)
+	var inside := true
+	for ship in s.world.ships:
+		if absf(ship.pos.x) > half or absf(ship.pos.y) > half:
+			inside = false
+	_check("map: all ships spawn inside a tiny map", inside)
+	for _i in range(300):
+		s.update(1.0 / 60.0)
+	_check("map: tiny arena sim runs clean", s.world.tick >= 300)
 
 func _test_solo_practice() -> void:
 	var s := GameSession.new()

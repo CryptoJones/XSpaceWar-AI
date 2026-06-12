@@ -229,6 +229,8 @@ func _on_welcome(data: Dictionary) -> void:
 	session.winner_team = -1
 	var cfg := SimConfig.from_seed(int(data["seed"]))
 	cfg.respawn_time = float(data.get("rs", cfg.respawn_time))
+	cfg.arena_size = float(data.get("as", cfg.arena_size))
+	cfg.spawn_orbit_radius = float(data.get("so", cfg.spawn_orbit_radius))
 	cfg.lethal_edges = bool(data.get("le", false))
 	cfg.wrap_edges = not cfg.lethal_edges
 	var world := SimWorld.new(cfg)

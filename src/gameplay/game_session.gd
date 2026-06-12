@@ -42,6 +42,7 @@ var hazard := 0.3                  ## asteroid slider 0..1 (1 = every 3rd cell)
 var respawn_seconds := 6.0         ## death cooldown (player-configurable)
 var lethal_edges := false          ## border kills instead of wrapping
 var star_scale := 1.0              ## star size+gravity multiplier (slider 25 = 1.0)
+var map_size := 40000.0            ## arena edge length (slider 2000-40000)
 var planet_count := 2              ## planets orbiting the star (0 = none)
 var net_rtt_ms := -1               ## display-only: client's measured ping
 var watch_ship_id := -1            ## spectator/replay follow-cam target (-1 = director)
@@ -82,6 +83,7 @@ func _randomize_match_params() -> void:
 	num_ships = _rng.randi_range(6, 16)
 	hazard = _rng.randf_range(0.1, 0.6)
 	star_scale = _rng.randf_range(0.5, 2.5)
+	map_size = float(_rng.randi_range(6, 40)) * 1000.0
 	planet_count = _rng.randi_range(0, 3)
 	mode = Mode.TEAM if _rng.randf() < 0.5 else Mode.FFA
 	num_teams = _rng.randi_range(2, 3) if mode == Mode.TEAM else 1
@@ -89,6 +91,9 @@ func _randomize_match_params() -> void:
 
 func _build(seed: int) -> void:
 	var cfg := SimConfig.from_seed(seed)
+	cfg.arena_size = clampf(map_size, 2000.0, 40000.0)
+	# Spawn ring scales down with small maps (and never sits outside them).
+	cfg.spawn_orbit_radius = clampf(cfg.arena_size * 0.0275, 550.0, 1100.0)
 	cfg.respawn_time = clampf(respawn_seconds, 1.0, 15.0)
 	cfg.lethal_edges = lethal_edges
 	cfg.wrap_edges = not lethal_edges

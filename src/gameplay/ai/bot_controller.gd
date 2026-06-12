@@ -181,8 +181,11 @@ func _imminent_mine(ship: SimShip) -> SimMine:
 ## This pilot's preferred hunting ring radius around the star.
 func _roam_radius(star_r: float) -> float:
 	var r_min := star_r + 500.0
-	var r_max := world.config.spawn_orbit_radius * 6.0
-	return lerpf(r_min, r_max, float(roam - 1) / 99.0)
+	# Far edge of the hunting grounds: 6x the spawn ring, but always inside
+	# the map (small arenas pull everyone's ring inward).
+	var r_max := minf(world.config.spawn_orbit_radius * 6.0,
+		world.config.arena_size * 0.5 * 0.85)
+	return lerpf(r_min, maxf(r_min, r_max), float(roam - 1) / 99.0)
 
 ## A nearby pickup worth detouring for (only when actually short on it).
 func _wanted_pickup(ship: SimShip) -> SimPickup:

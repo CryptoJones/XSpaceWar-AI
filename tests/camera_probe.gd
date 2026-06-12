@@ -29,7 +29,7 @@ func _on_frame() -> void:
 	if _frames == 5:
 		main._end_credits()
 		main._dismiss_splash()
-		main._limit_spin.value = 3  # force a mid-probe match restart
+		main._limit_slider.value = 3  # force a mid-probe match restart
 		main._on_play_pressed()
 		return
 	if _frames < 10:
