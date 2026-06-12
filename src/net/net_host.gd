@@ -32,6 +32,8 @@ var _peers := {}              ## transport peer key -> ship_id
 var _names := {}              ## transport peer key -> player name (survives rebuilds)
 var _inputs := {}             ## ship_id -> latest input payload
 var _acked := {}              ## ship_id -> highest input sequence received
+var _ban_names := {}          ## UPPERCASED banned callsign -> true
+var _ban_addrs := {}          ## banned peer address (direct/LAN only) -> true
 var _advertiser: LanDiscovery
 var _event_accum: Array = []  ## forwarded events since the last snapshot
 var _snap_accum := 0.0
@@ -231,6 +233,10 @@ func _on_hello(peer, data: Dictionary) -> void:
 	if int(data.get("v", -1)) != NetProtocol.VERSION:
 		_reject(peer, "protocol version mismatch")
 		return
+	# Banned callsign or address (direct/LAN) — turned away before any slot.
+	if _is_banned(peer, String(data.get("name", ""))):
+		_reject(peer, "You are banned from this server.")
+		return
 	# Spectators get snapshots but no ship (sid -1).
 	if bool(data.get("spec", false)):
 		if _spectator_count() >= 8:
@@ -319,6 +325,96 @@ func _drop_peer(peer) -> void:
 	session.bots[sid] = BotController.new(session.world, sid, session.difficulty)
 	var ship := session.world.ship_by_id(sid)
 	session.ship_names[sid] = BotController.callsign(ship.hull_seed) if ship != null else ""
+
+# --------------------------------------------------------------------------
+# Moderation (host kick / ban). The architecture is already host-authoritative
+# — this is the removal lever the host UI and the dedicated console drive.
+# Names are not identities (a kicked griefer can rename and rejoin), so a ban
+# also pins the peer's address WHEN the transport exposes one (direct/LAN); on
+# the relay only the name is bannable. Deliberately commodity-grade — see #4.
+# --------------------------------------------------------------------------
+
+## Real (non-spectator) players currently connected, sorted by ship id:
+## [{"sid": int, "name": String}]. The host UI lists these.
+func connected_players() -> Array:
+	var out: Array = []
+	for peer in _peers:
+		var sid: int = _peers[peer]
+		if sid >= 0:
+			out.append({"sid": sid,
+				"name": String(_names.get(peer, session.ship_names.get(sid, "PILOT-%d" % sid)))})
+	out.sort_custom(func(a, b): return int(a["sid"]) < int(b["sid"]))
+	return out
+
+func _peer_for_ship(sid: int):
+	for peer in _peers:
+		if int(_peers[peer]) == sid:
+			return peer
+	return null
+
+func _peer_addr(peer) -> String:
+	return String(_t.peer_address(peer)) if _t != null and _t.has_method("peer_address") else ""
+
+## Remove the player flying `sid`. `ban` also blocks their callsign (and
+## address, on direct/LAN) from rejoining. Returns true if someone was removed.
+func kick_ship(sid: int, reason := "Kicked by the host.", ban := false) -> bool:
+	var peer = _peer_for_ship(sid)
+	if peer == null:
+		return false
+	if ban:
+		_ban_peer(peer)
+	# REJECT rides a reliable channel and kick() flushes before disconnecting,
+	# so the leaver sees WHY; _drop_peer hands the ship back to a fresh bot.
+	_t.send(peer, NetProtocol.pack(NetProtocol.MSG_REJECT, {"why": reason}),
+		true, NetProtocol.CH_CONTROL)
+	_drop_peer(peer)
+	_t.kick(peer)
+	return true
+
+## Kick every connected player whose callsign matches (case-insensitive) — the
+## dedicated console's `/kick NAME`. Returns how many were removed. With
+## `ban`, also blocks the name for absent griefers.
+func kick_name(name: String, ban := false) -> int:
+	var up := name.strip_edges().to_upper()
+	var hits: Array[int] = []
+	for p in connected_players():
+		if String(p["name"]).to_upper() == up:
+			hits.append(int(p["sid"]))
+	var reason := "Banned by the host." if ban else "Kicked by the host."
+	var n := 0
+	for s in hits:
+		if kick_ship(s, reason, ban):
+			n += 1
+	if ban:
+		ban_name(name)
+	return n
+
+func ban_name(name: String) -> void:
+	var up := NetProtocol.filter_name(name).to_upper()
+	if up != "":
+		_ban_names[up] = true
+
+func unban_name(name: String) -> bool:
+	return _ban_names.erase(NetProtocol.filter_name(name).to_upper())
+
+func ban_list() -> Array:
+	return _ban_names.keys()
+
+func _ban_peer(peer) -> void:
+	var nm := String(_names.get(peer, ""))
+	if nm != "":
+		_ban_names[nm.to_upper()] = true
+	var addr := _peer_addr(peer)
+	if addr != "":
+		_ban_addrs[addr] = true
+
+## True if this joiner is banned — by the callsign they asked for (matched
+## against the sanitized request, not the post-tag name) or by address.
+func _is_banned(peer, requested_name: String) -> bool:
+	if _peer_addr(peer) in _ban_addrs and not _ban_addrs.is_empty():
+		return true
+	var up := NetProtocol.filter_name(requested_name).to_upper()
+	return up != "" and _ban_names.has(up)
 
 func close() -> void:
 	if not _open:

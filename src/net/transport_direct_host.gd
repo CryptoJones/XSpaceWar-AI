@@ -45,6 +45,10 @@ func kick(peer: ENetPacketPeer) -> void:
 	_conn.flush()
 	peer.peer_disconnect_later()
 
+## The peer's remote IP — the address lever for host bans on direct/LAN.
+func peer_address(peer: ENetPacketPeer) -> String:
+	return peer.get_remote_address() if peer != null else ""
+
 func tick(_dt: float, _players: int) -> void:
 	pass
 

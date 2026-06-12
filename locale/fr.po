@@ -455,3 +455,31 @@ msgstr "détection LAN indisponible"
 
 msgid "(%s — BROWSE checks the relay)"
 msgstr "(%s — PARCOURIR consulte le relais)"
+
+# ---- Host moderation (kick / ban) ----
+msgid "PLAYERS"
+msgstr "JOUEURS"
+
+msgid "MANAGE PLAYERS"
+msgstr "GÉRER LES JOUEURS"
+
+msgid "KICK"
+msgstr "EXCLURE"
+
+msgid "BAN"
+msgstr "BANNIR"
+
+msgid "Kick and block this callsign (and address, on LAN) from rejoining"
+msgstr "Exclure et bloquer ce pseudo (et l'adresse, en LAN) pour empêcher tout retour"
+
+msgid "(no players connected — bots hold every slot)"
+msgstr "(aucun joueur connecté — les bots occupent chaque place)"
+
+msgid "%d connected · %d banned"
+msgstr "%d connectés · %d bannis"
+
+msgid "Kicked %s."
+msgstr "Exclu %s."
+
+msgid "Banned %s."
+msgstr "Banni %s."

@@ -2,6 +2,37 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [1.11.0] — 2026-06-12
+
+### Added
+- **Multiplayer moderation: host kick/ban + dedicated console + replay
+  evidence.** (issue #4) The architecture was already host-authoritative
+  (clients send inputs only — speed/teleport/ammo/score hacks can't
+  replicate); this adds the removal lever that was missing.
+  - **`NetHost`** kick/ban API: `connected_players()`, `kick_ship()`,
+    `kick_name()`, `ban_name()` / `unban_name()` / `ban_list()`. A kick sends
+    the leaver a reason over the reliable channel (flushed before disconnect)
+    and hands their ship back to a fresh bot; a ban also blocks the callsign
+    and — on direct/LAN, via the new transport `peer_address()` — the IP
+    (relay clients are name-bannable only, since the host never sees their
+    address). Bans are enforced at `HELLO`, before any slot is handed out.
+  - **GUI host**: a **MANAGE PLAYERS** panel (a PLAYERS button that appears
+    in the menu only while hosting) listing connected pilots with KICK / BAN.
+    Player callsigns render literally (auto-translate disabled) so a pilot
+    named "MODE" isn't localized.
+  - **Dedicated server**: a live stdin console — `kick <name>`, `ban <name>`,
+    `unban <name>`, `players`, `bans`, `help` — plus `--ban NAME` (repeatable
+    / comma-lists) and `--banfile PATH` to seed bans at boot, and a periodic
+    connected-roster log.
+  - **Replay-based adjudication**: a dedicated-server `--record [DIR]` flag
+    records every match as a bit-exact `.xsr` (the existing replay format) for
+    cheating evidence, rotated across auto-restarts.
+  - All new UI strings localized (es / fr); 11 new netcode tests cover kick →
+    re-bot, name-ban + unban, and address-ban of a renamed rejoin.
+  - **Deferred to a follow-up** (still #4): server-side aim-anomaly heuristics
+    (host-side warnings, never auto-ban) and the Steamworks **VAC** checkbox
+    (blocked on the partner account). Kernel anticheat remains a non-goal.
+
 ## [1.10.0] — 2026-06-12
 
 ### Added

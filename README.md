@@ -119,6 +119,11 @@ well, and a dwarf is a gentle nudge — both pure `1/r²`, both honest.
   direct-internet games; LAN needs nothing) · `24643` LAN discovery
   broadcast (never leaves your subnet) · `24645` relay server (open on
   the VPS; relay *players* need no port forwarding at all).
+- **Moderation:** a GUI host opens *PLAYERS* in the in-game menu to kick or
+  ban a pilot (ban blocks the callsign, plus the IP on direct/LAN). The
+  dedicated server takes `kick`/`ban`/`unban`/`players` on its console and
+  `--ban NAME` / `--banfile PATH` at launch; `--record` keeps a bit-exact
+  replay of every match as cheating-adjudication evidence.
 
 ## Project layout
 

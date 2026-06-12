@@ -21,6 +21,13 @@ extends SceneTree
 ##   --reclaim        TRUSTED servers: rejoining with the same name kicks
 ##                    the old session (ghosts) and inherits its ship/score.
 ##                    Leave OFF for public servers — names are not identity.
+##   --ban NAME       Ban a callsign at boot (repeatable; also accepts a
+##                    comma-separated list). --banfile PATH loads one per line.
+##   --record [DIR]   Record every match as a bit-exact replay for cheating
+##                    adjudication (DIR default user://replays, see #4).
+##
+## Live moderation console (when stdin is a terminal): type `help`, or
+##   kick <name> | ban <name> | unban <name> | players | bans
 
 var host: NetHost
 var session := GameSession.new()
@@ -29,13 +36,27 @@ var _status_accum := 0.0
 var _accum := 0.0
 var _announced_code := false
 var _seen_gen := -1
+# Live moderation console (background stdin reader -> command queue).
+var _console: Thread
+var _cmd_mutex := Mutex.new()
+var _cmd_queue: Array = []
+# Replay-based adjudication: record every match to disk as evidence (#4).
+var _record := false
+var _record_dir := "user://replays"
+var _record_gen := -1
 
 func _initialize() -> void:
 	var a := {}
+	var bans: Array[String] = []
 	var args := OS.get_cmdline_user_args()
 	for i in range(args.size()):
 		if args[i].begins_with("--"):
-			a[args[i].substr(2)] = args[i + 1] if i + 1 < args.size() else "1"
+			var key := args[i].substr(2)
+			var val: String = args[i + 1] if i + 1 < args.size() else "1"
+			if key == "ban":
+				bans.append(val)   # repeatable; comma-lists split later
+			else:
+				a[key] = val
 
 	session.score_limit = int(a.get("score", "10"))
 	session.time_limit = float(a.get("time", "0")) * 60.0
@@ -74,6 +95,18 @@ func _initialize() -> void:
 	print("dedicated: '%s' — %d slots, mode %s, score %d, lives %d" % [server_name,
 		session.num_ships, "TEAM" if mode == GameSession.Mode.TEAM else "FFA",
 		session.score_limit, session.lives])
+	# Replay-based adjudication: record every match as bit-exact evidence (#4).
+	_record = a.has("record")
+	if _record:
+		var rd := String(a.get("record", ""))
+		if rd != "" and rd != "1" and not rd.begins_with("--"):
+			_record_dir = rd
+		DirAccess.make_dir_recursive_absolute(_record_dir)
+		print("dedicated: recording matches to %s (cheating-adjudication evidence)" % _record_dir)
+		_maybe_start_recording()
+	# Moderation: seed the ban list, then open the live stdin console.
+	_seed_bans(bans, String(a.get("banfile", "")))
+	_start_console()
 	_last_usec = Time.get_ticks_usec()
 	process_frame.connect(_tick)
 
@@ -91,6 +124,12 @@ func _tick() -> void:
 		_accum -= fixed
 	# Auto-restarts: the session.dedicated flag keeps rebuilds all-bot, so
 	# this is just bookkeeping/logging now.
+	_drain_commands()
+	# Rotate replay evidence across auto-restarts (mirror of the GUI host).
+	if _record and (session.finished_recorder != null \
+			or (session.recorder != null and session.generation != _record_gen)):
+		_finalize_recording()
+		_maybe_start_recording()
 	if session.generation != _seen_gen:
 		_seen_gen = session.generation
 		print("dedicated: new match (gen %d)" % session.generation)
@@ -103,4 +142,114 @@ func _tick() -> void:
 		print("dedicated: players %d  tick %d  gen %d  room %s" % [host.player_count(),
 			session.world.tick, session.generation,
 			host.room_code() if host.room_code() != "" else "-"])
+		var ps := host.connected_players()
+		if not ps.is_empty():
+			var names: Array[String] = []
+			for p in ps:
+				names.append("%s[%d]" % [String(p["name"]), int(p["sid"])])
+			print("dedicated: connected — %s" % ", ".join(names))
 	OS.delay_msec(4)  # service loop; the accumulator owns sim timing
+
+# --------------------------------------------------------------------------
+# Moderation console + ban seeding + replay evidence
+# --------------------------------------------------------------------------
+
+## Seed the host ban list from --ban (comma-lists ok) and an optional --banfile
+## (one callsign per line, # comments allowed).
+func _seed_bans(bans: Array, banfile: String) -> void:
+	var n := 0
+	for entry in bans:
+		for nm in String(entry).split(",", false):
+			if String(nm).strip_edges() != "":
+				host.ban_name(String(nm)); n += 1
+	if banfile != "":
+		var f := FileAccess.open(banfile, FileAccess.READ)
+		if f == null:
+			printerr("dedicated: cannot read banfile %s" % banfile)
+		else:
+			while not f.eof_reached():
+				var line := f.get_line().strip_edges()
+				if line != "" and not line.begins_with("#"):
+					host.ban_name(line); n += 1
+	if n > 0:
+		print("dedicated: %d ban(s) seeded — %s" % [n, str(host.ban_list())])
+
+## Start the background stdin reader. It blocks on input; lines land on a
+## queue drained by _tick. EOF (piped/no-tty input) just ends the thread.
+func _start_console() -> void:
+	_console = Thread.new()
+	_console.start(_console_loop)
+	print("dedicated: console — kick <name> | ban <name> | unban <name> | players | bans | help")
+
+func _console_loop() -> void:
+	while true:
+		var line := OS.read_string_from_stdin(1024)
+		if line == "":
+			break  # EOF: no interactive terminal, so no console
+		line = line.strip_edges()
+		if line == "":
+			continue
+		_cmd_mutex.lock()
+		_cmd_queue.append(line)
+		_cmd_mutex.unlock()
+
+func _drain_commands() -> void:
+	_cmd_mutex.lock()
+	var cmds := _cmd_queue.duplicate()
+	_cmd_queue.clear()
+	_cmd_mutex.unlock()
+	for line in cmds:
+		_run_command(String(line))
+
+func _run_command(line: String) -> void:
+	if line.begins_with("/"):
+		line = line.substr(1)
+	var parts := line.split(" ", false, 1)
+	var cmd := String(parts[0]).to_lower()
+	var arg: String = String(parts[1]).strip_edges() if parts.size() > 1 else ""
+	match cmd:
+		"kick":
+			if arg == "":
+				print("usage: kick <name>"); return
+			print("dedicated: kicked %d player(s) matching '%s'" % [host.kick_name(arg, false), arg])
+		"ban":
+			if arg == "":
+				print("usage: ban <name>"); return
+			print("dedicated: banned '%s' (removed %d connected)" % [arg, host.kick_name(arg, true)])
+		"unban":
+			if arg == "":
+				print("usage: unban <name>"); return
+			print("dedicated: unban '%s' — %s" % [arg, "removed" if host.unban_name(arg) else "not in list"])
+		"players":
+			var ps := host.connected_players()
+			print("dedicated: %d player(s) connected" % ps.size())
+			for p in ps:
+				print("  [%d] %s" % [int(p["sid"]), String(p["name"])])
+		"bans":
+			print("dedicated: bans — %s" % str(host.ban_list()))
+		"help":
+			print("commands: kick <name> | ban <name> | unban <name> | players | bans | help")
+		_:
+			print("dedicated: unknown command '%s' (try: help)" % cmd)
+
+func _maybe_start_recording() -> void:
+	if _record and not session.movie_mode and session.world != null:
+		session.recorder = Replay.begin(session)
+		_record_gen = session.generation
+
+func _finalize_recording() -> void:
+	var r := session.finished_recorder
+	session.finished_recorder = null
+	if r == null:
+		r = session.recorder
+		session.recorder = null
+	if r == null or r.final_tick < 300:
+		return  # < 5s of match — not worth keeping as evidence
+	var stamp := Time.get_datetime_string_from_system().replace(":", "-")
+	var path := "%s/dedicated-%s.xsr" % [_record_dir, stamp]
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	if f != null:
+		f.store_buffer(r.to_bytes())
+		f.close()
+		print("dedicated: match recorded — %s (%.0fs)" % [path.get_file(),
+			r.duration_sec(1.0 / 60.0)])

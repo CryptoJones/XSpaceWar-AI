@@ -54,6 +54,10 @@ var _credits_y := 0.0
 var _credits_from_boot := false
 var _replays_panel: CanvasLayer
 var _replays_list: ItemList
+var _players_panel: CanvasLayer
+var _players_list: ItemList
+var _players_note: Label
+var _players_btn: Button
 var _spec_check: CheckButton
 var _music_check: CheckButton
 var _debug_overlay := false
@@ -185,6 +189,7 @@ func _ready() -> void:
 	_build_replays_panel()
 	_build_stats_panel()
 	_build_keys_panel()
+	_build_players_panel()
 	_load_settings()
 	if _player_name == "PILOT" or _player_name == "":
 		var user := OS.get_environment("USER")
@@ -352,6 +357,13 @@ func _build_menu() -> void:
 	keys_btn.pressed.connect(_on_keys_pressed)
 	_apply_button_border(keys_btn, 3, false)
 	bottom_row.add_child(keys_btn)
+	# Host-only: manage connected players (kick/ban). Hidden until hosting.
+	_players_btn = Button.new()
+	_players_btn.text = "PLAYERS"
+	_players_btn.pressed.connect(_on_players_pressed)
+	_apply_button_border(_players_btn, 3, false)
+	_players_btn.visible = false
+	bottom_row.add_child(_players_btn)
 	var spacer_r := Control.new()
 	spacer_r.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	bottom_row.add_child(spacer_r)
@@ -843,7 +855,8 @@ func _on_credits_pressed() -> void:
 ## credits roll, or the splash. Ship input must never flow then.
 func _modal_open() -> bool:
 	return _menu.visible or _keys_panel.visible or _replays_panel.visible \
-		or _stats_panel.visible or _credits.visible or _splash.visible
+		or _stats_panel.visible or _credits.visible or _splash.visible \
+		or _players_panel.visible
 
 ## Re-derive the input/pause gates from modal state. Call after ANY
 ## menu/panel visibility change — keystrokes in a rebind panel must not
@@ -861,6 +874,9 @@ func _refresh_input_gate_deferred() -> void:
 
 func set_menu_visible(v: bool) -> void:
 	_menu.visible = v
+	# The kick/ban entry only exists while THIS process is the authoritative host.
+	if _players_btn != null:
+		_players_btn.visible = net_host != null
 	_refresh_input_gate()
 
 ## THE one place menu sliders become a running match — every start path
@@ -1001,13 +1017,14 @@ func _unhandled_input(event: InputEvent) -> void:
 				or (pad_pressed and event.button_index in [JOY_BUTTON_A, JOY_BUTTON_START]):
 			_dismiss_splash()
 		return
-	# Replay browser / match history: ESC backs out to the menu.
-	if _replays_panel.visible or _stats_panel.visible:
+	# Replay browser / match history / player management: ESC backs to the menu.
+	if _replays_panel.visible or _stats_panel.visible or _players_panel.visible:
 		if (key_pressed and event.physical_keycode == KEY_ESCAPE) \
 				or (pad_pressed and event.button_index == JOY_BUTTON_START):
 			_replays_panel.visible = false
 			_refresh_input_gate()
 			_stats_panel.visible = false
+			_players_panel.visible = false
 			_refresh_input_gate()
 			set_menu_visible(true)
 		return
@@ -1458,6 +1475,105 @@ func _finalize_recording() -> void:
 		f.store_buffer(r.to_bytes())
 		f.close()
 		_net_status.text = tr("Replay saved (%.0fs): %s") % [r.duration_sec(1.0 / 60.0), path.get_file()]
+
+# --------------------------------------------------------------------------
+# Host moderation — kick/ban connected players (#4). Only reachable while THIS
+# process is the authoritative host (net_host != null); the dedicated server
+# drives the same NetHost API from its console instead.
+# --------------------------------------------------------------------------
+
+func _build_players_panel() -> void:
+	_players_panel = CanvasLayer.new()
+	_players_panel.layer = 26
+	_players_panel.visible = false
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_players_panel.add_child(center)
+	var panel := PanelContainer.new()
+	center.add_child(panel)
+	var margin := MarginContainer.new()
+	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
+		margin.add_theme_constant_override(side, 24)
+	panel.add_child(margin)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 10)
+	v.custom_minimum_size = Vector2(460, 0)
+	margin.add_child(v)
+	var title := Label.new()
+	title.text = "MANAGE PLAYERS"
+	title.add_theme_font_size_override("font_size", 24)
+	title.add_theme_color_override("font_color", Color(0.6, 0.9, 1.0))
+	v.add_child(title)
+	_players_note = Label.new()
+	_players_note.add_theme_font_size_override("font_size", 14)
+	_players_note.add_theme_color_override("font_color", Color(0.6, 0.7, 0.85, 0.85))
+	v.add_child(_players_note)
+	_players_list = ItemList.new()
+	_players_list.custom_minimum_size = Vector2(0, 200)
+	# Callsigns are user content — never run a player's name through tr().
+	_players_list.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+	v.add_child(_players_list)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	var back := Button.new()
+	back.text = "BACK"
+	back.pressed.connect(func(): _players_panel.visible = false; _refresh_input_gate(); set_menu_visible(true))
+	row.add_child(back)
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(spacer)
+	var kick := Button.new()
+	kick.text = "KICK"
+	kick.pressed.connect(func(): _moderate_selected(false))
+	row.add_child(kick)
+	var ban := Button.new()
+	ban.text = "BAN"
+	ban.tooltip_text = "Kick and block this callsign (and address, on LAN) from rejoining"
+	ban.pressed.connect(func(): _moderate_selected(true))
+	row.add_child(ban)
+	v.add_child(row)
+	add_child(_players_panel)
+
+func _on_players_pressed() -> void:
+	if net_host == null:
+		return
+	_refresh_players_list()
+	set_menu_visible(false)
+	_players_panel.visible = true
+	_refresh_input_gate()
+
+func _refresh_players_list() -> void:
+	_players_list.clear()
+	if net_host == null:
+		return
+	var players := net_host.connected_players()
+	for p in players:
+		var idx := _players_list.add_item(String(p["name"]))
+		_players_list.set_item_metadata(idx, int(p["sid"]))
+	if players.is_empty():
+		_players_list.add_item(tr("(no players connected — bots hold every slot)"), null, false)
+	else:
+		_players_list.select(0)
+	_players_note.text = tr("%d connected · %d banned") % [players.size(), net_host.ban_list().size()]
+
+func _moderate_selected(ban: bool) -> void:
+	if net_host == null:
+		return
+	var sel := _players_list.get_selected_items()
+	if sel.is_empty():
+		return
+	var meta: Variant = _players_list.get_item_metadata(sel[0])
+	if typeof(meta) != TYPE_INT:
+		return
+	var sid := int(meta)
+	var pname := ""
+	for p in net_host.connected_players():
+		if int(p["sid"]) == sid:
+			pname = String(p["name"])
+			break
+	if net_host.kick_ship(sid, "Banned by the host." if ban else "Kicked by the host.", ban):
+		_net_status.text = (tr("Banned %s.") if ban else tr("Kicked %s.")) % pname
+	_refresh_players_list()
 
 func _build_keys_panel() -> void:
 	_keys_panel = CanvasLayer.new()

@@ -344,6 +344,13 @@ networked *Spacewar!* / `xspacewar`. Godot 4.6, Apache 2.0. Plan file:
   + Arabic RTL pass; then the deferred kill-feed verbs / "YOU" / server rows.
   To add a Latin-script language: drop `locale/<code>.po`, add it to
   project.godot `[internationalization]` and the `LOCALES` table in main.gd.
+- **Multiplayer integrity (issue #4): KICK/BAN + EVIDENCE DONE (v1.11.0).**
+  `NetHost` kick/ban API (name + IP on direct/LAN, name-only on relay), a GUI
+  host MANAGE PLAYERS panel, a dedicated-server stdin console + `--ban` /
+  `--banfile` seeding, and `--record [DIR]` for bit-exact replay evidence.
+  11 new net tests. **Still open on #4:** server-side aim-anomaly heuristics
+  (host warnings, never auto-ban — the next iteration), and the Steamworks
+  VAC checkbox (blocked on the partner account). Kernel anticheat = non-goal.
 - M4 online: `server/` master/relay (hole-punch + relay), server browser, `PlatformServices`
   (steam/null) so non-Steam builds compile without GodotSteam.
 - M5 wire procedural map params + difficulty into a real lobby; M6 polish/audio (procedural);

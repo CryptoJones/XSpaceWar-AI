@@ -24,6 +24,7 @@ func _initialize() -> void:
 	_test_stale_snapshot_dropped()
 	_test_name_sanitization()
 	_test_name_reclaim()
+	_test_kick_and_ban()
 	_test_discovery_loopback()
 	print("=== %d passed, %d failed ===" % [_passed, _failed])
 	quit(1 if _failed > 0 else 0)
@@ -446,6 +447,86 @@ func _test_name_reclaim() -> void:
 	back.close()
 	ghost.close()
 	host.close()
+
+## Helper: pump host+client until `cond` (or timeout); returns the tick hit.
+func _pump_until(host: NetHost, client: NetClient, cond: Callable, max_ticks := 600) -> int:
+	for i in range(max_ticks):
+		host.update(DT, {})
+		client.update(DT, {})
+		if cond.call():
+			return i
+		OS.delay_msec(1)
+	return -1
+
+func _dedicated_host(port: int, who: String) -> NetHost:
+	var hs := GameSession.new()
+	hs.score_limit = 0
+	hs.start_skirmish(4, GameSession.Mode.FFA, BotController.Difficulty.ROOKIE)
+	NetHost.convert_to_dedicated(hs)
+	var host := NetHost.new(hs)
+	host.open(port, false, who, "127.0.0.1")
+	return host
+
+func _test_kick_and_ban() -> void:
+	var host := _dedicated_host(TEST_PORT + 9, "kick-test")
+	var hs := host.session
+
+	# A player joins and takes a ship.
+	var c := NetClient.new()
+	c.open("127.0.0.1", TEST_PORT + 9, "GRIEFER")
+	_pump_until(host, c, func(): return c.state == NetClient.State.READY and c.session.human_ship_id >= 0)
+	var sid := c.session.human_ship_id
+	_check("kick: joiner took a ship", sid >= 0 and not hs.bots.has(sid), "sid=%d" % sid)
+	var roster := host.connected_players()
+	_check("kick: connected_players lists the joiner",
+		roster.size() == 1 and String(roster[0]["name"]) == "GRIEFER")
+
+	# Kick: the client fails with the reason; the ship returns to a bot.
+	_check("kick: kick_ship reports success", host.kick_ship(sid, "Kicked by the host."))
+	_pump_until(host, c, func(): return c.state == NetClient.State.FAILED)
+	_check("kick: kicked client disconnects with a reason",
+		c.state == NetClient.State.FAILED and c.error_msg == "Kicked by the host.",
+		"msg=%s" % c.error_msg)
+	_check("kick: kicked ship handed back to a bot", hs.bots.has(sid))
+	_check("kick: no players left", host.player_count() == 0)
+	c.close()
+
+	# Name ban (no address): that callsign is refused at join; unban restores it.
+	host.ban_name("BANNED")
+	_check("ban: name on the list", host.ban_list().has("BANNED"))
+	var cb := NetClient.new()
+	cb.open("127.0.0.1", TEST_PORT + 9, "BANNED")
+	_pump_until(host, cb, func(): return cb.state == NetClient.State.FAILED)
+	_check("ban: banned name rejected at join",
+		cb.state == NetClient.State.FAILED and cb.error_msg == "You are banned from this server.",
+		"msg=%s" % cb.error_msg)
+	cb.close()
+	_check("ban: unban removes the entry",
+		host.unban_name("BANNED") and not host.ban_list().has("BANNED"))
+	var cu := NetClient.new()
+	cu.open("127.0.0.1", TEST_PORT + 9, "BANNED")
+	var ok := _pump_until(host, cu, func(): return cu.state == NetClient.State.READY and cu.session.human_ship_id >= 0)
+	_check("ban: unbanned name can join again", ok >= 0, "state=%d msg=%s" % [cu.state, cu.error_msg])
+	cu.close()
+	host.close()
+
+	# Address ban (direct/LAN): kick-with-ban pins the IP, so a DIFFERENT
+	# callsign from the same address is still refused.
+	var host2 := _dedicated_host(TEST_PORT + 10, "addrban-test")
+	var ca := NetClient.new()
+	ca.open("127.0.0.1", TEST_PORT + 10, "AAA")
+	_pump_until(host2, ca, func(): return ca.state == NetClient.State.READY and ca.session.human_ship_id >= 0)
+	host2.kick_ship(ca.session.human_ship_id, "Banned by the host.", true)
+	_pump_until(host2, ca, func(): return ca.state == NetClient.State.FAILED)
+	ca.close()
+	var cc := NetClient.new()
+	cc.open("127.0.0.1", TEST_PORT + 10, "BBB")  # new name, same loopback address
+	_pump_until(host2, cc, func(): return cc.state == NetClient.State.FAILED)
+	_check("ban: a banned address blocks a renamed rejoin",
+		cc.state == NetClient.State.FAILED and cc.error_msg == "You are banned from this server.",
+		"state=%d msg=%s" % [cc.state, cc.error_msg])
+	cc.close()
+	host2.close()
 
 func _test_discovery_loopback() -> void:
 	var listen := LanDiscovery.listener(DISC_PORT, "127.0.0.1")

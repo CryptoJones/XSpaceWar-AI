@@ -478,3 +478,31 @@ msgstr ""
 
 msgid "(%s — BROWSE checks the relay)"
 msgstr ""
+
+# ---- Host moderation (kick / ban) ----
+msgid "PLAYERS"
+msgstr ""
+
+msgid "MANAGE PLAYERS"
+msgstr ""
+
+msgid "KICK"
+msgstr ""
+
+msgid "BAN"
+msgstr ""
+
+msgid "Kick and block this callsign (and address, on LAN) from rejoining"
+msgstr ""
+
+msgid "(no players connected — bots hold every slot)"
+msgstr ""
+
+msgid "%d connected · %d banned"
+msgstr ""
+
+msgid "Kicked %s."
+msgstr ""
+
+msgid "Banned %s."
+msgstr ""

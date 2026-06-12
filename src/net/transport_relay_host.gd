@@ -74,6 +74,10 @@ func send(pid: int, bytes: PackedByteArray, reliable: bool, channel: int) -> voi
 func kick(pid: int) -> void:
 	_send_relay(RelayProtocol.KICK, {"pid": pid}, true)
 
+## A relayed client's address is invisible to the host — name bans only.
+func peer_address(_pid: int) -> String:
+	return ""
+
 func tick(dt: float, players: int) -> void:
 	if _code == "":
 		return
