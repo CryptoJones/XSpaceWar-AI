@@ -1,0 +1,13 @@
+// macOS depot — content is the unzipped xspacewar-ai-macos-universal.zip,
+// i.e. the ad-hoc-signed XSpaceWar-AI.app bundle (see CHANGELOG v1.8.1).
+"DepotBuildConfig"
+{
+	"DepotID"	"__DEPOT_MACOS__"
+	"contentroot"	"__CONTENT_ROOT__/macos"
+	"FileMapping"
+	{
+		"LocalPath"	"*"
+		"DepotPath"	"."
+		"recursive"	"1"
+	}
+}

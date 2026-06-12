@@ -1,0 +1,24 @@
+// XSpaceWar-AI — SteamPipe app build script (issue #2).
+//
+// This is a TEMPLATE: the __PLACEHOLDERS__ are substituted at deploy time by
+// .github/workflows/steam-deploy.yml from repo secrets/vars (so no real App or
+// depot IDs live in git). For a manual local push, copy this file, fill the
+// placeholders, and run:
+//   steamcmd +login <user> +run_app_build <abs-path>/app_build.vdf +quit
+//
+// One depot per platform, each fed the exact zip CI already publishes per tag.
+"appbuild"
+{
+	"appid"		"__STEAM_APPID__"
+	"desc"		"__BUILD_DESC__"          // set to the git tag at deploy time
+	"buildoutput"	"__OUTPUT_ROOT__"         // SteamPipe logs/chunks (scratch)
+	"contentroot"	"__CONTENT_ROOT__"        // dir holding windows/ linux/ macos/
+	"setlive"	"__STEAM_BRANCH__"        // "" = upload only; "beta" = go live on beta
+
+	"depots"
+	{
+		"__DEPOT_WINDOWS__"	"depot_windows.vdf"
+		"__DEPOT_LINUX__"	"depot_linux.vdf"
+		"__DEPOT_MACOS__"	"depot_macos.vdf"
+	}
+}

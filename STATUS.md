@@ -353,6 +353,13 @@ networked *Spacewar!* / `xspacewar`. Godot 4.6, Apache 2.0. Plan file:
   tests. **Only VAC remains** (Steamworks partner account, blocked). Kernel
   anticheat = non-goal. The analyzer reasons strings are English-only (like
   the F3 debug overlay) — deliberate.
+- **Steam delivery (issue #2): SCAFFOLDED, inert.** `steam/` SteamPipe scripts
+  (app_build + per-platform depot vdfs) + a gated `steam-deploy.yml` workflow
+  that, on a published release, pulls the per-tag CI artifacts and uploads one
+  depot per platform. Skipped until repo var `STEAM_DEPLOY=true`; all IDs/creds
+  via secrets. Arming guide + default/beta branch strategy in `steam/README.md`.
+  **Blocked on the Steamworks partner account + $100 app credit (Aaron).** Then
+  #1 (capsule art) and #5 (zh-CN/hi/ar catalogs + Noto fonts + Arabic RTL).
 - M4 online: `server/` master/relay (hole-punch + relay), server browser, `PlatformServices`
   (steam/null) so non-Steam builds compile without GodotSteam.
 - M5 wire procedural map params + difficulty into a real lobby; M6 polish/audio (procedural);

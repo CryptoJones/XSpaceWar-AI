@@ -1,0 +1,13 @@
+// Windows depot — content is the unzipped xspacewar-ai-windows-x86_64.zip.
+"DepotBuildConfig"
+{
+	"DepotID"	"__DEPOT_WINDOWS__"
+	"contentroot"	"__CONTENT_ROOT__/windows"
+	"FileMapping"
+	{
+		"LocalPath"	"*"
+		"DepotPath"	"."
+		"recursive"	"1"
+	}
+	"FileExclusion"	"*.pdb"
+}

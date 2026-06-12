@@ -2,6 +2,20 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [Unreleased]
+
+### Added
+- **SteamPipe build-delivery scaffolding** (issue #2) — `steam/` SteamPipe
+  scripts (`app_build.vdf` + per-platform depot vdfs) and a gated
+  `steam-deploy` workflow that, on a published release, fetches the exact
+  per-tag artifacts CI already builds and uploads one depot per platform
+  (Windows / Linux / macOS). **Inert until armed**: the job is skipped unless
+  the repo variable `STEAM_DEPLOY=true`, and all IDs/credentials come from
+  secrets (nothing real in git). Setup + default/beta branch strategy in
+  `steam/README.md`. No game change — ships nothing until the Steamworks
+  account exists. GodotSteam achievements/lobbies remain a separate later
+  effort.
+
 ## [1.12.1] — 2026-06-12
 
 ### Changed

@@ -1,0 +1,12 @@
+// Linux depot — content is the unzipped xspacewar-ai-linux-x86_64.zip.
+"DepotBuildConfig"
+{
+	"DepotID"	"__DEPOT_LINUX__"
+	"contentroot"	"__CONTENT_ROOT__/linux"
+	"FileMapping"
+	{
+		"LocalPath"	"*"
+		"DepotPath"	"."
+		"recursive"	"1"
+	}
+}

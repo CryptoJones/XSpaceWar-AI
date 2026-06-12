@@ -1,0 +1,75 @@
+name: Steam deploy
+
+# Ships a published release to Steam via SteamPipe, reusing the exact per-tag
+# artifacts ci.yml already builds. INERT until armed: the job is skipped unless
+# the repo variable STEAM_DEPLOY == 'true'. Arm it once the Steamworks app
+# exists (blocked on the partner account — issue #2) by setting that variable
+# and the secrets documented in steam/README.md.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to (re)deploy (e.g. v1.12.1)"
+        required: true
+      branch:
+        description: "Steam branch to set live (blank = upload only, promote in Steamworks)"
+        required: false
+        default: ""
+
+jobs:
+  steampipe:
+    name: SteamPipe upload
+    # Gate: nothing runs until you flip STEAM_DEPLOY on in repo variables.
+    if: ${{ vars.STEAM_DEPLOY == 'true' }}
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      BRANCH: ${{ inputs.branch || vars.STEAM_BETA_BRANCH }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch the released artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p steam/content/windows steam/content/linux steam/content/macos /tmp/rel
+          gh release download "$TAG" -R "${{ github.repository }}" -p '*.zip' -D /tmp/rel
+          unzip -o /tmp/rel/xspacewar-ai-windows-x86_64.zip -d steam/content/windows
+          unzip -o /tmp/rel/xspacewar-ai-linux-x86_64.zip   -d steam/content/linux
+          unzip -o /tmp/rel/xspacewar-ai-macos-universal.zip -d steam/content/macos
+
+      - name: Render the SteamPipe scripts from secrets
+        run: |
+          mkdir -p steam/output
+          cd steam
+          for f in app_build.vdf depot_windows.vdf depot_linux.vdf depot_macos.vdf; do
+            sed -i \
+              -e "s|__STEAM_APPID__|${{ secrets.STEAM_APPID }}|g" \
+              -e "s|__DEPOT_WINDOWS__|${{ secrets.STEAM_DEPOT_WINDOWS }}|g" \
+              -e "s|__DEPOT_LINUX__|${{ secrets.STEAM_DEPOT_LINUX }}|g" \
+              -e "s|__DEPOT_MACOS__|${{ secrets.STEAM_DEPOT_MACOS }}|g" \
+              -e "s|__BUILD_DESC__|$TAG|g" \
+              -e "s|__STEAM_BRANCH__|$BRANCH|g" \
+              -e "s|__CONTENT_ROOT__|$GITHUB_WORKSPACE/steam/content|g" \
+              -e "s|__OUTPUT_ROOT__|$GITHUB_WORKSPACE/steam/output|g" \
+              "$f"
+          done
+
+      - name: Install steamcmd
+        uses: CyberAndrii/setup-steamcmd@v1
+
+      - name: Restore the cached Steam login (no 2FA in CI)
+        run: |
+          # STEAM_CONFIG_VDF = base64 of a config.vdf produced by a one-time
+          # local `steamcmd +login <user>` with Steam Guard answered once.
+          # See steam/README.md for how to generate it.
+          install -d ~/Steam/config
+          printf '%s' "${{ secrets.STEAM_CONFIG_VDF }}" | base64 -d > ~/Steam/config/config.vdf
+
+      - name: Push to SteamPipe
+        run: |
+          steamcmd +login "${{ secrets.STEAM_USERNAME }}" \
+                   +run_app_build "$GITHUB_WORKSPACE/steam/app_build.vdf" \
+                   +quit
