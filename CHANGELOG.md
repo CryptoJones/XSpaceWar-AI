@@ -2,6 +2,15 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [1.7.17] — 2026-06-12
+
+### Fixed
+- **TAB cycles pilots everywhere you watch** — movie mode included
+  (N still works there too).
+- The ELIMINATED message is no longer a center-screen billboard: it's a
+  small bottom-right hint, out of the action. Movie Mode shows the same
+  quiet "TAB follows a pilot" hint.
+
 ## [1.7.16] — 2026-06-12
 
 ### Fixed

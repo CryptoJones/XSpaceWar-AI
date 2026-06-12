@@ -16,6 +16,7 @@ var _respawn_label: Label
 var _final_board: Label
 var _debug_label: Label
 var _edge_warn: Label
+var _spec_hint: Label
 var _feed: Array[Dictionary] = []   ## {"t": text, "ttl": seconds}
 var _seen_tick := -1
 var _seen_gen := -1
@@ -73,6 +74,15 @@ func _ready() -> void:
 	_edge_warn.position.y = -120
 	_edge_warn.visible = false
 	add_child(_edge_warn)
+
+	# Small, out-of-the-way watcher hint (bottom-right) — never blocks the action.
+	_spec_hint = _make_label(14, Color(0.7, 0.85, 1.0, 0.75))
+	_spec_hint.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	_spec_hint.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_spec_hint.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_spec_hint.position = Vector2(-16, -16)
+	_spec_hint.visible = false
+	add_child(_spec_hint)
 
 	_arrows = Control.new()
 	_arrows.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -185,15 +195,23 @@ func _process(dt: float) -> void:
 	if human != null:
 		_bars.queue_redraw()
 	# Big center countdown while you're dead (skirmish only).
-	if human != null and not human.alive and not session.match_over:
+	if human != null and not human.alive and not session.match_over \
+			and not session.is_eliminated(human):
 		_respawn_label.visible = true
-		if session.is_eliminated(human):
-			_respawn_label.text = "ELIMINATED — spectating (TAB cycles pilots)"
-		else:
-			_respawn_label.text = "RESPAWNING IN %d" % maxi(1, ceili(human.respawn_timer))
+		_respawn_label.text = "RESPAWNING IN %d" % maxi(1, ceili(human.respawn_timer))
 		_respawn_label.modulate.a = 0.65 + 0.35 * sin(Time.get_ticks_msec() / 1000.0 * 6.0)
 	else:
 		_respawn_label.visible = false
+	# Watcher hint: small, corner, persistent — eliminated pilots and movie
+	# viewers learn TAB without a billboard over the dogfight.
+	if human != null and session.is_eliminated(human) and not session.match_over:
+		_spec_hint.visible = true
+		_spec_hint.text = "ELIMINATED  ·  TAB follows the next pilot"
+	elif session.movie_mode and session.world != null:
+		_spec_hint.visible = true
+		_spec_hint.text = "TAB follows a pilot"
+	else:
+		_spec_hint.visible = false
 	# Final standings under the winner banner during the victory lap.
 	_final_board.visible = session.match_over
 	if session.match_over:

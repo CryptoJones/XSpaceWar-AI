@@ -864,14 +864,16 @@ func _unhandled_input(event: InputEvent) -> void:
 		set_menu_visible(not _menu.visible)
 	elif pad_pressed and event.button_index == JOY_BUTTON_START:
 		set_menu_visible(not _menu.visible)
-	elif key_pressed and event.physical_keycode == KEY_TAB \
-			and (replay_player != null or (net_client != null and net_client.spectate)
+	elif key_pressed \
+			and (event.physical_keycode == KEY_TAB or event.physical_keycode == KEY_N) \
+			and not _menu.visible \
+			and (replay_player != null
+				or (net_client != null and net_client.spectate)
+				or view.session.movie_mode
 				or (view.session.human_ship() != null
 					and view.session.is_eliminated(view.session.human_ship()))):
-		_cycle_watch_target()
-	elif key_pressed and event.physical_keycode == KEY_N \
-			and view.session.movie_mode and not _menu.visible:
-		# Movie Mode: N rides the camera to the next living pilot.
+		# TAB (or N) cycles the follow-cam anywhere you're a watcher:
+		# movie mode, spectating, replays, or eliminated.
 		_cycle_watch_target()
 	elif replay_player != null and key_pressed:
 		if event.physical_keycode == KEY_P:
