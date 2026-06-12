@@ -56,13 +56,14 @@ func _on_frame() -> void:
 		main._time_slider.value = 0
 		main._hazard_slider.value = 30
 		main._map_slider.value = 8000 if _win_mode else 40000
-		main._diff_slider.value = BotController.Difficulty.VETERAN
+		main._diff_slider.value = BotController.Difficulty.ROOKIE if _win_mode \
+			else BotController.Difficulty.VETERAN  # Aaron's mercy rule: I kinda suck
 		main._edge_check.button_pressed = false
 		main._on_play_pressed()
 		if _win_mode:
 			var s: GameSession = main.session
 			_pilot = BotController.new(s.world, s.human_ship_id,
-				BotController.Difficulty.INSANE, BotController.Personality.SNIPER, 30, 90)
+				BotController.Difficulty.INSANE, BotController.Personality.OPPORTUNIST, 45, 65)
 			# Register into the session so the SIM drives my decisions every
 			# tick (frame-rate updates degrade reflexes under time_scale).
 			s.bots[s.human_ship_id] = _pilot
@@ -85,7 +86,7 @@ func _on_frame() -> void:
 		if _pilot != null and session.bots.get(session.human_ship_id) != _pilot \
 				and not session.match_over:
 			_pilot = BotController.new(session.world, session.human_ship_id,
-				BotController.Difficulty.INSANE, BotController.Personality.SNIPER, 30, 90)
+				BotController.Difficulty.INSANE, BotController.Personality.OPPORTUNIST, 45, 65)
 			session.bots[session.human_ship_id] = _pilot
 		if session.match_over and not _won:
 			_won = true
