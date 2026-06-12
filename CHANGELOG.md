@@ -2,6 +2,12 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [1.7.11] — 2026-06-12
+
+### Added
+- Movie Mode: **N** cycles the camera to the next living pilot (and back
+  to the auto-director after the last).
+
 ## [1.7.10] — 2026-06-12
 
 ### Changed

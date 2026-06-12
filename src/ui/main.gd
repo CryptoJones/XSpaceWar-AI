@@ -845,6 +845,10 @@ func _unhandled_input(event: InputEvent) -> void:
 				or (view.session.human_ship() != null
 					and view.session.is_eliminated(view.session.human_ship()))):
 		_cycle_watch_target()
+	elif key_pressed and event.physical_keycode == KEY_N \
+			and view.session.movie_mode and not _menu.visible:
+		# Movie Mode: N rides the camera to the next living pilot.
+		_cycle_watch_target()
 	elif replay_player != null and key_pressed:
 		if event.physical_keycode == KEY_P:
 			replay_player.paused = not replay_player.paused
