@@ -2,6 +2,15 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [1.9.2] — 2026-06-12
+
+### Changed
+- **Minimum map size is now 2,601 units.** Below that, a maxed Star-size
+  slider would swallow the whole arena (its escapable shell wider than
+  the playfield). Raising the floor removes that one degenerate corner
+  outright — both sliders keep their full range and do exactly what they
+  say, with no hidden clamps.
+
 ## [1.9.1] — 2026-06-12
 
 ### Changed

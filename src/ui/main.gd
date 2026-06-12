@@ -448,7 +448,7 @@ func _build_match_tab() -> Control:
 		func(x: float) -> String: return "%d (classic)" % int(x) if int(x) == 25 else str(int(x)))
 	_planets_slider = _slider_row(grid, "Planets", 0, 6, 1, 2,
 		func(x: float) -> String: return "none" if int(x) == 0 else str(int(x)))
-	_map_slider = _slider_row(grid, "Map size", 2000, 40000, 1000, 40000,
+	_map_slider = _slider_row(grid, "Map size", 2601, 40000, 1000, 40000,
 		func(x: float) -> String: return "%d u" % int(x))
 
 	_edge_check = CheckButton.new()

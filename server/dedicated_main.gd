@@ -43,7 +43,7 @@ func _initialize() -> void:
 	session.hazard = clampf(float(a.get("hazard", "30")) / 100.0, 0.0, 1.0)
 	session.star_scale = clampf(float(a.get("star", "25")) / 25.0, 0.2, 4.0)
 	session.planet_count = int(a.get("planets", "2"))
-	session.map_size = clampf(float(a.get("map", "40000")), 2000.0, 40000.0)
+	session.map_size = clampf(float(a.get("map", "40000")), 2601.0, 40000.0)
 	session.respawn_seconds = float(a.get("respawn", "6"))
 	session.lethal_edges = a.has("edges")
 	var mode := GameSession.Mode.TEAM if String(a.get("mode", "ffa")) == "team" else GameSession.Mode.FFA

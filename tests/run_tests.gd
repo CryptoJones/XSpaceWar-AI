@@ -23,6 +23,7 @@ func _initialize() -> void:
 	_test_ship_colors()
 	_test_star_scale()
 	_test_gravity_escapable()
+	_test_min_map_giant_star_playable()
 	_test_giant_star_spawns()
 	_test_map_size()
 	_test_lives()
@@ -516,9 +517,9 @@ func _test_gravity_escapable() -> void:
 	var still_survives_all := true
 	var default_traversable := true
 	for star_slider in [5, 25, 50, 100]:
-		for map_sz in [2000.0, 8000.0, 40000.0]:
+		for map_sz in [2601.0, 8000.0, 40000.0]:
 			var cfg := SimConfig.from_seed(909 + star_slider)
-			cfg.arena_size = clampf(map_sz, 2000.0, 40000.0)
+			cfg.arena_size = clampf(map_sz, 2601.0, 40000.0)
 			cfg.spawn_orbit_radius = clampf(cfg.arena_size * 0.035, 550.0, 1400.0)
 			var base_mass: float = (cfg.thrust_accel * 0.35) \
 				* cfg.spawn_orbit_radius * cfg.spawn_orbit_radius / cfg.gravity_constant
@@ -545,6 +546,33 @@ func _test_gravity_escapable() -> void:
 	_check("gravity: the default star is traversable (spawn gravity < thrust)",
 		default_traversable)
 
+func _test_min_map_giant_star_playable() -> void:
+	# Below 2601u a maxed star swallows the arena, so 2601 is the floor.
+	# At the floor with a full 4x star, the arena must still have an
+	# escapable shell (gravity < thrust somewhere inside it).
+	var s := GameSession.new()
+	s.map_size = 1000.0  # below the floor — must clamp up to 2601
+	s.star_scale = 4.0
+	s.hazard = 0.0
+	s.planet_count = 0
+	s.score_limit = 0
+	s.start_skirmish(2, GameSession.Mode.FFA, BotController.Difficulty.ROOKIE)
+	var w := s.world
+	_check("corner: map size clamps to the 2601 floor",
+		w.config.arena_size >= 2601.0 and w.config.arena_size <= 2602.0,
+		"arena=%.0f" % w.config.arena_size)
+	var star := w.primary_body()
+	var half := w.config.arena_size * 0.5
+	var escapable_shell := false
+	var rr := w.config.spawn_orbit_radius
+	while rr < half:
+		if w.gravity_accel(star.pos + Vector2(rr, 0)).length() < w.config.thrust_accel:
+			escapable_shell = true
+			break
+		rr += 50.0
+	_check("corner: floor map + full 4x star still has an escapable shell",
+		escapable_shell)
+
 func _test_giant_star_spawns() -> void:
 	# Max star size: nobody spawns inside (or hugging) the well.
 	var s := GameSession.new()
@@ -561,14 +589,14 @@ func _test_giant_star_spawns() -> void:
 
 func _test_map_size() -> void:
 	var s := GameSession.new()
-	s.map_size = 2000.0
+	s.map_size = 2601.0   # the minimum allowed map size
 	s.score_limit = 0
 	s.start_skirmish(8, GameSession.Mode.FFA, BotController.Difficulty.VETERAN)
 	var half := s.world.config.arena_size * 0.5
-	_check("map: small arena applies with scaled spawn ring",
-		is_equal_approx(s.world.config.arena_size, 2000.0)
-		and s.world.config.spawn_orbit_radius <= half * 0.6,
-		"orbit=%.0f" % s.world.config.spawn_orbit_radius)
+	_check("map: smallest arena applies with scaled spawn ring",
+		is_equal_approx(s.world.config.arena_size, 2601.0)
+		and s.world.config.spawn_orbit_radius <= half * 0.85,
+		"orbit=%.0f half=%.0f" % [s.world.config.spawn_orbit_radius, half])
 	var inside := true
 	for ship in s.world.ships:
 		if absf(ship.pos.x) > half or absf(ship.pos.y) > half:
