@@ -336,7 +336,12 @@ func _apply(ship: SimShip, dt: float) -> void:
 	# modes points away from the enemy entirely.
 	var target := world.ship_by_id(_target_id)
 	if target != null and ship.ammo > 0:
-		var sol_err := absf(wrapf(_lead_angle(ship, target) - ship.angle, -PI, PI))
+		# Gate on the pilot's PERCEIVED solution (true lead + their aim
+		# noise). Gating on the TRUE solution made every shot from every
+		# pilot oracle-perfect — aim_error only throttled fire rate, so
+		# drunk rookies sniped like aces (found by losing to them).
+		var believed := _lead_angle(ship, target) + _aim_noise
+		var sol_err := absf(wrapf(believed - ship.angle, -PI, PI))
 		if sol_err < float(_p["fire_cone"]) \
 				and ship.pos.distance_to(target.pos) < _fire_range:
 			ship.in_fire = true
