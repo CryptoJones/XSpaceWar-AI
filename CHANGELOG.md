@@ -2,6 +2,11 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [1.8.4] — 2026-06-12
+
+### Added
+- Credits: "GitHub / Codeberg Contributors — This Could Be You!"
+
 ## [1.8.3] — 2026-06-12
 
 ### Fixed
