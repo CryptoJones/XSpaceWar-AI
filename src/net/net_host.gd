@@ -122,7 +122,8 @@ func update(dt: float, local_input: Dictionary) -> void:
 	_t.tick(dt, player_count())
 
 func player_count() -> int:
-	var n := 1  # the host
+	# Dedicated servers have no host pilot — count only real humans.
+	var n := 1 if session.human_ship_id >= 0 else 0
 	for peer in _peers:
 		if int(_peers[peer]) >= 0:
 			n += 1
@@ -182,6 +183,20 @@ func _on_packet(peer, bytes: PackedByteArray) -> void:
 					_acked[sid] = q
 					_inputs[sid] = data
 
+## Dedicated-server mode: the host machine flies nothing — its pilot slot
+## becomes one more bot for joiners to take over. Call again after each
+## auto-restart (regeneration recreates the human slot).
+static func convert_to_dedicated(p_session: GameSession) -> void:
+	var hid := p_session.human_ship_id
+	if hid < 0:
+		return
+	p_session.human_ship_id = -1
+	var hship := p_session.world.ship_by_id(hid)
+	if hship == null:
+		return
+	p_session.bots[hid] = BotController.new(p_session.world, hid, p_session.difficulty)
+	p_session.ship_names[hid] = BotController.callsign(hship.hull_seed)
+
 func _on_hello(peer, data: Dictionary) -> void:
 	if _peers.has(peer):
 		return
@@ -209,6 +224,16 @@ func _on_hello(peer, data: Dictionary) -> void:
 	var pname := String(data.get("name", "")).strip_edges().left(16)
 	if pname == "":
 		pname = "PILOT-%d" % sid
+	# A name already on the roster (live player, ghost not yet timed out,
+	# or a bot callsign) gets a numeric suffix: PILOT, PILOT-2, PILOT-3…
+	var taken := {}
+	for n in session.ship_names.values():
+		taken[String(n).to_upper()] = true
+	if taken.has(pname.to_upper()):
+		var k := 2
+		while taken.has(("%s-%d" % [pname, k]).to_upper()):
+			k += 1
+		pname = "%s-%d" % [pname, k]
 	_names[peer] = pname
 	session.ship_names[sid] = pname
 	_t.send(peer,

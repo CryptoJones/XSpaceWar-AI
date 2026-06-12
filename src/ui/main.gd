@@ -24,6 +24,7 @@ var _planets_slider: HSlider
 var _map_slider: HSlider
 var _edge_check: CheckButton
 var _slider_readouts := {}         ## HSlider -> [readout LineEdit, fmt Callable]
+var _name_edit: LineEdit
 var _ip_edit: LineEdit
 var _server_list: ItemList
 var _net_status: Label
@@ -163,8 +164,10 @@ func _ready() -> void:
 	_build_stats_panel()
 	_build_keys_panel()
 	_load_settings()
-	var user := OS.get_environment("USER")
-	_player_name = user.to_upper().left(12) if user != "" else "PILOT"
+	if _player_name == "PILOT" or _player_name == "":
+		var user := OS.get_environment("USER")
+		_player_name = user.to_upper().left(12) if user != "" else "PILOT"
+	_name_edit.text = _player_name
 	_lan = LanDiscovery.listener()
 	session.start_movie()
 	# Boot sequence: credits roll -> splash (controls, press SPACE) -> menu.
@@ -429,6 +432,22 @@ func _build_match_tab() -> Control:
 func _build_net_tab() -> Control:
 	var parts := _tab_page("MULTIPLAYER")
 	var v: VBoxContainer = parts[1]
+
+	var name_row := HBoxContainer.new()
+	name_row.add_theme_constant_override("separation", 8)
+	var name_label := Label.new()
+	name_label.text = "Pilot name"
+	name_label.custom_minimum_size.x = 150
+	name_row.add_child(name_label)
+	_name_edit = LineEdit.new()
+	_name_edit.max_length = 16
+	_name_edit.placeholder_text = "shown on every scoreboard"
+	_name_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_name_edit.text_changed.connect(func(t: String):
+		_player_name = t.strip_edges().to_upper().left(16))
+	_name_edit.focus_exited.connect(_save_settings)
+	name_row.add_child(_name_edit)
+	v.add_child(name_row)
 
 	var host_btn := Button.new()
 	host_btn.text = "HOST \u2014 LAN skirmish"
@@ -1085,6 +1104,9 @@ func _load_settings() -> void:
 		_vol_slider.set_value_no_signal(float(cfg.get_value("audio", "volume", 80.0)))
 		_fullscreen_check.set_pressed_no_signal(bool(cfg.get_value("video", "fullscreen", false)))
 		_relay_edit.text = String(cfg.get_value("net", "relay", _relay_edit.text))
+		var saved_name := String(cfg.get_value("net", "player_name", ""))
+		if saved_name != "":
+			_player_name = saved_name
 		_nebula_slider.set_value_no_signal(float(cfg.get_value("display", "nebula", 0.0)))
 		_stars_slider.set_value_no_signal(float(cfg.get_value("display", "stars", 50.0)))
 		_far_check.set_pressed_no_signal(bool(cfg.get_value("display", "far_stars", false)))
@@ -1127,6 +1149,7 @@ func _save_settings() -> void:
 	cfg.set_value("audio", "volume", _vol_slider.value)
 	cfg.set_value("video", "fullscreen", _fullscreen_check.button_pressed)
 	cfg.set_value("net", "relay", _relay_edit.text.strip_edges())
+	cfg.set_value("net", "player_name", _player_name)
 	cfg.set_value("display", "nebula", _nebula_slider.value)
 	cfg.set_value("display", "stars", _stars_slider.value)
 	cfg.set_value("display", "far_stars", _far_check.button_pressed)

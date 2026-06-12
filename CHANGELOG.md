@@ -2,6 +2,23 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [1.7.13] — 2026-06-12
+
+### Added
+- **Dedicated server**: `server/dedicated_main.gd` hosts authoritative
+  matches headless on a VPS — no human pilot, bots hold every slot,
+  players take them over on join and hand them back on leave. Direct
+  UDP or relay-registered; full match config via CLI flags.
+- **Pilot name field** (MULTIPLAYER tab, persisted): set the name shown
+  on every scoreboard.
+
+### Fixed
+- Joining with a name already on the roster (live player, un-timed-out
+  ghost, or bot callsign) gets a numeric suffix (PILOT-2) instead of a
+  scoreboard doppelgänger.
+- Server browser no longer counts a phantom host player for dedicated
+  servers.
+
 ## [1.7.12] — 2026-06-12
 
 ### Fixed

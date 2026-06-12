@@ -19,6 +19,7 @@ func _initialize() -> void:
 	_test_host_join_sync()
 	_test_prediction()
 	_test_spectator()
+	_test_dedicated_server()
 	_test_discovery_loopback()
 	print("=== %d passed, %d failed ===" % [_passed, _failed])
 	quit(1 if _failed > 0 else 0)
@@ -174,6 +175,37 @@ func _test_host_join_sync() -> void:
 			break
 		OS.delay_msec(1)
 	_check("net: leaver's ship handed back to a bot", hsession.bots.has(sid))
+	host.close()
+
+func _test_dedicated_server() -> void:
+	# A dedicated session has NO host pilot: every slot is a bot until a
+	# player joins and takes one over.
+	var hsession := GameSession.new()
+	hsession.score_limit = 0
+	hsession.start_skirmish(4, GameSession.Mode.FFA, BotController.Difficulty.ROOKIE)
+	NetHost.convert_to_dedicated(hsession)
+	_check("dedicated: host has no pilot, all slots botted",
+		hsession.human_ship_id == -1 and hsession.bots.size() == 4)
+	var host := NetHost.new(hsession)
+	var err := host.open(TEST_PORT + 7, false, "dedicated-test", "127.0.0.1")
+	_check("dedicated: binds", err == OK, "err=%d" % err)
+	if err != OK:
+		return
+	var client := NetClient.new()
+	client.open("127.0.0.1", TEST_PORT + 7, "VISITOR")
+	var got_ship := false
+	for _i in range(600):
+		host.update(DT, {})
+		client.update(DT, {})
+		if client.state == NetClient.State.READY and client.session.human_ship_id >= 0:
+			got_ship = true
+			break
+		OS.delay_msec(1)
+	_check("dedicated: joiner takes over a bot ship", got_ship
+		and hsession.bots.size() == 3 and host.player_count() == 1
+		and hsession.ship_names.values().has("VISITOR"),
+		"bots=%d players=%d" % [hsession.bots.size(), host.player_count()])
+	client.close()
 	host.close()
 
 func _test_spectator() -> void:
