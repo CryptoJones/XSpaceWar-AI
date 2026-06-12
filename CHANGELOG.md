@@ -2,6 +2,27 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [1.7.25] — 2026-06-12
+
+Code-review fixes, batch 4a (gameplay/session):
+
+### Fixed
+- **Team mutual annihilation ends the match** (score decides) instead of
+  soft-locking a lives match forever; **solo practice + lives** no longer
+  insta-wins in an endless restart loop.
+- **Hyperspace is a teleport again, not a resupply**: jumps keep your
+  fuel/ammo/mines/cooldowns and grant no invulnerability (the spawn
+  helper's full refill + grace was leaking through).
+- **Respawns can't materialize into a rock**: spawn placement re-rolls
+  away from lethal bodies, and spawn grace now shields against bodies
+  like it always did against ships and torpedoes — no more zero-input
+  deaths burning lives at hazard 100.
+- **Finished-match recordings survive auto-restarts**: the session parks
+  the tape before rebuilding the world (sub-60fps frames were capturing
+  the new world into the old tape, corrupting and discarding it).
+- The Movie Mode attract resets lethal edges/respawn/score/time instead
+  of inheriting them from your last skirmish.
+
 ## [1.7.24] — 2026-06-12
 
 Code-review fixes, batch 3 (multiplayer UX + ingress hardening):

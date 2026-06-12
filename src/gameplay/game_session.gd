@@ -56,6 +56,10 @@ var winner_ship := -1              ## FFA winner's ship id
 var winner_team := -1              ## TEAM winner, -1 in FFA
 var restart_timer := 0.0
 
+## A finished match's recorder, parked here at restart for main.gd to
+## finalize — capture must never run against the rebuilt world.
+var finished_recorder: Replay = null
+
 var _rng := RandomNumberGenerator.new()
 var on_regenerate: Callable = Callable()  ## optional hook for the renderer
 var recorder: Replay = null               ## when set, captures inputs each step
@@ -84,6 +88,12 @@ func start_skirmish(p_num_ships: int, p_mode: int, p_difficulty: int) -> void:
 	_build(_rng.randi())
 
 func _randomize_match_params() -> void:
+	# Skirmish-only settings must not leak into the attract loop (a lethal
+	# boundary or 1s respawn from the last match would contaminate it).
+	lethal_edges = false
+	respawn_seconds = 6.0
+	score_limit = 0
+	time_limit = 0.0
 	num_ships = _rng.randi_range(6, 16)
 	hazard = _rng.randf_range(0.1, 0.6)
 	star_scale = _rng.randf_range(0.5, 2.5)
@@ -165,6 +175,9 @@ func update(dt: float) -> void:
 		world.step(dt)
 		restart_timer -= dt
 		if restart_timer <= 0.0:
+			if recorder != null:
+				finished_recorder = recorder
+				recorder = null
 			start_skirmish(num_ships, mode, difficulty)
 		return
 
@@ -220,12 +233,24 @@ func _check_elimination() -> void:
 			match_over = true
 			winner_team = int(teams_left.keys()[0])
 			restart_timer = RESTART_DELAY
+		elif teams_left.is_empty():
+			# Mutual annihilation on the same tick: score decides — the
+			# match MUST end (nobody can respawn out of lives).
+			match_over = true
+			restart_timer = RESTART_DELAY
+			var totals := team_scores()
+			var best := -2147483648
+			for t in totals:
+				if int(t) >= 0 and int(totals[t]) > best:
+					best = int(totals[t])
+					winner_team = int(t)
 	else:
 		var left: Array[SimShip] = []
 		for s in world.ships:
 			if not is_eliminated(s):
 				left.append(s)
-		if left.size() <= 1:
+		# Solo practice (1-ship rosters) never "wins by survival".
+		if world.ships.size() > 1 and left.size() <= 1:
 			match_over = true
 			if left.size() == 1:
 				winner_ship = left[0].id

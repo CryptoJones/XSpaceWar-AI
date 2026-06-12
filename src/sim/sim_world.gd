@@ -110,6 +110,18 @@ func place_in_orbit(s: SimShip) -> void:
 	if primary != null:
 		r = maxf(r, primary.radius * 2.2 + 120.0)
 	r = minf(r, config.arena_size * 0.5 * 0.85)
+	# Clearance: never materialize inside (or kissing) a rock/satellite —
+	# re-roll the ring angle a few times; deterministic via the world rng.
+	for _attempt in range(10):
+		var probe := center + Vector2(cos(ang), sin(ang)) * r
+		var blocked := false
+		for b in bodies:
+			if b.lethal and probe.distance_to(b.pos) < b.radius + s.radius + 60.0:
+				blocked = true
+				break
+		if not blocked:
+			break
+		ang = rng.randf() * TAU
 	s.pos = center + Vector2(cos(ang), sin(ang)) * r
 	# Circular-orbit speed, perpendicular to the radius, random direction.
 	var speed := 0.0
@@ -262,7 +274,19 @@ func _hyperspace(s: SimShip) -> void:
 	if rng.randf() < risk:
 		_destroy_ship(s, -1, "hyperspace")
 		return
+	# place_in_orbit is a SPAWN helper (full resupply + grace); a jump is
+	# just a relocation — keep the pilot's resources and grant no shield.
+	var keep := [s.fuel, s.ammo, s.ammo_timer, s.mines, s.mine_timer,
+		s.mine_cooldown, s.fire_cooldown]
 	place_in_orbit(s)
+	s.fuel = keep[0]
+	s.ammo = keep[1]
+	s.ammo_timer = keep[2]
+	s.mines = keep[3]
+	s.mine_timer = keep[4]
+	s.mine_cooldown = keep[5]
+	s.fire_cooldown = keep[6]
+	s.spawn_grace = 0.0
 
 func _integrate_ships(dt: float) -> void:
 	# Semi-implicit (symplectic) Euler: update velocity from gravity, then
@@ -444,7 +468,7 @@ func _resolve_collisions() -> void:
 
 	# Ships vs bodies.
 	for s in ships:
-		if not s.alive:
+		if not s.alive or s.spawn_grace > 0.0:
 			continue
 		for b in bodies:
 			if not b.lethal:

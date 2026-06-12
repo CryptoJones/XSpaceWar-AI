@@ -25,6 +25,7 @@ func _initialize() -> void:
 	_test_giant_star_spawns()
 	_test_map_size()
 	_test_lives()
+	_test_review_gameplay_fixes()
 	_test_eternal_torpedoes()
 	_test_solo_practice()
 	_test_lethal_edges()
@@ -321,6 +322,83 @@ func _test_eternal_torpedoes() -> void:
 		w.step(1.0 / 60.0)
 	_check("torps: fly forever until they hit something (no fuse)",
 		w.torpedoes.size() == 1, "left=%d" % w.torpedoes.size())
+
+func _test_review_gameplay_fixes() -> void:
+	# Team mutual annihilation ends the match (score decides).
+	var s := GameSession.new()
+	s.lives = 1
+	s.score_limit = 0
+	s.start_skirmish(2, GameSession.Mode.TEAM, BotController.Difficulty.ROOKIE)
+	for ship in s.world.ships:
+		ship.deaths = 1
+		ship.alive = false
+	s.world.ships[0].score = 3
+	s.update(1.0 / 60.0)
+	_check("elim: team mutual annihilation still ends the match",
+		s.match_over and s.winner_team == s.world.ships[0].team)
+
+	# Lives + solo practice: no instant victory loop.
+	var s2 := GameSession.new()
+	s2.lives = 3
+	s2.score_limit = 0
+	s2.hazard = 0.0
+	s2.start_skirmish(1, GameSession.Mode.FFA, BotController.Difficulty.ROOKIE)
+	for _i in range(120):
+		s2.update(1.0 / 60.0)
+	_check("elim: lives + solo practice does not insta-end", not s2.match_over)
+
+	# Hyperspace keeps your ammo and grants no shield.
+	var w := SimWorld.new(SimConfig.from_seed(777))
+	var ship := w.add_ship()
+	ship.pos = Vector2(5000, 0)
+	ship.ammo = 2
+	ship.fuel = 10.0
+	ship.spawn_grace = 0.0
+	w._hyperspace(ship)
+	if ship.alive:  # (passed the self-destruct roll)
+		_check("hyper: jump preserves resources, no grace",
+			ship.ammo == 2 and is_equal_approx(ship.fuel, 10.0)
+			and ship.spawn_grace == 0.0,
+			"ammo=%d fuel=%.1f grace=%.2f" % [ship.ammo, ship.fuel, ship.spawn_grace])
+
+	# Spawn clearance: hazard 1.0, many respawns, nobody dies on arrival.
+	var s3 := GameSession.new()
+	s3.hazard = 1.0
+	s3.score_limit = 0
+	s3.start_skirmish(8, GameSession.Mode.FFA, BotController.Difficulty.ROOKIE)
+	var spawn_deaths := 0
+	for _i in range(40):
+		for ship3 in s3.world.ships:
+			s3.world.place_in_orbit(ship3)
+		var deaths_before := 0
+		for ship3 in s3.world.ships:
+			deaths_before += ship3.deaths
+		s3.world.step(1.0 / 60.0)
+		var deaths_after := 0
+		for ship3 in s3.world.ships:
+			deaths_after += ship3.deaths
+		spawn_deaths += deaths_after - deaths_before
+	_check("spawn: clearance + grace stop arrival deaths at hazard 100",
+		spawn_deaths == 0, "deaths=%d" % spawn_deaths)
+
+	# Recorder is parked at restart, not captured into the new world.
+	var s4 := GameSession.new()
+	s4.score_limit = 1
+	s4.hazard = 0.0
+	s4.start_skirmish(2, GameSession.Mode.FFA, BotController.Difficulty.ROOKIE)
+	s4.recorder = Replay.begin(s4)
+	for _i in range(60):
+		s4.update(1.0 / 60.0)
+	var tick_at_win := s4.world.tick
+	s4.human_ship().score = 1
+	s4.update(1.0 / 60.0)
+	_check("recorder: match flow reached match_over", s4.match_over)
+	for _i in range(int(GameSession.RESTART_DELAY * 60.0) + 10):
+		s4.update(1.0 / 60.0)
+	_check("recorder: finished tape parked with its final tick intact",
+		s4.finished_recorder != null and s4.recorder == null
+		and s4.finished_recorder.final_tick >= tick_at_win,
+		"final_tick=%d" % (s4.finished_recorder.final_tick if s4.finished_recorder != null else -1))
 
 func _test_lethal_edges() -> void:
 	var s := GameSession.new()

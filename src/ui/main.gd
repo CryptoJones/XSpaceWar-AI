@@ -194,7 +194,8 @@ func _process(dt: float) -> void:
 		MatchStats.append_entry(MatchStats.entry_from_session(active,
 			Time.get_datetime_string_from_system(false, true)))
 	# Rotate recordings across auto-restarts; bounce to menu when a replay ends.
-	if session.recorder != null and session.generation != _recorded_gen:
+	if session.finished_recorder != null \
+			or (session.recorder != null and session.generation != _recorded_gen):
 		_finalize_recording()
 		_maybe_start_recording()
 	if replay_player != null and replay_player.finished:
@@ -1282,10 +1283,16 @@ func _maybe_start_recording() -> void:
 		_recorded_gen = session.generation
 
 func _finalize_recording() -> void:
-	if session.recorder == null:
+	# Prefer the tape the session parked at a match restart (it must never
+	# be captured into the rebuilt world); fall back to a live recorder
+	# (menu exit / teardown paths).
+	var r := session.finished_recorder
+	session.finished_recorder = null
+	if r == null:
+		r = session.recorder
+		session.recorder = null
+	if r == null:
 		return
-	var r := session.recorder
-	session.recorder = null
 	if r.final_tick < 300:
 		return  # < 5 seconds of match — not worth keeping
 	DirAccess.make_dir_recursive_absolute(REPLAY_DIR)
