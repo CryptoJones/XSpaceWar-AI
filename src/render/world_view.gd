@@ -338,12 +338,16 @@ func _update_camera(dt: float) -> void:
 	var target_pos := _cam_pos
 	var target_zoom := _cam_zoom
 	var clamp_to := Vector2.INF   # followed ship's position; INF = no clamp
-	var human := session.human_ship()
-	if human != null and session.is_eliminated(human) and _killcam_id < 0:
-		human = null  # eliminated: the spectator director takes over
+	# `pilot` is your real ship (for killcam decisions); `human` is the
+	# camera's view of it — null whenever dead, so the watcher branches
+	# below (TAB target, action director) actually run while you wait.
+	var pilot := session.human_ship()
+	var human := pilot
+	if human != null and not human.alive:
+		human = null
 	var killcam_active := false
 
-	if human != null and not human.alive and _killcam_id >= 0 \
+	if pilot != null and not pilot.alive and _killcam_id >= 0 \
 			and session.watch_ship_id < 0:
 		# Killcam: ride with whoever got you until you respawn (TAB overrides).
 		var killer := session.world.ship_by_id(_killcam_id)
@@ -354,12 +358,9 @@ func _update_camera(dt: float) -> void:
 			killcam_active = true
 	if killcam_active:
 		pass
-	elif human != null and not human.alive:
-		human = null  # dead: the action director (or your TAB choice) takes over
 	elif human != null:
-		if human.alive:
-			_killcam_id = -1
-			session.watch_ship_id = -1
+		_killcam_id = -1
+		session.watch_ship_id = -1
 		# When the followed ship wraps the toroidal edge (or hyperspaces), jump
 		# the camera by the same leap instead of lerping across the whole map.
 		if _follow_id == human.id:
@@ -427,7 +428,7 @@ func _update_camera(dt: float) -> void:
 	# screen — your own ship, a killcam target, or any follow-cam pilot.
 	# The lerp above lags proportionally to speed, so a fast pilot can
 	# outrun it; when they reach the outer buffer, the map moves instead.
-	if human != null and human.alive and not killcam_active:
+	if human != null and not killcam_active:
 		clamp_to = human.pos + human.render_pos_offset
 	if clamp_to.x != INF:
 		var half_view := get_viewport_rect().size * 0.5 / _cam_zoom

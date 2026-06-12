@@ -2,6 +2,14 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [1.7.21] — 2026-06-12
+
+### Fixed
+- **Dead-state camera actually follows now**: a branch-ordering bug left
+  the camera frozen near your wreck while dead ("following ghosts") —
+  the TAB target and action director branches never ran. Watching works
+  through any death; respawn still snaps home.
+
 ## [1.7.20] — 2026-06-12
 
 ### Fixed

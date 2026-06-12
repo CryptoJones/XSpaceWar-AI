@@ -422,6 +422,8 @@ func _test_map_size() -> void:
 func _test_solo_practice() -> void:
 	var s := GameSession.new()
 	s.score_limit = 0
+	s.hazard = 0.0  # clean space: the session seed varies per run, and a
+	                # drifting lone ship occasionally clipped a random rock
 	s.start_skirmish(1, GameSession.Mode.FFA, BotController.Difficulty.ROOKIE)
 	for _i in range(120):
 		s.update(1.0 / 60.0)
