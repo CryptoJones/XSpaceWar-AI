@@ -186,8 +186,9 @@ To our play testers, who flew the rough builds and filed the truth:
 
 ## Dedication
 
-Thank You to "JVL / Boxest" for all the nights we stayed up playing Ron Fredrick's game
-in 90s-era Dickinson, Texas. HTMFPWGCBNOTDOD!
+To "JVL / Boxest" for all the nights we stayed up playing Ron Fredrick's game
+in 90s-era Dickinson, Texas. 
+HTMFPWGCBNOTDOD!
 
 ## Mirrors
 
