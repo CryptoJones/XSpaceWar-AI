@@ -337,6 +337,7 @@ func _update_camera(dt: float) -> void:
 	_cam_zoom_prev = _cam_zoom
 	var target_pos := _cam_pos
 	var target_zoom := _cam_zoom
+	var clamp_to := Vector2.INF   # followed ship's position; INF = no clamp
 	var human := session.human_ship()
 	if human != null and session.is_eliminated(human) and _killcam_id < 0:
 		human = null  # eliminated: the spectator director takes over
@@ -348,6 +349,7 @@ func _update_camera(dt: float) -> void:
 		if killer != null and killer.alive:
 			target_pos = killer.pos + killer.render_pos_offset
 			target_zoom = 1.0
+			clamp_to = target_pos
 			killcam_active = true
 	if killcam_active:
 		pass
@@ -384,6 +386,7 @@ func _update_camera(dt: float) -> void:
 		var watched := session.world.ship_by_id(session.watch_ship_id)
 		target_pos = watched.pos + watched.render_pos_offset
 		target_zoom = 1.0
+		clamp_to = target_pos
 	else:
 		# Movie Mode action camera: frame the closest hostile pair (a duel)
 		# and recut to a fresh fight every few seconds or when one dies.
@@ -416,16 +419,21 @@ func _update_camera(dt: float) -> void:
 	_cam_pos = _cam_pos.lerp(target_pos, k)
 	_cam_zoom = lerpf(_cam_zoom, target_zoom, k)
 
-	# The bleed-zone rule (Aaron's): the player's ship may NEVER leave the
-	# screen. The lerp above lags proportionally to speed, so on a long
-	# straight burn the ship can outrun it — when the ship reaches the outer
-	# buffer of the view, the map moves instead. Hard per-axis clamp keeping
-	# the ship inside the inner 72% of the screen.
+	# The bleed-zone rule (Aaron's): the FOLLOWED ship may NEVER leave the
+	# screen — your own ship, a killcam target, or any follow-cam pilot.
+	# The lerp above lags proportionally to speed, so a fast pilot can
+	# outrun it; when they reach the outer buffer, the map moves instead.
 	if human != null and human.alive and not killcam_active:
+		clamp_to = human.pos + human.render_pos_offset
+	if clamp_to.x != INF:
 		var half_view := get_viewport_rect().size * 0.5 / _cam_zoom
 		var limit := half_view * 0.72
-		var sp := human.pos + human.render_pos_offset
-		_cam_pos = _cam_pos.clamp(sp - limit, sp + limit)
+		var pre := _cam_pos
+		_cam_pos = _cam_pos.clamp(clamp_to - limit, clamp_to + limit)
+		# A clamp that teleports the camera (target wrapped the map) must
+		# not smear the interpolated frame across the arena.
+		if _cam_pos.distance_to(pre) > half_view.length() * 2.0:
+			_cam_pos_prev = _cam_pos
 
 	# Shake energy decays at sim rate (the offset itself is applied per
 	# display frame in _process).

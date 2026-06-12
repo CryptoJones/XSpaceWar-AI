@@ -2,6 +2,14 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [1.7.18] — 2026-06-12
+
+### Fixed
+- **Follow-cam targets can no longer escape the screen**: the bleed-zone
+  clamp (previously your own ship only) now protects whatever the camera
+  follows — TAB targets, the killcam, eliminated-spectating — with a
+  wrap-teleport guard so the interpolated camera doesn't smear.
+
 ## [1.7.17] — 2026-06-12
 
 ### Fixed
