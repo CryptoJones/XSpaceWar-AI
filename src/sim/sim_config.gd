@@ -36,7 +36,7 @@ var lives: int = 0                      ## deaths before elimination (0 = unlimi
 var fire_cooldown: float = 0.5          ## 2 shots / second (matches the original feel)
 var torpedo_radius: float = 4.0
 var torpedo_speed: float = 700.0        ## muzzle speed added to ship velocity
-var torpedo_life: float = 5.0           ## seconds before it deactivates
+var torpedo_life: float = 0.0           ## 0 = NEVER expires (Aaron's rule: fly until impact)
 var torpedo_gravity: bool = true        ## modern accuracy: gravity affects torpedoes too
 
 # --- Mines ---

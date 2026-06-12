@@ -2,6 +2,14 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [1.7.10] — 2026-06-12
+
+### Changed
+- **Torpedoes never expire** — the classic 5-second fuse (authentic to
+  1962 Spacewar! and the 1992 xspacewar) is gone by default: torpedoes
+  fly until they hit something. Combined with torpedo gravity, missed
+  shots now orbit the star as live hazards.
+
 ## [1.7.9] — 2026-06-12
 
 ### Changed

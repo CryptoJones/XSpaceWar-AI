@@ -272,9 +272,12 @@ func _step_torpedoes(dt: float) -> void:
 	var survivors: Array[SimTorpedo] = []
 	for t in torpedoes:
 		t.age += dt
-		t.life -= dt
-		if t.life <= 0.0:
-			continue
+		# A configured fuse still works (and old replays need it), but the
+		# default is 0: torpedoes fly FOREVER until they hit something.
+		if config.torpedo_life > 0.0:
+			t.life -= dt
+			if t.life <= 0.0:
+				continue
 		if config.torpedo_gravity:
 			t.vel += gravity_accel(t.pos) * dt
 		t.pos += t.vel * dt

@@ -24,6 +24,7 @@ func _initialize() -> void:
 	_test_star_scale()
 	_test_map_size()
 	_test_lives()
+	_test_eternal_torpedoes()
 	_test_solo_practice()
 	_test_lethal_edges()
 	_test_team_spawns()
@@ -304,6 +305,19 @@ func _test_star_scale() -> void:
 	var g4 := w4.gravity_accel(probe).length()
 	_check("star: bigger star pulls 4x harder", is_equal_approx(g4, g1 * 4.0),
 		"g %.2f vs %.2f" % [g1, g4])
+
+func _test_eternal_torpedoes() -> void:
+	var w := SimWorld.new(SimConfig.from_seed(99))
+	var s := w.add_ship()
+	s.pos = Vector2(8000, 8000)  # far from anything it could hit
+	s.angle = 0.0
+	s.in_fire = true
+	w.step(1.0 / 60.0)
+	_check("torps: one in flight", w.torpedoes.size() == 1)
+	for _i in range(900):  # 15 sim-seconds, triple the old 5s fuse
+		w.step(1.0 / 60.0)
+	_check("torps: fly forever until they hit something (no fuse)",
+		w.torpedoes.size() == 1, "left=%d" % w.torpedoes.size())
 
 func _test_lethal_edges() -> void:
 	var s := GameSession.new()
