@@ -153,6 +153,7 @@ const LOCALES := [
 	["en", "English"],
 	["es", "Español"],
 	["fr", "Français"],
+	["zh_CN", "简体中文"],
 ]
 
 var _title_font: Font
@@ -177,6 +178,7 @@ func _get_title_font() -> Font:
 
 func _ready() -> void:
 	_apply_startup_locale()
+	_setup_font_fallbacks()
 	view = WorldView.new()
 	view.session = session
 	add_child(view)
@@ -1280,7 +1282,31 @@ func _locale_available(code: String) -> bool:
 ## languages by its language sub-tag; default to English when unmatched.
 func _best_locale() -> String:
 	var lang := OS.get_locale().split("_")[0].split("-")[0]
-	return lang if _locale_available(lang) else "en"
+	for pair in LOCALES:
+		if String(pair[0]) == OS.get_locale() or String(pair[0]).begins_with(lang):
+			return String(pair[0])
+	return "en"
+
+## Attach script-coverage fonts as per-glyph fallbacks on the default UI font,
+## so localized text outside the Latin range (CJK / Devanagari / Arabic) renders
+## instead of tofu. The base font is left untouched — Latin and every HUD symbol
+## look exactly as before; a Noto fallback is consulted only for glyphs the base
+## lacks. The subsets are tiny, built from the catalogs (see tools/build_fonts.sh).
+func _setup_font_fallbacks() -> void:
+	var base := ThemeDB.fallback_font
+	if not (base is FontFile):
+		return
+	var chain: Array[Font] = []
+	for path in [
+		"res://assets/fonts/NotoSansSC-subset.ttf",          # CJK (zh)
+		"res://assets/fonts/NotoSansDevanagari-subset.ttf",  # Devanagari (hi)
+		"res://assets/fonts/NotoSansArabic-subset.ttf",      # Arabic (ar)
+	]:
+		if ResourceLoader.exists(path):
+			var f: Font = load(path)
+			if f != null:
+				chain.append(f)
+	(base as FontFile).fallbacks = chain
 
 ## Live language switch from the OPTIONS selector. Static labels re-translate
 ## themselves on the locale-changed notification; the slider readouts hold

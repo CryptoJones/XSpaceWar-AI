@@ -1,0 +1,489 @@
+# XSpaceWar-AI — Simplified Chinese (zh_CN)
+# MACHINE-DRAFTED 2026-06-12 — flagged for native review (issue #5).
+# Pilot names stay Latin-whitelisted; the Orbitron wordmark stays untranslated.
+# CJK glyphs render via a subset of Noto Sans SC, attached as a fallback on the
+# default UI font (see tools/build_fonts.sh).
+msgid ""
+msgstr ""
+"Project-Id-Version: XSpaceWar-AI\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: zh_CN\n"
+"X-Review-Status: machine-draft\n"
+
+msgid "MATCH"
+msgstr "对战"
+
+msgid "MULTIPLAYER"
+msgstr "多人"
+
+msgid "OPTIONS"
+msgstr "选项"
+
+msgid "Mode"
+msgstr "模式"
+
+msgid "Free-for-all"
+msgstr "混战"
+
+msgid "Team battle"
+msgstr "团队战"
+
+msgid "AI difficulty"
+msgstr "AI 难度"
+
+msgid "Rookie"
+msgstr "新手"
+
+msgid "Veteran"
+msgstr "老兵"
+
+msgid "Ace"
+msgstr "王牌"
+
+msgid "Insane"
+msgstr "疯狂"
+
+msgid "Ships"
+msgstr "飞船数"
+
+msgid "1 (solo)"
+msgstr "1（单人）"
+
+msgid "Score limit"
+msgstr "分数上限"
+
+msgid "endless"
+msgstr "无限"
+
+msgid "Time limit"
+msgstr "时间限制"
+
+msgid "no clock"
+msgstr "无计时"
+
+msgid "%d min"
+msgstr "%d 分钟"
+
+msgid "Respawn"
+msgstr "重生"
+
+msgid "%d s"
+msgstr "%d 秒"
+
+msgid "Lives"
+msgstr "生命数"
+
+msgid "unlimited"
+msgstr "无限"
+
+msgid "Asteroids"
+msgstr "小行星"
+
+msgid "none"
+msgstr "无"
+
+msgid "%d%%"
+msgstr "%d%%"
+
+msgid "Star size"
+msgstr "恒星大小"
+
+msgid "%d (classic)"
+msgstr "%d（经典）"
+
+msgid "Planets"
+msgstr "行星"
+
+msgid "Map size"
+msgstr "地图大小"
+
+msgid "%d u"
+msgstr "%d 单位"
+
+msgid "Boundary"
+msgstr "边界"
+
+msgid "Lethal map edge"
+msgstr "致命地图边缘"
+
+msgid "Off: the map wraps around · On: the border destroys ships"
+msgstr "关闭：地图循环环绕 · 开启：边界摧毁飞船"
+
+msgid "WATCH — Movie Mode"
+msgstr "观看 — 电影模式"
+
+msgid "Pilot name"
+msgstr "飞行员名称"
+
+msgid "shown on every scoreboard"
+msgstr "显示在每个记分板上"
+
+msgid "HOST — LAN skirmish"
+msgstr "主持 — 局域网对战"
+
+msgid "host ip (or ip:port)"
+msgstr "主机 IP（或 ip:端口）"
+
+msgid "Game port defaults to UDP 24642"
+msgstr "游戏端口默认为 UDP 24642"
+
+msgid "JOIN IP"
+msgstr "加入 IP"
+
+msgid "Spectate"
+msgstr "观战"
+
+msgid "Join without taking a ship — the action camera directs"
+msgstr "加入但不占用飞船 — 由动作镜头导演"
+
+msgid "relay address (ip[:port])"
+msgstr "中继地址（ip[:端口]）"
+
+msgid "Relay port defaults to UDP 24645"
+msgstr "中继端口默认为 UDP 24645"
+
+msgid "HOST ONLINE"
+msgstr "在线主持"
+
+msgid "BROWSE"
+msgstr "浏览"
+
+msgid "room code"
+msgstr "房间代码"
+
+msgid "JOIN CODE"
+msgstr "加入代码"
+
+msgid "Servers — LAN auto-discovered + online via BROWSE (double-click to join):"
+msgstr "服务器 — 局域网自动发现 + 通过浏览在线查找（双击加入）："
+
+msgid "Volume"
+msgstr "音量"
+
+msgid "Nebula"
+msgstr "星云"
+
+msgid "Colored nebula wisps (0 = pure black space)"
+msgstr "彩色星云丝（0 = 纯黑太空）"
+
+msgid "Stars"
+msgstr "星星"
+
+msgid "Background star brightness"
+msgstr "背景星星亮度"
+
+msgid "Music"
+msgstr "音乐"
+
+msgid "Fullscreen"
+msgstr "全屏"
+
+msgid "Far stars"
+msgstr "远处星星"
+
+msgid "Extra layer of large, slow distant stars"
+msgstr "额外一层又大又慢的远处星星"
+
+msgid "Record matches"
+msgstr "录制对战"
+
+msgid "Save input recordings (tiny files; bit-exact playback)"
+msgstr "保存输入录像（文件极小；逐位精确回放）"
+
+msgid "Language"
+msgstr "语言"
+
+msgid "REPLAYS…"
+msgstr "回放…"
+
+msgid "MATCH HISTORY…"
+msgstr "对战历史…"
+
+msgid "QUIT"
+msgstr "退出"
+
+msgid "CREDITS"
+msgstr "制作人员"
+
+msgid "KEY BINDINGS"
+msgstr "按键设置"
+
+msgid "PLAY — Skirmish vs AI"
+msgstr "开始 — 对战 AI"
+
+msgid "a networked space-fighter, est. 1962"
+msgstr "一款联网太空格斗游戏，始于 1962"
+
+msgid "a networked space-fighter, est. 1962  ·  v%s"
+msgstr "一款联网太空格斗游戏，始于 1962  ·  v%s"
+
+msgid "PRESS SPACE BAR TO CONTINUE"
+msgstr "按空格键继续"
+
+msgid "KEYBOARD"
+msgstr "键盘"
+
+msgid "GAMEPAD"
+msgstr "手柄"
+
+msgid "turn"
+msgstr "转向"
+
+msgid "thrust"
+msgstr "推进"
+
+msgid "fire torpedo"
+msgstr "发射鱼雷"
+
+msgid "drop mine"
+msgstr "布设水雷"
+
+msgid "hyperspace"
+msgstr "超空间"
+
+msgid "toggle minimap"
+msgstr "切换小地图"
+
+msgid "menu"
+msgstr "菜单"
+
+msgid "SPACE to skip"
+msgstr "空格跳过"
+
+msgid "Turn left"
+msgstr "向左转"
+
+msgid "Turn right"
+msgstr "向右转"
+
+msgid "Thrust"
+msgstr "推进"
+
+msgid "Fire torpedo"
+msgstr "发射鱼雷"
+
+msgid "Drop mine"
+msgstr "布设水雷"
+
+msgid "Hyperspace"
+msgstr "超空间"
+
+msgid "Toggle minimap"
+msgstr "切换小地图"
+
+msgid "Toggle kill feed"
+msgstr "切换击杀信息"
+
+msgid "Toggle scoreboard"
+msgstr "切换记分板"
+
+msgid "REBIND"
+msgstr "重新绑定"
+
+msgid "DONE"
+msgstr "完成"
+
+msgid "Arrows / Enter always work as alternates."
+msgstr "方向键 / 回车始终可用作备用键。"
+
+msgid "Press a key for %s… (ESC cancels)"
+msgstr "为 %s 按一个键…（ESC 取消）"
+
+msgid "That key is reserved (camera/debug) — pick another."
+msgstr "该键已保留（镜头/调试）— 请另选一个。"
+
+msgid "Already bound to '%s' — pick another (ESC cancels)."
+msgstr "已绑定到 '%s' — 请另选一个（ESC 取消）。"
+
+msgid "Career:  %d matches  ·  %d wins  ·  %d kills / %d deaths"
+msgstr "生涯：  %d 场对战  ·  %d 胜  ·  %d 击杀 / %d 死亡"
+
+msgid "BACK"
+msgstr "返回"
+
+msgid "(no finished matches yet — set a score or time limit and play)"
+msgstr "（还没有已完成的对战 — 设置分数或时间上限后开始游戏）"
+
+msgid "REPLAYS"
+msgstr "回放"
+
+msgid "DELETE"
+msgstr "删除"
+
+msgid "WATCH"
+msgstr "观看"
+
+msgid "(no replays yet — enable 'Record matches' and play)"
+msgstr "（还没有回放 — 启用「录制对战」后开始游戏）"
+
+msgid "⚠ BOUNDARY  %d"
+msgstr "⚠ 边界  %d"
+
+msgid "RESPAWNING IN %d"
+msgstr "%d 秒后重生"
+
+msgid "ELIMINATED  ·  TAB follows the next pilot"
+msgstr "已淘汰  ·  TAB 跟随下一位飞行员"
+
+msgid "TAB follows a pilot"
+msgstr "TAB 跟随某位飞行员"
+
+msgid "FINAL STANDINGS"
+msgstr "最终排名"
+
+msgid "TEAM %d"
+msgstr "队伍 %d"
+
+msgid "TEAM %d  —  %d"
+msgstr "队伍 %d  —  %d"
+
+msgid "%d.  %s%s   %d   (%d kills / %d deaths)"
+msgstr "%d.  %s%s   %d   (%d 击杀 / %d 死亡)"
+
+msgid "★ %s WIN%s ★ — next round in %d"
+msgstr "★ %s 获胜%s ★ — %d 秒后开始下一局"
+
+msgid "MOVIE MODE — arena %d — next regeneration in %02d:%02d"
+msgstr "电影模式 — 竞技场 %d — %02d:%02d 后重新生成"
+
+msgid "TEAM BATTLE"
+msgstr "团队战"
+
+msgid "FREE-FOR-ALL"
+msgstr "混战"
+
+msgid "SPECTATING — "
+msgstr "观战中 — "
+
+msgid "  ·  following "
+msgstr "  ·  正在跟随 "
+
+msgid "SCORE  K  D"
+msgstr "分数  击  死"
+
+msgid "Team %d: %d"
+msgstr "队伍 %d：%d"
+
+msgid "FUEL"
+msgstr "燃料"
+
+msgid "AMMO"
+msgstr "弹药"
+
+msgid "MINE"
+msgstr "水雷"
+
+msgid "LOW"
+msgstr "低"
+
+msgid "Replay finished."
+msgstr "回放结束。"
+
+msgid "Disconnected: %s"
+msgstr "已断开连接：%s"
+
+msgid "Hosting online — room code: %s"
+msgstr "正在在线主持 — 房间代码：%s"
+
+msgid "Relay link lost — clients can no longer reach this game."
+msgstr "中继连接已断开 — 客户端无法再连接到本游戏。"
+
+msgid "Browse failed: %s"
+msgstr "浏览失败：%s"
+
+msgid "No online games right now."
+msgstr "目前没有在线游戏。"
+
+msgid "Host failed (error %d) — UDP %d-%d all busy."
+msgstr "主持失败（错误 %d）— UDP %d-%d 全部占用。"
+
+msgid "Hosting LAN on UDP %d%s — players on your network see you automatically."
+msgstr "正在 UDP %d%s 上主持局域网 — 你网络中的玩家会自动看到你。"
+
+msgid " (default was busy)"
+msgstr "（默认端口被占用）"
+
+msgid "Enter a host IP first."
+msgstr "请先输入主机 IP。"
+
+msgid "Join failed (error %d)."
+msgstr "加入失败（错误 %d）。"
+
+msgid "Enter a relay address first (or set XSW_RELAY)."
+msgstr "请先输入中继地址（或设置 XSW_RELAY）。"
+
+msgid "Relay host failed (error %d)."
+msgstr "中继主持失败（错误 %d）。"
+
+msgid "Registering with relay…"
+msgstr "正在向中继注册…"
+
+msgid "Could not reach the relay."
+msgstr "无法连接到中继。"
+
+msgid "Browsing online games…"
+msgstr "正在浏览在线游戏…"
+
+msgid "Room codes are %d characters."
+msgstr "房间代码为 %d 个字符。"
+
+msgid "Relay join failed (error %d)."
+msgstr "中继加入失败（错误 %d）。"
+
+msgid "Camera: action director"
+msgstr "镜头：动作导演"
+
+msgid "Camera: following %s (TAB cycles)"
+msgstr "镜头：正在跟随 %s（TAB 切换）"
+
+msgid "Replay saved (%.0fs): %s"
+msgstr "回放已保存（%.0f 秒）：%s"
+
+msgid "Could not read %s."
+msgstr "无法读取 %s。"
+
+msgid "Replaying %s — P pause, F speed, ◄/► seek 10s, ESC menu"
+msgstr "正在回放 %s — P 暂停，F 速度，◄/► 快进退 10 秒，ESC 菜单"
+
+msgid "Replay is out of sync with this game version."
+msgstr "回放与当前游戏版本不同步。"
+
+msgid "searching LAN…"
+msgstr "正在搜索局域网…"
+
+msgid "LAN discovery unavailable"
+msgstr "局域网发现不可用"
+
+msgid "(%s — BROWSE checks the relay)"
+msgstr "(%s — 浏览会查询中继)"
+
+msgid "PLAYERS"
+msgstr "玩家"
+
+msgid "MANAGE PLAYERS"
+msgstr "管理玩家"
+
+msgid "KICK"
+msgstr "踢出"
+
+msgid "BAN"
+msgstr "封禁"
+
+msgid "Kick and block this callsign (and address, on LAN) from rejoining"
+msgstr "踢出并阻止该呼号（以及在局域网下的地址）重新加入"
+
+msgid "(no players connected — bots hold every slot)"
+msgstr "（没有玩家连接 — 机器人占据每个位置）"
+
+msgid "%d connected · %d banned · %d flagged"
+msgstr "%d 已连接 · %d 已封禁 · %d 已标记"
+
+msgid "Aim looks human — nothing flagged."
+msgstr "瞄准看起来像人类 — 没有标记任何项。"
+
+msgid "Kicked %s."
+msgstr "已踢出 %s。"
+
+msgid "Banned %s."
+msgstr "已封禁 %s。"

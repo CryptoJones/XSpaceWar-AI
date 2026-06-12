@@ -5,6 +5,16 @@ All notable changes to **XSpaceWar-AI**.
 ## [Unreleased]
 
 ### Added
+- **Non-Latin localization — Simplified Chinese (zh_CN), with font fallbacks.**
+  (issue #5, building on the #3 wiring) The default UI font now carries
+  per-glyph **fallback fonts** (Noto Sans subsets) so scripts outside Latin
+  render instead of tofu — attached to the *existing* default font, so Latin
+  text and every HUD symbol are pixel-identical to before; the fallback is
+  consulted only for glyphs the base lacks. Simplified Chinese ships first: a
+  full 159-string catalog (machine-drafted, flagged for native review) and an
+  **83 KB** Noto Sans SC subset (318 glyphs — the full font is ~10 MB).
+  `tools/build_fonts.py` regenerates the subsets from the catalogs. The i18n
+  test now covers zh_CN too. Hindi + Arabic (with the RTL pass) follow.
 - **SteamPipe build-delivery scaffolding** (issue #2) — `steam/` SteamPipe
   scripts (`app_build.vdf` + per-platform depot vdfs) and a gated
   `steam-deploy` workflow that, on a published release, fetches the exact
