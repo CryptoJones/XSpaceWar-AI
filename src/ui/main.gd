@@ -155,6 +155,7 @@ const LOCALES := [
 	["fr", "Français"],
 	["zh_CN", "简体中文"],
 	["ar", "العربية"],
+	["hi", "हिन्दी"],
 ]
 
 var _title_font: Font

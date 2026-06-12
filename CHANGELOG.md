@@ -2,15 +2,16 @@
 
 All notable changes to **XSpaceWar-AI**.
 
-## [Unreleased]
+## [1.13.0] — 2026-06-12
 
 ### Added
-- **Non-Latin localization — Simplified Chinese + Arabic (with RTL), font
-  fallbacks.** (issue #5, building on the #3 wiring) The default UI font now
-  carries per-glyph **fallback fonts** (Noto Sans subsets) so scripts outside
-  Latin render instead of tofu — attached to the *existing* default font, so
-  Latin text and every HUD symbol are pixel-identical to before; the fallback
-  is consulted only for glyphs the base lacks.
+- **Non-Latin localization — Chinese, Arabic (RTL), and Hindi (issue #5
+  complete).** Building on the #3 wiring, the default UI font now carries
+  per-glyph **fallback fonts** (Noto Sans subsets) so scripts outside Latin
+  render instead of tofu — attached to the *existing* default font, so Latin
+  text and every HUD symbol are pixel-identical to before; a fallback is
+  consulted only for glyphs the base lacks. With the Spanish + French catalogs
+  from #3, the game now ships **seven UI languages**.
   - **Simplified Chinese (zh_CN)** — full 159-string catalog + an **83 KB**
     Noto Sans SC subset (318 glyphs; full font ~10 MB).
   - **Arabic (ar)** — full catalog + a **16 KB** Noto Sans Arabic subset.
@@ -19,9 +20,13 @@ All notable changes to **XSpaceWar-AI**.
     hand — scoreboard → top-left, kill feed → top-right, radar → bottom-right,
     watcher hint → bottom-left; centered/graphical elements (bars, off-screen
     arrows) stay put. Mirroring switches live with the language.
-  - Both machine-drafted, flagged for native review. `tools/build_fonts.py`
-    regenerates the subsets from the catalogs; the i18n test covers both
-    locales (now 31 checks). Hindi is the remaining language.
+  - **Hindi (hi)** — full catalog + a **115 KB** Noto Sans Devanagari subset
+    (conjunct shaping via TextServer).
+  - All machine-drafted, flagged for native review. `tools/build_fonts.py`
+    regenerates the subsets from the catalogs; the i18n test covers every
+    locale (now 38 checks: completeness + printf-specifier integrity per
+    catalog). Known nit: composed strings like the menu subtitle re-translate
+    on boot-in-locale, not on a live in-session language switch.
 - **SteamPipe build-delivery scaffolding** (issue #2) — `steam/` SteamPipe
   scripts (`app_build.vdf` + per-platform depot vdfs) and a gated
   `steam-deploy` workflow that, on a published release, fetches the exact

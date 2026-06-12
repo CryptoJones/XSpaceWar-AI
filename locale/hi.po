@@ -1,0 +1,489 @@
+# XSpaceWar-AI — Hindi (hi)
+# MACHINE-DRAFTED 2026-06-12 — flagged for native review (issue #5).
+# Devanagari. Pilot names stay Latin-whitelisted; the Orbitron wordmark stays
+# untranslated. Conjunct shaping is handled by Godot's TextServer through a
+# subset of Noto Sans Devanagari (see tools/build_fonts.py).
+msgid ""
+msgstr ""
+"Project-Id-Version: XSpaceWar-AI\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: hi\n"
+"X-Review-Status: machine-draft\n"
+
+msgid "MATCH"
+msgstr "मैच"
+
+msgid "MULTIPLAYER"
+msgstr "मल्टीप्लेयर"
+
+msgid "OPTIONS"
+msgstr "विकल्प"
+
+msgid "Mode"
+msgstr "मोड"
+
+msgid "Free-for-all"
+msgstr "सबके खिलाफ सब"
+
+msgid "Team battle"
+msgstr "टीम युद्ध"
+
+msgid "AI difficulty"
+msgstr "AI कठिनाई"
+
+msgid "Rookie"
+msgstr "नौसिखिया"
+
+msgid "Veteran"
+msgstr "अनुभवी"
+
+msgid "Ace"
+msgstr "माहिर"
+
+msgid "Insane"
+msgstr "पागल"
+
+msgid "Ships"
+msgstr "जहाज"
+
+msgid "1 (solo)"
+msgstr "1 (अकेला)"
+
+msgid "Score limit"
+msgstr "स्कोर सीमा"
+
+msgid "endless"
+msgstr "अनंत"
+
+msgid "Time limit"
+msgstr "समय सीमा"
+
+msgid "no clock"
+msgstr "कोई घड़ी नहीं"
+
+msgid "%d min"
+msgstr "%d मिनट"
+
+msgid "Respawn"
+msgstr "पुनर्जन्म"
+
+msgid "%d s"
+msgstr "%d सेकंड"
+
+msgid "Lives"
+msgstr "जीवन"
+
+msgid "unlimited"
+msgstr "असीमित"
+
+msgid "Asteroids"
+msgstr "क्षुद्रग्रह"
+
+msgid "none"
+msgstr "कोई नहीं"
+
+msgid "%d%%"
+msgstr "%d%%"
+
+msgid "Star size"
+msgstr "तारे का आकार"
+
+msgid "%d (classic)"
+msgstr "%d (क्लासिक)"
+
+msgid "Planets"
+msgstr "ग्रह"
+
+msgid "Map size"
+msgstr "नक्शे का आकार"
+
+msgid "%d u"
+msgstr "%d इकाई"
+
+msgid "Boundary"
+msgstr "सीमा"
+
+msgid "Lethal map edge"
+msgstr "घातक नक्शा किनारा"
+
+msgid "Off: the map wraps around · On: the border destroys ships"
+msgstr "बंद: नक्शा चारों ओर लिपटता है · चालू: सीमा जहाजों को नष्ट करती है"
+
+msgid "WATCH — Movie Mode"
+msgstr "देखें — मूवी मोड"
+
+msgid "Pilot name"
+msgstr "पायलट का नाम"
+
+msgid "shown on every scoreboard"
+msgstr "हर स्कोरबोर्ड पर दिखता है"
+
+msgid "HOST — LAN skirmish"
+msgstr "होस्ट — LAN झड़प"
+
+msgid "host ip (or ip:port)"
+msgstr "होस्ट ip (या ip:पोर्ट)"
+
+msgid "Game port defaults to UDP 24642"
+msgstr "गेम पोर्ट डिफ़ॉल्ट रूप से UDP 24642 है"
+
+msgid "JOIN IP"
+msgstr "IP से जुड़ें"
+
+msgid "Spectate"
+msgstr "दर्शक"
+
+msgid "Join without taking a ship — the action camera directs"
+msgstr "बिना जहाज लिए जुड़ें — एक्शन कैमरा निर्देशन करता है"
+
+msgid "relay address (ip[:port])"
+msgstr "रिले पता (ip[:पोर्ट])"
+
+msgid "Relay port defaults to UDP 24645"
+msgstr "रिले पोर्ट डिफ़ॉल्ट रूप से UDP 24645 है"
+
+msgid "HOST ONLINE"
+msgstr "ऑनलाइन होस्ट करें"
+
+msgid "BROWSE"
+msgstr "ब्राउज़ करें"
+
+msgid "room code"
+msgstr "रूम कोड"
+
+msgid "JOIN CODE"
+msgstr "कोड से जुड़ें"
+
+msgid "Servers — LAN auto-discovered + online via BROWSE (double-click to join):"
+msgstr "सर्वर — LAN स्वतः खोजे गए + ब्राउज़ के ज़रिए ऑनलाइन (जुड़ने के लिए डबल-क्लिक करें):"
+
+msgid "Volume"
+msgstr "आवाज़"
+
+msgid "Nebula"
+msgstr "नीहारिका"
+
+msgid "Colored nebula wisps (0 = pure black space)"
+msgstr "रंगीन नीहारिका लटें (0 = शुद्ध काला अंतरिक्ष)"
+
+msgid "Stars"
+msgstr "तारे"
+
+msgid "Background star brightness"
+msgstr "पृष्ठभूमि तारों की चमक"
+
+msgid "Music"
+msgstr "संगीत"
+
+msgid "Fullscreen"
+msgstr "पूर्ण स्क्रीन"
+
+msgid "Far stars"
+msgstr "दूर के तारे"
+
+msgid "Extra layer of large, slow distant stars"
+msgstr "बड़े, धीमे दूर के तारों की अतिरिक्त परत"
+
+msgid "Record matches"
+msgstr "मैच रिकॉर्ड करें"
+
+msgid "Save input recordings (tiny files; bit-exact playback)"
+msgstr "इनपुट रिकॉर्डिंग सहेजें (बहुत छोटी फ़ाइलें; बिट-सटीक प्लेबैक)"
+
+msgid "Language"
+msgstr "भाषा"
+
+msgid "REPLAYS…"
+msgstr "रीप्ले…"
+
+msgid "MATCH HISTORY…"
+msgstr "मैच इतिहास…"
+
+msgid "QUIT"
+msgstr "बाहर निकलें"
+
+msgid "CREDITS"
+msgstr "श्रेय"
+
+msgid "KEY BINDINGS"
+msgstr "कुंजी सेटिंग"
+
+msgid "PLAY — Skirmish vs AI"
+msgstr "खेलें — AI के विरुद्ध झड़प"
+
+msgid "a networked space-fighter, est. 1962"
+msgstr "एक नेटवर्क वाला अंतरिक्ष-लड़ाकू, स्थापित 1962"
+
+msgid "a networked space-fighter, est. 1962  ·  v%s"
+msgstr "एक नेटवर्क वाला अंतरिक्ष-लड़ाकू, स्थापित 1962  ·  v%s"
+
+msgid "PRESS SPACE BAR TO CONTINUE"
+msgstr "जारी रखने के लिए स्पेस बार दबाएँ"
+
+msgid "KEYBOARD"
+msgstr "कीबोर्ड"
+
+msgid "GAMEPAD"
+msgstr "गेमपैड"
+
+msgid "turn"
+msgstr "मुड़ें"
+
+msgid "thrust"
+msgstr "ज़ोर"
+
+msgid "fire torpedo"
+msgstr "टॉरपीडो दागें"
+
+msgid "drop mine"
+msgstr "माइन गिराएँ"
+
+msgid "hyperspace"
+msgstr "हाइपरस्पेस"
+
+msgid "toggle minimap"
+msgstr "मिनिमैप टॉगल करें"
+
+msgid "menu"
+msgstr "मेन्यू"
+
+msgid "SPACE to skip"
+msgstr "छोड़ने के लिए स्पेस"
+
+msgid "Turn left"
+msgstr "बाएँ मुड़ें"
+
+msgid "Turn right"
+msgstr "दाएँ मुड़ें"
+
+msgid "Thrust"
+msgstr "ज़ोर"
+
+msgid "Fire torpedo"
+msgstr "टॉरपीडो दागें"
+
+msgid "Drop mine"
+msgstr "माइन गिराएँ"
+
+msgid "Hyperspace"
+msgstr "हाइपरस्पेस"
+
+msgid "Toggle minimap"
+msgstr "मिनिमैप टॉगल करें"
+
+msgid "Toggle kill feed"
+msgstr "किल फ़ीड टॉगल करें"
+
+msgid "Toggle scoreboard"
+msgstr "स्कोरबोर्ड टॉगल करें"
+
+msgid "REBIND"
+msgstr "पुनः सेट करें"
+
+msgid "DONE"
+msgstr "हो गया"
+
+msgid "Arrows / Enter always work as alternates."
+msgstr "तीर / Enter हमेशा विकल्प के रूप में काम करते हैं।"
+
+msgid "Press a key for %s… (ESC cancels)"
+msgstr "%s के लिए एक कुंजी दबाएँ… (ESC रद्द करता है)"
+
+msgid "That key is reserved (camera/debug) — pick another."
+msgstr "वह कुंजी आरक्षित है (कैमरा/डिबग) — दूसरी चुनें।"
+
+msgid "Already bound to '%s' — pick another (ESC cancels)."
+msgstr "पहले से '%s' से बँधी है — दूसरी चुनें (ESC रद्द करता है)।"
+
+msgid "Career:  %d matches  ·  %d wins  ·  %d kills / %d deaths"
+msgstr "करियर:  %d मैच  ·  %d जीत  ·  %d किल / %d मौतें"
+
+msgid "BACK"
+msgstr "वापस"
+
+msgid "(no finished matches yet — set a score or time limit and play)"
+msgstr "(अभी तक कोई समाप्त मैच नहीं — स्कोर या समय सीमा तय करें और खेलें)"
+
+msgid "REPLAYS"
+msgstr "रीप्ले"
+
+msgid "DELETE"
+msgstr "हटाएँ"
+
+msgid "WATCH"
+msgstr "देखें"
+
+msgid "(no replays yet — enable 'Record matches' and play)"
+msgstr "(अभी तक कोई रीप्ले नहीं — 'मैच रिकॉर्ड करें' सक्षम करें और खेलें)"
+
+msgid "⚠ BOUNDARY  %d"
+msgstr "⚠ सीमा  %d"
+
+msgid "RESPAWNING IN %d"
+msgstr "%d में पुनर्जन्म"
+
+msgid "ELIMINATED  ·  TAB follows the next pilot"
+msgstr "समाप्त  ·  TAB अगले पायलट का अनुसरण करता है"
+
+msgid "TAB follows a pilot"
+msgstr "TAB एक पायलट का अनुसरण करता है"
+
+msgid "FINAL STANDINGS"
+msgstr "अंतिम स्थिति"
+
+msgid "TEAM %d"
+msgstr "टीम %d"
+
+msgid "TEAM %d  —  %d"
+msgstr "टीम %d  —  %d"
+
+msgid "%d.  %s%s   %d   (%d kills / %d deaths)"
+msgstr "%d.  %s%s   %d   (%d किल / %d मौतें)"
+
+msgid "★ %s WIN%s ★ — next round in %d"
+msgstr "★ %s जीत%s ★ — अगला राउंड %d में"
+
+msgid "MOVIE MODE — arena %d — next regeneration in %02d:%02d"
+msgstr "मूवी मोड — अखाड़ा %d — अगला पुनर्जनन %02d:%02d में"
+
+msgid "TEAM BATTLE"
+msgstr "टीम युद्ध"
+
+msgid "FREE-FOR-ALL"
+msgstr "सबके खिलाफ सब"
+
+msgid "SPECTATING — "
+msgstr "देख रहे हैं — "
+
+msgid "  ·  following "
+msgstr "  ·  अनुसरण कर रहे "
+
+msgid "SCORE  K  D"
+msgstr "स्कोर  कि  मौ"
+
+msgid "Team %d: %d"
+msgstr "टीम %d: %d"
+
+msgid "FUEL"
+msgstr "ईंधन"
+
+msgid "AMMO"
+msgstr "बारूद"
+
+msgid "MINE"
+msgstr "माइन"
+
+msgid "LOW"
+msgstr "कम"
+
+msgid "Replay finished."
+msgstr "रीप्ले समाप्त।"
+
+msgid "Disconnected: %s"
+msgstr "डिस्कनेक्ट हो गया: %s"
+
+msgid "Hosting online — room code: %s"
+msgstr "ऑनलाइन होस्टिंग — रूम कोड: %s"
+
+msgid "Relay link lost — clients can no longer reach this game."
+msgstr "रिले लिंक टूट गया — क्लाइंट अब इस गेम तक नहीं पहुँच सकते।"
+
+msgid "Browse failed: %s"
+msgstr "ब्राउज़ विफल: %s"
+
+msgid "No online games right now."
+msgstr "अभी कोई ऑनलाइन गेम नहीं है।"
+
+msgid "Host failed (error %d) — UDP %d-%d all busy."
+msgstr "होस्टिंग विफल (त्रुटि %d) — UDP %d-%d सभी व्यस्त।"
+
+msgid "Hosting LAN on UDP %d%s — players on your network see you automatically."
+msgstr "UDP %d%s पर LAN होस्टिंग — आपके नेटवर्क के खिलाड़ी आपको स्वतः देखते हैं।"
+
+msgid " (default was busy)"
+msgstr " (डिफ़ॉल्ट व्यस्त था)"
+
+msgid "Enter a host IP first."
+msgstr "पहले एक होस्ट IP दर्ज करें।"
+
+msgid "Join failed (error %d)."
+msgstr "जुड़ना विफल (त्रुटि %d)।"
+
+msgid "Enter a relay address first (or set XSW_RELAY)."
+msgstr "पहले एक रिले पता दर्ज करें (या XSW_RELAY सेट करें)।"
+
+msgid "Relay host failed (error %d)."
+msgstr "रिले होस्टिंग विफल (त्रुटि %d)।"
+
+msgid "Registering with relay…"
+msgstr "रिले के साथ पंजीकरण हो रहा है…"
+
+msgid "Could not reach the relay."
+msgstr "रिले तक नहीं पहुँच सके।"
+
+msgid "Browsing online games…"
+msgstr "ऑनलाइन गेम ब्राउज़ हो रहे हैं…"
+
+msgid "Room codes are %d characters."
+msgstr "रूम कोड %d वर्ण के होते हैं।"
+
+msgid "Relay join failed (error %d)."
+msgstr "रिले से जुड़ना विफल (त्रुटि %d)।"
+
+msgid "Camera: action director"
+msgstr "कैमरा: एक्शन निर्देशक"
+
+msgid "Camera: following %s (TAB cycles)"
+msgstr "कैमरा: %s का अनुसरण (TAB बदलता है)"
+
+msgid "Replay saved (%.0fs): %s"
+msgstr "रीप्ले सहेजा गया (%.0f से): %s"
+
+msgid "Could not read %s."
+msgstr "%s पढ़ नहीं सके।"
+
+msgid "Replaying %s — P pause, F speed, ◄/► seek 10s, ESC menu"
+msgstr "%s रीप्ले हो रहा — P रोकें, F गति, ◄/► 10से आगे-पीछे, ESC मेन्यू"
+
+msgid "Replay is out of sync with this game version."
+msgstr "रीप्ले इस गेम संस्करण के साथ समकालिक नहीं है।"
+
+msgid "searching LAN…"
+msgstr "LAN खोज रहे हैं…"
+
+msgid "LAN discovery unavailable"
+msgstr "LAN खोज अनुपलब्ध"
+
+msgid "(%s — BROWSE checks the relay)"
+msgstr "(%s — ब्राउज़ रिले जाँचता है)"
+
+msgid "PLAYERS"
+msgstr "खिलाड़ी"
+
+msgid "MANAGE PLAYERS"
+msgstr "खिलाड़ी प्रबंधन"
+
+msgid "KICK"
+msgstr "निकालें"
+
+msgid "BAN"
+msgstr "प्रतिबंध"
+
+msgid "Kick and block this callsign (and address, on LAN) from rejoining"
+msgstr "इस कॉलसाइन (और LAN पर पते) को फिर से जुड़ने से निकालें और रोकें"
+
+msgid "(no players connected — bots hold every slot)"
+msgstr "(कोई खिलाड़ी जुड़ा नहीं — बॉट हर स्लॉट रखते हैं)"
+
+msgid "%d connected · %d banned · %d flagged"
+msgstr "%d जुड़े · %d प्रतिबंधित · %d चिह्नित"
+
+msgid "Aim looks human — nothing flagged."
+msgstr "निशाना मानव जैसा लगता है — कुछ भी चिह्नित नहीं।"
+
+msgid "Kicked %s."
+msgstr "%s को निकाला।"
+
+msgid "Banned %s."
+msgstr "%s को प्रतिबंधित किया।"
