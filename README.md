@@ -22,7 +22,6 @@ Built with **Godot 4** for **Windows, Linux, and macOS**. Licensed under
 - 🌐 **Website:** <https://cryptojones.github.io/XSpaceWar-AI/>
 - ⬇️ **Download — Windows · macOS · Linux:** [GitHub Releases](https://github.com/CryptoJones/XSpaceWar-AI/releases/latest)
 - 🎮 **itch.io:** <https://cryptojones.itch.io/xspacewar-ai>
-- 📦 **Flathub:** [submission in review](https://github.com/flathub/flathub/pull/8967) — coming soon
 - 🎟️ **Steam:** coming soon
 
 > **macOS:** the build is ad-hoc signed but not notarized — if Gatekeeper says it's "damaged", see [Running on macOS](#running-on-macos).
