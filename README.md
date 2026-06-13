@@ -235,6 +235,17 @@ last name): **Roger Bergling**, **Kevin Christiansen (PE)**, **Brad Cramer**,
 To **John Van Lowe (JVL)**, for all the nights gaming in 90s-era Dickinson, Texas.
 HTMFPWGCBNOTDOD!
 
+## Running on macOS
+
+The macOS build is **ad-hoc signed but not notarized** (no paid Apple Developer ID yet),
+so on first launch macOS Gatekeeper may warn that **"XSpaceWar-AI is damaged and can't be
+opened."** It is **not** damaged — that's just Gatekeeper blocking an un-notarized download.
+Open it any one of these ways:
+
+- **Right-click** the app → **Open** → **Open** (only needed once), or
+- In Terminal: `xattr -dr com.apple.quarantine /path/to/XSpaceWar-AI.app`, or
+- System Settings → **Privacy & Security** → **Open Anyway** (after the first blocked attempt).
+
 ## Mirrors
 
 - GitHub: https://github.com/CryptoJones/XSpaceWar-AI

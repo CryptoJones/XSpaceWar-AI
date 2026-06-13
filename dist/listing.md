@@ -44,6 +44,13 @@ Frederick's 1992 X11 `xspacewar 1.2`. An original clean-room implementation — 
 - **Graphics:** GPU with Vulkan or current OpenGL; HDR glow needs a real GPU.
 - **Disk:** ~100 MB. **Network:** required only for online multiplayer.
 
+## Opening on macOS
+The macOS build is ad-hoc signed but not notarized, so on first launch Gatekeeper may say
+*"XSpaceWar-AI is damaged and can't be opened."* It isn't — that's just macOS blocking an
+un-notarized download. Open it via **right-click → Open → Open**, or run
+`xattr -dr com.apple.quarantine /path/to/XSpaceWar-AI.app` in Terminal, or use
+System Settings → Privacy & Security → **Open Anyway**.
+
 ## Tags / keywords
 space · shoot-em-up · multiplayer · arcade · physics · retro · spacewar · open-source ·
 local-multiplayer · online-multiplayer · AI · indie · science-fiction · arena
