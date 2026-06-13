@@ -140,3 +140,11 @@ jobs:
         with:
           files: dist/*.zip
           generate_release_notes: true
+          append_body: true
+          body: |
+            ### Opening on macOS
+            The macOS build is ad-hoc signed but not notarized, so on first launch Gatekeeper
+            may say **"XSpaceWar-AI is damaged and can't be opened."** It is **not** damaged —
+            right-click the app → **Open** → **Open**, or run
+            `xattr -dr com.apple.quarantine /path/to/XSpaceWar-AI.app`, or use
+            System Settings → **Privacy & Security** → **Open Anyway**.
