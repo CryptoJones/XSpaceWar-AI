@@ -325,16 +325,23 @@ func _update_feed(dt: float) -> void:
 					_push_feed("%s  ▸☠  %s" % [_ship_bb(killer), _ship_bb(victim)], mine)
 				"explosion":
 					var ship := int(ev["ship"])
-					var mine := ship == session.human_ship_id
+					var is_mine := ship == session.human_ship_id
+					var self_kill := int(ev.get("killer", -1)) < 0
 					match String(ev.get("cause", "")):
 						"body":
-							_push_feed("%s  ✕  crashed" % _ship_bb(ship), mine)
+							_push_feed("%s  ✕  crashed" % _ship_bb(ship), is_mine)
 						"ram":
-							_push_feed("%s  ✕  collision" % _ship_bb(ship), mine)
+							_push_feed("%s  ✕  collision" % _ship_bb(ship), is_mine)
 						"hyperspace":
-							_push_feed("%s  ✕  misjump" % _ship_bb(ship), mine)
+							_push_feed("%s  ✕  misjump" % _ship_bb(ship), is_mine)
 						"edge":
-							_push_feed("%s  ✕  hit the boundary" % _ship_bb(ship), mine)
+							_push_feed("%s  ✕  hit the boundary" % _ship_bb(ship), is_mine)
+						"mine":
+							if self_kill:
+								_push_feed("%s  ✕  own mine" % _ship_bb(ship), is_mine)
+						"torpedo":
+							if self_kill:
+								_push_feed("%s  ✕  own torpedo" % _ship_bb(ship), is_mine)
 	for e in _feed:
 		e["ttl"] = float(e["ttl"]) - dt
 	while not _feed.is_empty() and float(_feed[0]["ttl"]) <= 0.0:

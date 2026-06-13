@@ -592,7 +592,7 @@ func _destroy_ship(s: SimShip, killer_id: int, cause: String) -> void:
 	s.alive = false
 	s.deaths += 1
 	s.respawn_timer = config.respawn_time
-	events.append({"tk": tick, "type": "explosion", "ship": s.id, "pos": s.pos, "vel": s.vel, "cause": cause})
+	events.append({"tk": tick, "type": "explosion", "ship": s.id, "pos": s.pos, "vel": s.vel, "cause": cause, "killer": killer_id})
 	if killer_id >= 0 and killer_id != s.id:
 		var killer := ship_by_id(killer_id)
 		if killer != null:
