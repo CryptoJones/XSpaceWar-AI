@@ -131,36 +131,42 @@ func _apply_layout_direction() -> void:
 		return  # a translation-changed notification can arrive before _ready builds the HUD
 	var ts := TextServerManager.get_primary_interface()
 	_rtl = ts != null and ts.is_locale_right_to_left(TranslationServer.get_locale())
+	# Use offset_* directly instead of position so placement is always correct
+	# regardless of when the CanvasLayer resolves its viewport rect.  Setting
+	# .position on an anchored Control recomputes the offsets from the live
+	# parent size, which can place controls off-screen when anchors != (0,0).
 	if _rtl:
 		_score.set_anchors_preset(Control.PRESET_TOP_LEFT)
 		_score.grow_horizontal = Control.GROW_DIRECTION_END
-		_score.position = Vector2(16, 14)
+		_score.offset_left = 16; _score.offset_top = 14
 		_feed_label.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 		_feed_label.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-		_feed_label.position = Vector2(-16 - 360, 14)
+		_feed_label.offset_right = -16; _feed_label.offset_left = -16 - 360; _feed_label.offset_top = 14
 		_radar.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
 		_radar.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 		_radar.grow_vertical = Control.GROW_DIRECTION_BEGIN
-		_radar.position = Vector2(-16 - RADAR_SIZE, -16 - RADAR_SIZE)
+		_radar.offset_right = -16; _radar.offset_left = -16 - RADAR_SIZE
+		_radar.offset_bottom = -16; _radar.offset_top = -16 - RADAR_SIZE
 		_spec_hint.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
 		_spec_hint.grow_horizontal = Control.GROW_DIRECTION_END
 		_spec_hint.grow_vertical = Control.GROW_DIRECTION_BEGIN
-		_spec_hint.position = Vector2(16, -16)
+		_spec_hint.offset_left = 16; _spec_hint.offset_bottom = -16
 	else:
 		_score.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 		_score.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-		_score.position = Vector2(-16 - 320, 14)
+		_score.offset_right = -16; _score.offset_left = -16 - 320; _score.offset_top = 14
 		_feed_label.set_anchors_preset(Control.PRESET_TOP_LEFT)
 		_feed_label.grow_horizontal = Control.GROW_DIRECTION_END
-		_feed_label.position = Vector2(16, 14)
+		_feed_label.offset_left = 16; _feed_label.offset_top = 14
 		_radar.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
 		_radar.grow_horizontal = Control.GROW_DIRECTION_END
 		_radar.grow_vertical = Control.GROW_DIRECTION_BEGIN
-		_radar.position = Vector2(16, -16 - RADAR_SIZE)
+		_radar.offset_left = 16; _radar.offset_right = 16 + RADAR_SIZE
+		_radar.offset_bottom = -16; _radar.offset_top = -16 - RADAR_SIZE
 		_spec_hint.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
 		_spec_hint.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 		_spec_hint.grow_vertical = Control.GROW_DIRECTION_BEGIN
-		_spec_hint.position = Vector2(-16, -16)
+		_spec_hint.offset_right = -16; _spec_hint.offset_bottom = -16
 	_radar.size = Vector2(RADAR_SIZE, RADAR_SIZE)
 	_score.custom_minimum_size = Vector2(320, 0)
 

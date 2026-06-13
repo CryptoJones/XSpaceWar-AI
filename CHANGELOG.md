@@ -2,6 +2,20 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [2.1.4] — 2026-06-13
+
+### Fixed
+- **Minimap and scoreboard invisible or mispositioned on all platforms.**
+  The RTL-mirroring code added in v1.13.0 switched from hardcoded top-left
+  anchors to `set_anchors_preset` + `position` for the scoreboard and radar.
+  In Godot 4, setting `.position` on an anchored `Control` recomputes the
+  internal offsets from the current viewport size, placing controls off-screen:
+  the scoreboard landed at x = −336 (invisible left of screen) and the minimap
+  at y = −186 (clipped above screen, then rendered over the kill feed).
+  Fixed by setting `offset_left/right/top/bottom` directly on each element,
+  which places them relative to their anchor points independent of when the
+  `CanvasLayer` resolves its viewport rect.
+
 ## [2.1.3] — 2026-06-13
 
 ### Fixed
