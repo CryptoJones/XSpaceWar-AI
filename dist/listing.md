@@ -1,7 +1,7 @@
 # XSpaceWar-AI — canonical store listing copy
 
 Reused across every storefront (itch.io, GameJolt, IndieDB/ModDB, GOG, Microsoft Store,
-Snap metainfo, Internet Archive). Trim to each platform's character limits.
+Internet Archive). Trim to each platform's character limits.
 
 ## Title
 XSpaceWar-AI

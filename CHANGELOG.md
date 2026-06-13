@@ -31,7 +31,7 @@ All notable changes to **XSpaceWar-AI**.
 ### Changed
 - **First public multi-store launch build.** Functionally the same game as 1.14.0,
   versioned 2.0 as the single baseline build distributed across every storefront —
-  Steam, itch.io, Snap Store, AUR, Internet Archive, GameJolt, IndieDB/ModDB,
+  Steam, itch.io, AUR, Internet Archive, GameJolt, IndieDB/ModDB,
   and GOG. (Epic Games Store skipped — its ~$100/product self-publishing fee makes it
   non-free.)
 - Credits: removed the "Executive Producer" entry.
