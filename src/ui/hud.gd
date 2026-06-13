@@ -497,7 +497,7 @@ func _update_scoreboard() -> void:
 				team_bits.append("[color=%s]%s[/color]" % [tc, tr("Team %d: %d") % [int(k) + 1, totals[k]]])
 		lines.append("  ".join(team_bits))
 	for s in session.leaderboard():
-		var team_tag := "" if s.team < 0 else " [T%d]" % (s.team + 1)
+		var team_tag := "" if s.team < 0 else " [lb]T%d]" % (s.team + 1)
 		var dead := "" if s.alive else " †"
 		lines.append("%s%s  %d  %d/%d%s" % [_ship_bb(s.id), team_tag, s.score, s.kills, s.deaths, dead])
 	_score.text = "\n".join(lines) + "[/%s]" % align
