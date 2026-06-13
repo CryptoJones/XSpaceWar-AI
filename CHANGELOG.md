@@ -2,6 +2,12 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [2.0.1] — 2026-06-13
+
+### Changed
+- Credits: added **Henry Hannah** and **Kevin Christiansen (PE)** to the playtesters,
+  now sorted alphabetically by last name.
+
 ## [2.0.0] — 2026-06-13
 
 ### Changed
