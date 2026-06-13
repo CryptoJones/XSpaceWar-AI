@@ -235,9 +235,9 @@ most expensive pixel work in the game.
 ## Play Testers
 
 To our play testers, who flew the rough builds and filed the truth (alphabetical by
-last name): **Roger Bergling**, **Kevin Christiansen (PE)**, **Brad Cramer**,
+last name): **Roger Bergling**, **Al Bredthauer**, **Samuel Bredthauer**, **Kevin Christiansen (PE)**, **Brad Cramer**,
 **Claude Fable 5**, **Trevor Flurry**, **Henry Hannah**, **Patrick Hannah**,
-**Shannon (Learn) Koski**, **Beaux Onofrio**, **Nick Onofrio**,
+**Shannon (Learn) Koski**, **Beaux Onofrio**, **Nick Onofrio**, **Rob Orr**,
 **Adam Testagrossa**, **Nate Tiller**, **John Van Lowe**, and **Jeremy Zhao**.
 
 ## Dedication
