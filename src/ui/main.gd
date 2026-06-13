@@ -611,7 +611,7 @@ func _build_options_tab() -> Control:
 	_nebula_slider = HSlider.new()
 	_nebula_slider.min_value = 0
 	_nebula_slider.max_value = 100
-	_nebula_slider.value = 0
+	_nebula_slider.value = 100
 	_nebula_slider.tooltip_text = "Colored nebula wisps (0 = pure black space)"
 	_nebula_slider.value_changed.connect(func(_v: float): _apply_sky(); _save_settings())
 	_grid_row(grid, "Nebula", _nebula_slider)
@@ -619,7 +619,7 @@ func _build_options_tab() -> Control:
 	_stars_slider = HSlider.new()
 	_stars_slider.min_value = 0
 	_stars_slider.max_value = 100
-	_stars_slider.value = 50
+	_stars_slider.value = 9
 	_stars_slider.tooltip_text = "Background star brightness"
 	_stars_slider.value_changed.connect(func(_v: float): _apply_sky(); _save_settings())
 	_grid_row(grid, "Stars", _stars_slider)
@@ -1329,8 +1329,8 @@ func _load_settings() -> void:
 		var saved_name := String(cfg.get_value("net", "player_name", ""))
 		if saved_name != "":
 			_player_name = saved_name
-		_nebula_slider.set_value_no_signal(float(cfg.get_value("display", "nebula", 0.0)))
-		_stars_slider.set_value_no_signal(float(cfg.get_value("display", "stars", 50.0)))
+		_nebula_slider.set_value_no_signal(float(cfg.get_value("display", "nebula", 100.0)))
+		_stars_slider.set_value_no_signal(float(cfg.get_value("display", "stars", 9.0)))
 		_far_check.set_pressed_no_signal(bool(cfg.get_value("display", "far_stars", false)))
 		_record_check.set_pressed_no_signal(bool(cfg.get_value("replay", "record", false)))
 		_music_check.set_pressed_no_signal(bool(cfg.get_value("audio", "music", true)))
