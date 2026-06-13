@@ -93,7 +93,7 @@ const BINDABLE := [
 ## at a size that dwarfs the screen, everything else at cinema scale.
 ## Format: [text, font_size, tier] — tier 0 title / 1 header / 2 name / 3 dim.
 const CREDITS_LINES := [
-	["XSpaceWar-AI", 229, 0],
+	["XSpaceWar-AI", 195, 0],
 	["a 2026 reimagining", 41, 3],
 	["", 59, 3],
 	["— STANDING ON THE SHOULDERS OF —", 59, 1],

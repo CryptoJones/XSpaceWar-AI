@@ -2,6 +2,25 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [2.1.5] — 2026-06-13
+
+### Fixed
+- **Team mode: all ships landed on one team** after watching the attract/movie
+  loop. `num_teams` was never reset in `start_skirmish()`, so a prior movie-mode
+  FFA round (which sets `num_teams = 1`) bled into the next team skirmish,
+  making `i % 1 = 0` for every ship. Fixed by always setting `num_teams` at
+  skirmish start.
+
+### Changed
+- **Kill feed events linger twice as long** — TTL raised from 6 s to 12 s.
+- **Events that involve your ship render at double font size** in the kill feed
+  so they stand out at a glance.
+- **Splash screen (post-credits controls reference) scaled to 50%** — the panel,
+  title, controls grid, and "PRESS SPACE BAR" prompt were all oversized on
+  1080p displays.
+- **Credits rolling title reduced to 85%** (229 pt → 195 pt).
+- AI credit updated: "Claude Fable 5" → "Fable5/Opus4.8".
+
 ## [2.1.4] — 2026-06-13
 
 ### Fixed
