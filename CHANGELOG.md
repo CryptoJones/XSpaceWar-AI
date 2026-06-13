@@ -2,6 +2,15 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [2.1.1] — 2026-06-13
+
+### Changed
+- Credits: added playtesters **Roger Bergling**, **Brad Cramer**, and **John Van Lowe**;
+  labeled the header **PLAY TESTERS (ALPHABETICAL)** and sorted the full list by surname.
+- Dedication: clarified to "all the nights **gaming** in 90s-era Dickinson, Texas".
+- README: added a **Play Testers** section mirroring the in-game credits, and synced the
+  README dedication to match the credits.
+
 ## [2.0.1] — 2026-06-13
 
 ### Changed

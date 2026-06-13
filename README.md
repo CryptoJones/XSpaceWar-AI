@@ -222,16 +222,17 @@ godot --path . --rendering-method gl_compatibility
 Keeping the OPTIONS → Nebula slider at 0 also helps — the nebula is the
 most expensive pixel work in the game.
 
-## Thanks
+## Play Testers
 
-To our play testers, who flew the rough builds and filed the truth:
-**Claude Fable 5**, **Trevor Flurry**, **Patrick Hannah**, and
-**Adam Testagrossa**.
+To our play testers, who flew the rough builds and filed the truth (alphabetical by
+last name): **Roger Bergling**, **Kevin Christiansen (PE)**, **Brad Cramer**,
+**Claude Fable 5**, **Trevor Flurry**, **Henry Hannah**, **Patrick Hannah**,
+**Shannon (Learn) Koski**, **Beaux Onofrio**, **Nick Onofrio**,
+**Adam Testagrossa**, **Nate Tiller**, **John Van Lowe**, and **Jeremy Zhao**.
 
 ## Dedication
 
-To "JVL / Boxest" for all the nights we stayed up playing Ron Fredrick's game
-in 90s-era Dickinson, Texas. 
+To **John Van Lowe (JVL)**, for all the nights gaming in 90s-era Dickinson, Texas.
 HTMFPWGCBNOTDOD!
 
 ## Mirrors
