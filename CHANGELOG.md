@@ -2,6 +2,19 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [2.1.3] — 2026-06-13
+
+### Fixed
+- **M and B keybinds (minimap / scoreboard) silently did nothing on macOS.**
+  `LineEdit` nodes in the menu (name, IP, relay, code fields) retained keyboard
+  focus after the menu hid. The hidden-but-focused `LineEdit` consumed letter-key
+  `InputEvent`s via `_gui_input` before they reached `_unhandled_input`, so
+  pressing M or B during gameplay had no effect. ESC was unaffected because
+  `LineEdit` releases its own focus on ESC first; ship movement was unaffected
+  because it polls `Input.is_physical_key_pressed`. Fix: call
+  `get_viewport().gui_release_focus()` in `set_menu_visible(false)` so all focus
+  is cleared whenever the menu closes. Linux was never affected.
+
 ## [2.1.2] — 2026-06-13
 
 ### Fixed
