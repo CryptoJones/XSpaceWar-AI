@@ -117,13 +117,13 @@ const CREDITS_LINES := [
 	["", 35, 3],
 	["PLAY TESTERS (ALPHABETICAL)", 65, 1],
 	["Roger Bergling · Al Bredthauer · Samuel Bredthauer", 53, 2],
-	["Kevin Christiansen (PE) · Brad Cramer · Claude Fable 5", 53, 2],
+	["Kevin Christiansen (PE) · Brad Cramer · Fable5/Opus4.8", 53, 2],
 	["Trevor Flurry · Henry Hannah · Patrick Hannah", 53, 2],
 	["Shannon (Learn) Koski · Beaux Onofrio · Nick Onofrio · Rob Orr", 53, 2],
 	["Adam Testagrossa · Nate Tiller · John Van Lowe · Jeremy Zhao", 53, 2],
 	["", 35, 3],
 	["PROGRAMMING", 65, 1],
-	["Claude Fable 5", 53, 2],
+	["Fable5/Opus4.8", 53, 2],
 	["", 35, 3],
 	["GITHUB / CODEBERG CONTRIBUTORS", 65, 1],
 	["This Could Be You!", 53, 2],
@@ -705,22 +705,22 @@ func _build_splash() -> void:
 	center.add_child(panel)
 	var margin := MarginContainer.new()
 	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
-		margin.add_theme_constant_override(side, 32)
+		margin.add_theme_constant_override(side, 16)
 	panel.add_child(margin)
 	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 12)
+	v.add_theme_constant_override("separation", 6)
 	margin.add_child(v)
 
 	var title := Label.new()
 	title.text = "XSpaceWar-AI"
 	title.add_theme_font_override("font", _get_title_font())
-	title.add_theme_font_size_override("font_size", 138)
+	title.add_theme_font_size_override("font_size", 69)
 	title.add_theme_color_override("font_color", Color(0.6, 0.9, 1.0))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(title)
 	var subtitle := Label.new()
 	subtitle.text = "a networked space-fighter, est. 1962"
-	subtitle.add_theme_font_size_override("font_size", 42)
+	subtitle.add_theme_font_size_override("font_size", 21)
 	subtitle.add_theme_color_override("font_color", Color(0.6, 0.7, 0.85, 0.7))
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(subtitle)
@@ -729,7 +729,7 @@ func _build_splash() -> void:
 	v.add_child(HSeparator.new())
 	_splash_prompt = Label.new()
 	_splash_prompt.text = "PRESS SPACE BAR TO CONTINUE"
-	_splash_prompt.add_theme_font_size_override("font_size", 66)
+	_splash_prompt.add_theme_font_size_override("font_size", 33)
 	_splash_prompt.add_theme_color_override("font_color", Color(1.0, 0.9, 0.4))
 	_splash_prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(_splash_prompt)
@@ -738,7 +738,7 @@ func _build_splash() -> void:
 ## Keyboard + gamepad reference, side by side (shown on the splash).
 func _build_controls_panel() -> HBoxContainer:
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 30)
+	row.add_theme_constant_override("separation", 15)
 	row.add_child(_controls_column("KEYBOARD", [
 		["%s / %s  or  ◄ ►" % [_key_name("turn_left"), _key_name("turn_right")], "turn"],
 		["%s  or  ▲" % _key_name("thrust"), "thrust"],
@@ -764,25 +764,25 @@ func _key_name(action: String) -> String:
 
 func _controls_column(header: String, rows: Array) -> VBoxContainer:
 	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 12)
+	v.add_theme_constant_override("separation", 6)
 	var h := Label.new()
 	h.text = header
-	h.add_theme_font_size_override("font_size", 48)
+	h.add_theme_font_size_override("font_size", 24)
 	h.add_theme_color_override("font_color", Color(0.55, 0.95, 1.0))
 	v.add_child(h)
 	var grid := GridContainer.new()
 	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", 54)
-	grid.add_theme_constant_override("v_separation", 9)
+	grid.add_theme_constant_override("h_separation", 27)
+	grid.add_theme_constant_override("v_separation", 5)
 	for r in rows:
 		var key := Label.new()
 		key.text = String(r[0])
-		key.add_theme_font_size_override("font_size", 45)
+		key.add_theme_font_size_override("font_size", 22)
 		key.add_theme_color_override("font_color", Color(0.85, 0.95, 1.0))
 		grid.add_child(key)
 		var what := Label.new()
 		what.text = String(r[1])
-		what.add_theme_font_size_override("font_size", 45)
+		what.add_theme_font_size_override("font_size", 22)
 		what.add_theme_color_override("font_color", Color(0.65, 0.7, 0.8, 0.9))
 		grid.add_child(what)
 	v.add_child(grid)

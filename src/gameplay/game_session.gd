@@ -84,6 +84,7 @@ func start_skirmish(p_num_ships: int, p_mode: int, p_difficulty: int) -> void:
 	movie_mode = false
 	num_ships = clampi(p_num_ships, 1, 16)  # 1 = solo practice
 	mode = p_mode
+	num_teams = 2 if mode == Mode.TEAM else 1
 	difficulty = p_difficulty
 	_build(_rng.randi())
 
