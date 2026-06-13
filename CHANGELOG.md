@@ -2,6 +2,15 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [2.1.2] — 2026-06-13
+
+### Fixed
+- **Team-mode scoreboard rendered blank.** The per-player team tag was emitted as the
+  literal text `[T1]`/`[T2]`/`[T3]`, which the scoreboard's BBCode-enabled RichTextLabel
+  parsed as an unknown tag — aborting the parse and dropping every row after the header.
+  The bracket is now escaped (`[lb]T%d]`), so it renders as plain text and the full board
+  (team totals + all player rows) shows in Team mode. Free-for-all was never affected.
+
 ## [2.1.1] — 2026-06-13
 
 ### Changed
