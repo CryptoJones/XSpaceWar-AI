@@ -880,6 +880,11 @@ func _refresh_input_gate_deferred() -> void:
 
 func set_menu_visible(v: bool) -> void:
 	_menu.visible = v
+	# On macOS, LineEdit nodes retain keyboard focus after their parent hides,
+	# silently consuming letter-key events (M, B, K…) before _unhandled_input
+	# sees them. Releasing GUI focus whenever the menu closes fixes this.
+	if not v:
+		get_viewport().gui_release_focus()
 	# The kick/ban entry only exists while THIS process is the authoritative host.
 	if _players_btn != null:
 		_players_btn.visible = net_host != null
