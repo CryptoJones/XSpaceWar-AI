@@ -28,7 +28,7 @@ jobs:
       TAG: ${{ github.event.release.tag_name || inputs.tag }}
       BRANCH: ${{ inputs.branch || vars.STEAM_BETA_BRANCH }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Fetch the released artifacts
         env:
