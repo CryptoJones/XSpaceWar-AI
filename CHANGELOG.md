@@ -2,6 +2,29 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [1.14.0] — 2026-06-13
+
+### Added
+- **Steam store art set — issue #1 complete.** A full, procedurally-rendered
+  store presence under `docs/steam/`, built from the game's own shaders, hulls,
+  and nebula with an Orbitron wordmark: capsule (460×215), small capsule
+  (231×87), library capsule (600×900), library hero (3840×1240), page
+  background, a transparent logo, and five gameplay screenshots. Rendered on
+  the Mac mini's M2 Pro for full HDR glow; `tools/render_*.gd` regenerate every
+  asset.
+- **Gameplay trailer (`docs/steam/trailer.mp4`)** — a six-beat, ~24s montage
+  cut from real human-played 4K/60 capture (Metal glow), scored with an
+  original cinematic track: a purple-nebula opener, two green-nebula duels, and
+  a close on the **WIN / FINAL STANDINGS** board. Replaces the earlier
+  locked-camera cut.
+
+### Changed
+- **Fresh installs now ship the nebula-maxed sky.** A new install (no
+  `settings.cfg`) boots with **nebula = 100, stars = 9** — the look dialed in
+  for the trailer — instead of the old near-black default (nebula 0, stars 50).
+  Existing players keep their saved settings; the minimap stays on by default.
+- Credits: added **Jeremy Zhao** and **Nate Tiller** to the playtesters.
+
 ## [1.13.0] — 2026-06-12
 
 ### Added
