@@ -22,7 +22,7 @@ var _seen_tick := -1
 var _seen_gen := -1
 var _rtl := false                   ## true under a right-to-left locale (Arabic)
 
-const FEED_TTL := 6.0
+const FEED_TTL := 12.0
 const FEED_MAX := 6
 const RADAR_SIZE := 170.0
 
@@ -320,17 +320,21 @@ func _update_feed(dt: float) -> void:
 				continue  # (events of step N are stamped N; tick is N+1 after)
 			match String(ev.get("type", "")):
 				"kill":
-					_push_feed("%s  ▸☠  %s" % [_ship_bb(int(ev["killer"])), _ship_bb(int(ev["victim"]))])
+					var killer := int(ev["killer"]); var victim := int(ev["victim"])
+					var mine := killer == session.human_ship_id or victim == session.human_ship_id
+					_push_feed("%s  ▸☠  %s" % [_ship_bb(killer), _ship_bb(victim)], mine)
 				"explosion":
+					var ship := int(ev["ship"])
+					var mine := ship == session.human_ship_id
 					match String(ev.get("cause", "")):
 						"body":
-							_push_feed("%s  ✕  crashed" % _ship_bb(int(ev["ship"])))
+							_push_feed("%s  ✕  crashed" % _ship_bb(ship), mine)
 						"ram":
-							_push_feed("%s  ✕  collision" % _ship_bb(int(ev["ship"])))
+							_push_feed("%s  ✕  collision" % _ship_bb(ship), mine)
 						"hyperspace":
-							_push_feed("%s  ✕  misjump" % _ship_bb(int(ev["ship"])))
+							_push_feed("%s  ✕  misjump" % _ship_bb(ship), mine)
 						"edge":
-							_push_feed("%s  ✕  hit the boundary" % _ship_bb(int(ev["ship"])))
+							_push_feed("%s  ✕  hit the boundary" % _ship_bb(ship), mine)
 	for e in _feed:
 		e["ttl"] = float(e["ttl"]) - dt
 	while not _feed.is_empty() and float(_feed[0]["ttl"]) <= 0.0:
@@ -340,11 +344,12 @@ func _update_feed(dt: float) -> void:
 		lines.append(String(e["t"]))
 	_feed_label.text = "\n".join(lines)
 
-func _push_feed(text: String) -> void:
+func _push_feed(text: String, big: bool = false) -> void:
 	if debug_echo:
 		var rx := RegEx.create_from_string("\\[/?[^\\]]*\\]")
 		print("[feed] ", rx.sub(text, "", true))
-	_feed.append({"t": text, "ttl": FEED_TTL})
+	var line := "[font_size=30]%s[/font_size]" % text if big else text
+	_feed.append({"t": line, "ttl": FEED_TTL})
 	while _feed.size() > FEED_MAX:
 		_feed.pop_front()
 
