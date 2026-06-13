@@ -1,0 +1,72 @@
+/* ===========================================================================
+   XSpaceWar-AI — CYBERDECK theme for the itch.io game page
+   ---------------------------------------------------------------------------
+   HOW TO APPLY (once the page exists at cryptojones.itch.io/xspacewar-ai):
+     itch dashboard -> Edit game -> "Theme" tab.
+     1) Set the color pickers:
+          Background ............ #07090f
+          Text .................. #cfd8e3
+          Link .................. #27d4ff
+          Link (hover) .......... #55ff99
+          Button background ..... #0c1018   (or #27d4ff for solid cyan)
+          Button text ........... #27d4ff
+     2) Tick "Show additional CSS" and paste everything below.
+   itch occasionally renames page classes; this covers the current set and
+   degrades gracefully if a selector is missing.
+   =========================================================================== */
+
+body,
+.page_widget {
+  background: #07090f !important;
+  color: #cfd8e3 !important;
+  font-family: Menlo, Consolas, "DejaVu Sans Mono", monospace !important;
+  font-size: 18px !important;
+}
+
+/* Title — cyan with the signature neon glow */
+.game_title,
+h1, h2, h3 {
+  color: #27d4ff !important;
+  text-shadow: 0 0 12px rgba(39, 212, 255, 0.4);
+}
+
+/* Links */
+a { color: #27d4ff !important; }
+a:hover { color: #55ff99 !important; }
+
+/* Right-hand info panel + header as translucent dark cards with a cyan edge */
+.game_info_panel_widget,
+.header_widget {
+  background: rgba(12, 16, 24, 0.95) !important;
+  border: 1px solid #141a26 !important;
+  border-top: 2px solid #27d4ff !important;
+  color: #cfd8e3 !important;
+}
+
+/* Buttons (download / buy) — dark with a glowing cyan border */
+.button,
+.buy_btn,
+.download_btn {
+  background: #0c1018 !important;
+  color: #27d4ff !important;
+  border: 1px solid #27d4ff !important;
+  box-shadow: 0 0 12px rgba(39, 212, 255, 0.27);
+  text-shadow: 0 0 6px rgba(39, 212, 255, 0.27);
+}
+.button:hover,
+.buy_btn:hover,
+.download_btn:hover {
+  background: #13233a !important;
+  box-shadow: 0 0 18px rgba(39, 212, 255, 0.4);
+}
+
+/* Description body */
+.formatted_description { color: #cfd8e3 !important; }
+.formatted_description code,
+.formatted_description pre {
+  background: #0c1018 !important;
+  color: #9fffe0 !important;
+}
+
+/* Screenshot thumbnails — cyan glow on hover */
+.screenshot_list img:hover { box-shadow: 0 0 16px rgba(39, 212, 255, 0.4); }

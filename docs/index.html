@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>XSpaceWar-AI — AI-driven networked Spacewar!</title>
+<meta name="description" content="A 2026 reimagining of the classic networked Spacewar! — real Newtonian gravity, 100% procedural graphics and audio, LAN + internet multiplayer for up to 16 ships. Free and open source.">
+<meta property="og:title" content="XSpaceWar-AI">
+<meta property="og:description" content="AI-driven networked Spacewar! — real Newtonian gravity, 100% procedural, up to 16 ships. Free & open source.">
+<meta property="og:image" content="steam/library_hero_3840x1240.png">
+<meta property="og:type" content="website">
+<link rel="icon" href="net.thenetwerk.XSpaceWarAI-256.png" type="image/png">
+<link rel="stylesheet" href="cyberdeck.css">
+<style>
+  /* Landing layout built on the cyberdeck theme tokens (cyberdeck.css). */
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 18px 40px; }
+  a { color: var(--accent); }
+  .hero { text-align: center; padding: 38px 0 8px; }
+  .hero img.wordmark { max-width: 600px; width: 82%;
+    filter: drop-shadow(0 0 20px #27d4ff66); }
+  .hero .tag { color: var(--muted); font-size: 19px; margin: 16px 0 24px; }
+  .btns { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin: 10px 0; }
+  .btn { display: inline-block; padding: 12px 22px; border: 1px solid var(--accent);
+    color: var(--accent); text-decoration: none; border-radius: 5px; font-weight: bold;
+    background: var(--panel); text-shadow: 0 0 8px #27d4ff44; transition: all .15s ease; }
+  .btn:hover { background: var(--active); box-shadow: 0 0 18px #27d4ff66; }
+  .btn.soon { border-color: var(--dim2); color: var(--dim); text-shadow: none;
+    cursor: default; }
+  .btn.soon:hover { background: var(--panel); box-shadow: none; }
+  h2 { color: var(--accent); border-bottom: 2px solid var(--hairline);
+    padding-bottom: 6px; margin-top: 46px; text-shadow: 0 0 10px #27d4ff44; }
+  h2 small { color: var(--dim); font-size: 15px; font-weight: normal; }
+  video { width: 100%; border: 1px solid var(--accent); border-radius: 6px;
+    box-shadow: 0 0 26px #27d4ff33; margin-top: 18px; background: #000; }
+  ul.feat { line-height: 1.7; } ul.feat li { margin-bottom: 7px; }
+  .shots { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 14px; }
+  .shots img { width: 100%; border: 1px solid var(--hairline); border-radius: 5px;
+    transition: all .15s ease; }
+  .shots img:hover { border-color: var(--accent); box-shadow: 0 0 18px #27d4ff55; }
+  .pt { color: var(--fg); line-height: 1.8; }
+  .ded { color: var(--stamp); font-style: italic; line-height: 1.6; }
+  code { color: var(--cat-mint); }
+  footer { text-align: center; color: var(--dim); margin-top: 54px; font-size: 16px;
+    border-top: 1px solid var(--hairline); padding-top: 22px; }
+  footer a { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>XSpaceWar-AI <small>// a 2026 reimagining of networked Spacewar!</small></h1>
+</header>
+<div class="wrap">
+
+  <section class="hero">
+    <img class="wordmark" src="steam/logo.png" alt="XSpaceWar-AI">
+    <p class="tag">AI-driven networked dogfights &middot; real Newtonian gravity &middot; 100% procedural &middot; up to 16 ships</p>
+    <div class="btns">
+      <a class="btn" href="https://github.com/CryptoJones/XSpaceWar-AI/releases/latest">&#x2193; Download &mdash; Windows &middot; macOS &middot; Linux</a>
+      <a class="btn" href="https://github.com/CryptoJones/XSpaceWar-AI">&#9733; Source on GitHub</a>
+    </div>
+  </section>
+
+  <video controls preload="none" poster="steam/screenshot-1.png">
+    <source src="steam/trailer.mp4" type="video/mp4">
+    Your browser can't play the trailer &mdash; <a href="steam/trailer.mp4">download it</a>.
+  </video>
+
+  <h2>What it is</h2>
+  <p>XSpaceWar-AI is a modern, AAA-styled networked space-fighter with a strong AI focus &mdash;
+  a 2026 reimagining of the classic networked <em>Spacewar!</em> / <code>xspacewar</code>.
+  Bird's-eye view like the 1962 original, but with space-accurate <strong>Newtonian
+  physics</strong>, <strong>100% procedurally generated graphics and audio</strong> (every
+  sound synthesized from math at load), and <strong>LAN + internet multiplayer for up to 16
+  ships</strong>. Built in Godot&nbsp;4. Free, Apache-2.0.</p>
+
+  <h2>Features</h2>
+  <ul class="feat">
+    <li>Top-down arena dogfights around a gravity well, up to <strong>16 ships</strong>.</li>
+    <li>Real <strong>Newtonian flight</strong> &mdash; conserved momentum, inverse-square gravity on ships <em>and</em> torpedoes, gravity-assist slingshots, hyperspace.</li>
+    <li><strong>Procedurally generated everything</strong> &mdash; stars, planets, nebulae, ships, VFX, and audio; every match a fresh seeded arena.</li>
+    <li><strong>Modes:</strong> Free-for-all, Team battle, AI bots (Rookie &rarr; Insane), and an all-AI Movie&nbsp;Mode attract.</li>
+    <li><strong>Multiplayer today:</strong> host-authoritative netcode with client-side prediction + reconciliation, automatic LAN discovery, direct IP, and internet play via room codes and a server browser &mdash; no port forwarding required.</li>
+    <li><strong>Seven UI languages</strong> &mdash; English, Spanish, French, Simplified Chinese, Arabic (RTL), and Hindi.</li>
+  </ul>
+
+  <h2>Screenshots</h2>
+  <div class="shots">
+    <img src="steam/screenshot-1.png" alt="Dogfight around the gravity well" loading="lazy">
+    <img src="steam/screenshot-2.png" alt="Newtonian slingshot past the star" loading="lazy">
+    <img src="steam/screenshot-3.png" alt="Torpedo volley in a procedural arena" loading="lazy">
+    <img src="steam/screenshot-4.png" alt="Multi-ship melee under the nebula" loading="lazy">
+    <img src="steam/screenshot-5.png" alt="Fighter close-up with HDR glow" loading="lazy">
+  </div>
+
+  <h2>Get it &mdash; everywhere</h2>
+  <div class="btns">
+    <a class="btn" href="https://github.com/CryptoJones/XSpaceWar-AI/releases/latest">GitHub Releases</a>
+    <a class="btn soon">Steam &middot; soon</a>
+    <a class="btn soon">itch.io &middot; soon</a>
+    <a class="btn soon">Flathub &middot; soon</a>
+    <a class="btn soon">Snap &middot; soon</a>
+    <a class="btn soon">AUR &middot; soon</a>
+  </div>
+
+  <h2>Heritage</h2>
+  <p>Stands on one of gaming's oldest lineages &mdash; <em>Spacewar!</em> (MIT, 1962, PDP-1),
+  the 1974 PDP-11 networked port, and Ron Frederick's 1992 X11 <code>xspacewar 1.2</code>.
+  An original clean-room implementation.</p>
+
+  <h2>Play Testers <small>(alphabetical by last name)</small></h2>
+  <p class="pt">Roger Bergling &middot; Kevin Christiansen (PE) &middot; Brad Cramer &middot;
+  Claude Fable&nbsp;5 &middot; Trevor Flurry &middot; Henry Hannah &middot; Patrick Hannah &middot;
+  Shannon (Learn) Koski &middot; Beaux Onofrio &middot; Nick Onofrio &middot; Adam Testagrossa &middot;
+  Nate Tiller &middot; John Van Lowe &middot; Jeremy Zhao</p>
+
+  <h2>Dedication</h2>
+  <p class="ded">To John Van Lowe (JVL), for all the nights gaming in 90s-era Dickinson, Texas.<br>
+  HTMFPWGCBNOTDOD!</p>
+
+</div>
+<footer>
+  Apache-2.0 &middot;
+  <a href="https://github.com/CryptoJones/XSpaceWar-AI">GitHub</a> &middot;
+  <a href="https://codeberg.org/CryptoJones/XSpaceWar-AI">Codeberg</a><br>
+  Proudly Made in Nebraska. Go Big Red! &#127809;
+</footer>
+</body>
+</html>

@@ -1,0 +1,49 @@
+/* CYBERDECK — CryptoJones's approved dark neon terminal theme (2026-06-09, "so perfect!!")
+   Born on the Neuromancer audiobook cue sheets (AKC-Neuromancer/notes/cue_sheet.py).
+   Drop into any project: big readable monospace, dark blue-black, cyan neon glow.   */
+
+:root {
+  --bg:        #07090f;   /* page background — near-black, blue cast        */
+  --panel:     #0c1018f2; /* sticky header / cards (slightly translucent)   */
+  --fg:        #cfd8e3;   /* body text — soft blue-white                    */
+  --accent:    #27d4ff;   /* THE cyan — headings, borders, glow             */
+  --stamp:     #55ff99;   /* timestamps / line numbers — terminal green     */
+  --dim:       #5a6678;   /* de-emphasized rows (narration, comments)       */
+  --dim2:      #3a4456;   /* even dimmer labels                             */
+  --muted:     #88aaaa;   /* legends, captions                              */
+  --alert:     #ff4f4f;   /* corrections / errors — red edge + label        */
+  --hover:     #101826;   /* row hover                                      */
+  --active:    #13233a;   /* selected/playing row                           */
+  --hairline:  #141a26;   /* row separators                                 */
+  /* accent palette for categorical color-coding (speakers, series, tags)   */
+  --cat-cyan:    #27d4ff;  --cat-magenta: #ff4fd8;  --cat-orange: #ff9b3d;
+  --cat-green:   #7dff6e;  --cat-yellow:  #ffe14f;  --cat-violet: #b8a8ff;
+  --cat-red:     #ff6e6e;  --cat-pink:    #ffb3d9;  --cat-mint:   #9fffe0;
+}
+
+body { background: var(--bg); color: var(--fg);
+  font-family: Menlo, Consolas, "DejaVu Sans Mono", monospace;
+  margin: 0; font-size: 20px; }                      /* BIG FONTS — non-negotiable */
+
+header { position: sticky; top: 0; background: var(--panel);
+  border-bottom: 2px solid var(--accent); padding: 14px 18px; z-index: 9; }
+h1 { font-size: 26px; margin: 0 0 10px; color: var(--accent);
+  text-shadow: 0 0 12px #27d4ff66; }                 /* the neon glow */
+h1 small { color: #888; font-size: 16px; }
+audio { width: 100%; height: 44px; }
+.legend { font-size: 15px; color: var(--muted); margin-top: 8px; }
+
+.row { display: flex; gap: 14px; padding: 10px 18px;
+  border-bottom: 1px solid var(--hairline); cursor: pointer; align-items: baseline; }
+.row:hover   { background: var(--hover); }
+.row.playing { background: var(--active); outline: 1px solid #27d4ff55; }
+
+.t { color: var(--stamp); min-width: 64px; flex: none; }   /* timestamp / number col */
+.v { min-width: 130px; flex: none; font-weight: bold; }    /* label / category col   */
+.x { flex: 1; line-height: 1.45; }                         /* content col            */
+
+.narr, .dim { font-size: 16px; color: var(--dim); }
+.narr .v    { color: var(--dim2); }
+
+.fixed { background: #1a0f14; border-left: 5px solid var(--alert); }
+.fix   { flex: none; font-size: 16px; color: var(--alert); }
