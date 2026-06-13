@@ -8,7 +8,7 @@ var _main
 var _view
 var _c := Vector2.ZERO
 # cluster_scale, zoom  — tight dogfight / balanced / wide gravity well / medium
-const SCENES := [[0.75, 1.25], [1.0, 1.0], [1.7, 0.6], [1.15, 0.85]]
+const SCENES := [[0.75, 1.25], [1.0, 1.0], [1.7, 0.6], [1.15, 0.85], [0.6, 1.55]]
 const OFFS := [Vector2(70,-30), Vector2(-360,150), Vector2(320,250), Vector2(-220,-300),
 	Vector2(470,-120), Vector2(-500,-40), Vector2(170,400), Vector2(-130,300)]
 func _initialize() -> void:
