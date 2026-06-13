@@ -2,6 +2,18 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [2.1.6] — 2026-06-13
+
+### Fixed
+- **Self-kills by own mine or torpedo silently dropped from kill feed.** When
+  a player shoots their own mine (or flies into their own torpedo), `killer_id`
+  is `-1` so no `"kill"` event is emitted — only an `"explosion"` event with
+  cause `"mine"` or `"torpedo"`. Neither cause had a handler in the kill feed,
+  causing a silent respawn with no history entry. Added handlers for both; they
+  fire only on self-kills (enemy kills already produce a visible `"kill"` event).
+  The player now sees `"NAME ✕ own mine"` / `"NAME ✕ own torpedo"` at double
+  size (since it involves them).
+
 ## [2.1.5] — 2026-06-13
 
 ### Fixed
@@ -19,6 +31,7 @@ All notable changes to **XSpaceWar-AI**.
   title, controls grid, and "PRESS SPACE BAR" prompt were all oversized on
   1080p displays.
 - **Credits rolling title reduced to 85%** (229 pt → 195 pt).
+- **Menu credits panel title reduced to 85%** (42 pt → 36 pt).
 - AI credit updated: "Claude Fable 5" → "Fable5/Opus4.8".
 
 ## [2.1.4] — 2026-06-13
