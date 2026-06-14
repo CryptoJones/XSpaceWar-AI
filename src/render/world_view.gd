@@ -227,31 +227,31 @@ func _physics_process(dt: float) -> void:
 			"thrust":
 				_thrusting[ev["ship"]] = true
 			"explosion":
-				_spawn_burst(ev["pos"], Color(2.4, 1.5, 0.5), 56, 420.0)
-				_add_shake(ev["pos"], 1.0)
+				ParticleSystem.spawn_burst(self, ev["pos"], Color(2.4, 1.5, 0.5), 56, 420.0)
+				CameraController.add_shake(self, ev["pos"], 1.0)
 			"mine_explode":
-				_spawn_burst(ev["pos"], Color(2.6, 1.1, 0.25), 72, 520.0)
-				_add_shake(ev["pos"], 1.4)
+				ParticleSystem.spawn_burst(self, ev["pos"], Color(2.6, 1.1, 0.25), 72, 520.0)
+				CameraController.add_shake(self, ev["pos"], 1.4)
 			"hyperspace":
-				_spawn_burst(ev["pos"], Color(0.7, 1.2, 2.4), 28, 240.0)
+				ParticleSystem.spawn_burst(self, ev["pos"], Color(0.7, 1.2, 2.4), 28, 240.0)
 			"wrap":
-				_spawn_burst(ev["pos"], Color(0.4, 1.6, 2.0), 20, 360.0)
+				ParticleSystem.spawn_burst(self, ev["pos"], Color(0.4, 1.6, 2.0), 20, 360.0)
 			"rock_break":
-				_spawn_burst(ev["pos"], Color(0.9, 0.85, 0.75), 30, 260.0)
+				ParticleSystem.spawn_burst(self, ev["pos"], Color(0.9, 0.85, 0.75), 30, 260.0)
 			"pickup":
 				if int(ev["ship"]) == session.human_ship_id:
-					_add_text_popup(ev["pos"],
+					ParticleSystem.add_text_popup(self, ev["pos"],
 						"+" + ["FUEL", "AMMO", "MINES"][int(ev["kind"])],
 						Color(0.5, 1.6, 0.7))
 			"kill":
-				_add_kill_popup(int(ev["killer"]), int(ev["victim"]))
+				ParticleSystem.add_kill_popup(self, int(ev["killer"]), int(ev["victim"]))
 				if int(ev["victim"]) == session.human_ship_id:
 					_killcam_id = int(ev["killer"])
 	_audio.update(dt, session.world)
-	_step_popups(dt)
+	ParticleSystem.step_popups(self, dt)
 	_seen_ev_tick = session.world.tick
 
-	_update_camera(dt)
+	CameraController.update(self, dt)
 	if _bg_mat != null:
 		_bg_mat.set_shader_parameter("cam", _camera.position)
 	queue_redraw()
@@ -269,14 +269,8 @@ func _on_new_generation() -> void:
 	_seen_ev_tick = -1
 	if _audio != null:
 		_audio.reset()
-	# Re-seed the starfield per-arena so every match's sky is distinct, and
-	# pick per-arena nebula tints (only visible if the player enables nebula).
-	var s := session.world.config.seed
-	_bg_mat.set_shader_parameter("seed", float(absi(s) % 100000) * 0.001)
-	var h1 := float(absi(s) % 997) / 997.0
-	var h2 := wrapf(h1 + 0.35, 0.0, 1.0)
-	_bg_mat.set_shader_parameter("tint_a", Color.from_hsv(h1, 0.65, 0.35))
-	_bg_mat.set_shader_parameter("tint_b", Color.from_hsv(h2, 0.55, 0.30))
+	# Re-seed the starfield + nebula tints per arena (see SkyController).
+	SkyController.reseed(self, session.world.config.seed)
 
 func set_music_enabled(on: bool) -> void:
 	if _audio != null:
@@ -290,9 +284,7 @@ func debug_summary() -> String:
 ## Player display preferences (Settings menu): nebula 0..1, stars 0..1.5,
 ## far star layer on/off. Defaults match the shader's (black + near stars).
 func set_background_prefs(nebula: float, stars: float, far: bool) -> void:
-	_bg_mat.set_shader_parameter("nebula_intensity", clampf(nebula, 0.0, 1.0))
-	_bg_mat.set_shader_parameter("star_brightness", clampf(stars, 0.0, 1.5))
-	_bg_mat.set_shader_parameter("far_stars", far)
+	SkyController.apply_prefs(self, nebula, stars, far)
 
 # --------------------------------------------------------------------------
 # Input
@@ -365,116 +357,6 @@ func _read_human_input() -> void:
 	NetProtocol.apply_input(ship, gather_local_input())
 
 # --------------------------------------------------------------------------
-# Camera
-# --------------------------------------------------------------------------
-
-## Resolve WHO the camera is on this tick, in strict priority order:
-## own living ship > explicit TAB watch target > killcam > action director.
-## Returns {pos, zoom, clamp} — clamp is the followed ship's position
-## (Vector2.INF = no bleed-zone clamp, director wide shots only).
-func _resolve_camera_target(dt: float) -> Dictionary:
-	var pilot := session.human_ship()
-
-	# 1) Your own living ship.
-	if pilot != null and pilot.alive:
-		_killcam_id = -1
-		session.watch_ship_id = -1
-		# Wrap/hyperspace: jump the camera by the same leap, never pan the map.
-		if _follow_id == pilot.id:
-			var jump := pilot.pos - _follow_pos
-			var half := session.world.config.arena_size * 0.5
-			if absf(jump.x) > half:
-				_cam_pos.x += signf(jump.x) * session.world.config.arena_size
-				_cam_pos_prev.x = _cam_pos.x
-			if absf(jump.y) > half:
-				_cam_pos.y += signf(jump.y) * session.world.config.arena_size
-				_cam_pos_prev.y = _cam_pos.y
-		_follow_id = pilot.id
-		_follow_pos = pilot.pos
-		var p := pilot.pos + pilot.render_pos_offset
-		# Failsafe: never let the player lose their own ship — snap, don't pan.
-		if _cam_pos.distance_to(p) > 6000.0:
-			push_warning("camera failsafe: snapped %s -> ship %s (gen %d tick %d)"
-				% [_cam_pos, p, session.generation, session.world.tick])
-			_cam_pos = p
-			_cam_pos_prev = p
-		return {"pos": p, "zoom": 1.15, "clamp": p}
-
-	# 2) An explicit TAB choice (spectate, replay, dead, eliminated).
-	if session.watch_ship_id >= 0:
-		var watched := session.world.ship_by_id(session.watch_ship_id)
-		if watched != null and watched.alive:
-			var wp := watched.pos + watched.render_pos_offset
-			return {"pos": wp, "zoom": 1.0, "clamp": wp}
-
-	# 3) Killcam: ride whoever got you until you respawn.
-	if pilot != null and not pilot.alive and _killcam_id >= 0:
-		var killer := session.world.ship_by_id(_killcam_id)
-		if killer != null and killer.alive:
-			var kp := killer.pos + killer.render_pos_offset
-			return {"pos": kp, "zoom": 1.0, "clamp": kp}
-
-	# 4) Action director: frame the best duel, recut every few seconds.
-	var world := session.world
-	_focus_timer -= dt
-	var fa := world.ship_by_id(_focus_a)
-	var fb := world.ship_by_id(_focus_b)
-	if _focus_timer <= 0.0 or fa == null or not fa.alive \
-			or (_focus_b >= 0 and (fb == null or not fb.alive)):
-		var duel := pick_duel(world)
-		_focus_a = duel[0] if duel.size() > 0 else -1
-		_focus_b = duel[1] if duel.size() > 1 else -1
-		_focus_timer = DUEL_SHOT_TIME
-		fa = world.ship_by_id(_focus_a)
-		fb = world.ship_by_id(_focus_b)
-	var vp := get_viewport_rect().size
-	if fa != null and fb != null:
-		var span := (fa.pos - fb.pos).abs() + Vector2(750, 750)
-		return {"pos": (fa.pos + fb.pos) * 0.5,
-			"zoom": clampf(minf(vp.x / span.x, vp.y / span.y), 0.5, 1.15),
-			"clamp": fa.pos}  # the primary duelist never leaves the screen
-	if fa != null:
-		return {"pos": fa.pos, "zoom": 0.9, "clamp": fa.pos}
-	var primary := world.primary_body()
-	return {"pos": primary.pos if primary != null else Vector2.ZERO,
-		"zoom": 0.5, "clamp": Vector2.INF}
-
-func _update_camera(dt: float) -> void:
-	# Per-tick camera state: _cam_pos/_cam_zoom are the simulation-rate truth;
-	# _process() blends prev->curr each display frame (render interpolation).
-	_cam_pos_prev = _cam_pos
-	_cam_zoom_prev = _cam_zoom
-
-	var t := _resolve_camera_target(dt)
-	var k := 1.0 - exp(-2.5 * dt)
-	_cam_pos = _cam_pos.lerp(t["pos"], k)
-	_cam_zoom = lerpf(_cam_zoom, float(t["zoom"]), k)
-
-	# The bleed-zone rule (Aaron's): the FOLLOWED ship may NEVER leave the
-	# screen. The lerp lags proportionally to speed; when the followed ship
-	# reaches the outer buffer of the view, the map moves instead.
-	var clamp_to: Vector2 = t["clamp"]
-	if clamp_to.x != INF:
-		var half_view := get_viewport_rect().size * 0.5 / _cam_zoom
-		var limit := half_view * 0.72
-		var pre := _cam_pos
-		_cam_pos = _cam_pos.clamp(clamp_to - limit, clamp_to + limit)
-		# A clamp that teleports the camera (target wrapped the map) must
-		# not smear the interpolated frame across the arena.
-		if _cam_pos.distance_to(pre) > half_view.length() * 2.0:
-			_cam_pos_prev = _cam_pos
-
-	# Shake energy decays at sim rate (the offset itself is applied per
-	# display frame in _process).
-	if _shake > 0.2:
-		_shake *= exp(-6.0 * dt)
-	else:
-		_shake = 0.0
-	# Keep ships readable when the camera pulls back: hulls draw bigger than
-	# their (unchanged) physical radius, more so the further out we are.
-	_ship_vis_scale = clampf(1.6 * maxf(1.0, 0.55 / _cam_zoom), 1.6, 3.2)
-
-# --------------------------------------------------------------------------
 # Drawing
 # --------------------------------------------------------------------------
 
@@ -514,7 +396,7 @@ func _draw() -> void:
 			draw_arc(race_gates[i], 110.0, 0.0, TAU, 40, col, 6.0 if hot else 3.0)
 			if hot:
 				draw_arc(race_gates[i], 140.0, 0.0, TAU, 40, Color(0.3, 2.0, 2.2, 0.4), 2.0)
-	_draw_popups()
+	ParticleSystem.draw_popups(self)
 
 ## Offsets at which to additionally draw an entity so it appears on both sides
 ## of a toroidal wrap seam (corners produce three ghosts).
@@ -737,70 +619,3 @@ static func hull_polygon(hull_seed: int) -> Dictionary:
 		pts.append(Vector2(top[i].x, -top[i].y))
 	return {"poly": pts, "tail": tail}
 
-# --------------------------------------------------------------------------
-# Juice: shake + kill popups
-# --------------------------------------------------------------------------
-
-## More shake the closer the blast is to the camera's center of attention.
-func _add_shake(pos: Vector2, base: float) -> void:
-	var falloff := clampf(1.0 - pos.distance_to(_camera.position) / 1600.0, 0.0, 1.0)
-	_shake = minf(26.0, _shake + base * 16.0 * falloff)
-
-func _add_kill_popup(killer_id: int, victim_id: int) -> void:
-	var victim := session.world.ship_by_id(victim_id)
-	var killer := session.world.ship_by_id(killer_id)
-	if victim == null or killer == null:
-		return
-	var kname := session.display_name(killer_id)
-	_popups.append({"pos": victim.pos, "vel": Vector2(0, -46), "ttl": 1.7,
-		"text": "+1  %s" % kname, "color": ship_color(killer)})
-
-func _add_text_popup(pos: Vector2, text: String, color: Color) -> void:
-	_popups.append({"pos": pos, "vel": Vector2(0, -40), "ttl": 1.4,
-		"text": text, "color": color})
-
-func _step_popups(dt: float) -> void:
-	for p in _popups:
-		p["ttl"] = float(p["ttl"]) - dt
-		p["pos"] = (p["pos"] as Vector2) + (p["vel"] as Vector2) * dt
-	while not _popups.is_empty() and float(_popups[0]["ttl"]) <= 0.0:
-		_popups.pop_front()
-
-func _draw_popups() -> void:
-	for p in _popups:
-		var c: Color = p["color"]
-		c.a = clampf(float(p["ttl"]) / 0.6, 0.0, 1.0)
-		var sz := int(18.0 * clampf(_ship_vis_scale * 0.7, 1.0, 2.0))
-		draw_string(ThemeDB.fallback_font, (p["pos"] as Vector2) + Vector2(-60, 0),
-			String(p["text"]), HORIZONTAL_ALIGNMENT_CENTER, 120, sz, c)
-
-# --------------------------------------------------------------------------
-# Particles
-# --------------------------------------------------------------------------
-
-func _spawn_burst(pos: Vector2, color: Color, amount: int, speed: float) -> void:
-	var m := ParticleProcessMaterial.new()
-	m.gravity = Vector3.ZERO
-	m.spread = 180.0
-	m.initial_velocity_min = speed * 0.25
-	m.initial_velocity_max = speed
-	m.damping_min = 80.0
-	m.damping_max = 200.0
-	m.scale_min = 1.5
-	m.scale_max = 4.0
-	var grad := Gradient.new()
-	grad.set_color(0, color)
-	grad.set_color(1, Color(color.r * 0.3, color.g * 0.2, color.b * 0.2, 0.0))
-	var gt := GradientTexture1D.new()
-	gt.gradient = grad
-	m.color_ramp = gt
-	var p := GPUParticles2D.new()
-	p.process_material = m
-	p.amount = amount
-	p.lifetime = 0.9
-	p.one_shot = true
-	p.explosiveness = 1.0
-	p.position = pos
-	p.emitting = true
-	add_child(p)
-	get_tree().create_timer(2.0).timeout.connect(p.queue_free)
