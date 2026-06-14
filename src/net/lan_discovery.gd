@@ -55,7 +55,11 @@ func advertise(dt: float, players: int) -> void:
 ## Drain received packets and return the current (non-expired) server list.
 func poll(dt: float) -> Array:
 	_clock += dt
-	while _udp.get_available_packet_count() > 0:
+	# Cap packets drained per frame so a UDP flood (accidental or hostile) on
+	# the LAN can't stall the main thread for the whole drain (issue #11).
+	var budget := 64
+	while _udp.get_available_packet_count() > 0 and budget > 0:
+		budget -= 1
 		var bytes := _udp.get_packet()
 		var ip := _udp.get_packet_ip()
 		var v: Variant = bytes_to_var(bytes)
