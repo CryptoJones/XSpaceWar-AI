@@ -1019,6 +1019,7 @@ func _unhandled_input(event: InputEvent) -> void:
 						_awaiting_rebind = ""
 						_keys_status.text = ""
 						_refresh_keybind_labels()
+						view.sync_input_actions()  # mirror the new bind into the InputMap (#25)
 						_save_settings()
 			elif event.physical_keycode == KEY_ESCAPE:
 				_close_keys_panel()
@@ -1050,13 +1051,13 @@ func _unhandled_input(event: InputEvent) -> void:
 		_debug_overlay = not _debug_overlay
 		if not _debug_overlay:
 			hud.set_debug("")
-	elif key_pressed and event.physical_keycode == int(view.key_binds["toggle_map"]):
+	elif event.is_action_pressed("xsw_toggle_map"):
 		hud.set_radar_visible(not hud.radar_visible())
 		_save_settings()
-	elif key_pressed and event.physical_keycode == int(view.key_binds["toggle_feed"]):
+	elif event.is_action_pressed("xsw_toggle_feed"):
 		hud.set_feed_visible(not hud.feed_visible())
 		_save_settings()
-	elif key_pressed and event.physical_keycode == int(view.key_binds["toggle_score"]):
+	elif event.is_action_pressed("xsw_toggle_score"):
 		hud.set_score_visible(not hud.score_visible())
 		_save_settings()
 	elif key_pressed and event.physical_keycode == KEY_ESCAPE:
@@ -1370,6 +1371,7 @@ func _load_settings() -> void:
 				view.key_binds[action] = saved
 				binds_changed = true
 		if binds_changed:
+			view.sync_input_actions()  # mirror loaded binds into the InputMap (#25)
 			_rebuild_splash()
 	# Apply whatever we ended up with (defaults or loaded).
 	var v := _vol_slider.value
