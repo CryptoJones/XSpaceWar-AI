@@ -11,8 +11,12 @@ extends RefCounted
 ## single seeded RNG, so the same config + same input stream reproduces the
 ## same end state bit-for-bit on a given platform. This one class backs the
 ## host's authoritative sim, client-side prediction, AI, and replays.
-
-const SELF_HIT_GRACE := 0.30            ## a torpedo can't hit its own ship before this age
+##
+## The per-phase logic lives in the stateless systems under src/sim/systems/
+## (GravitySystem, SpawnSystem, MineSystem, PickupSystem, CollisionSystem,
+## WrapSystem) — extracted from this god-class in issue #18. SimWorld owns the
+## state and drives the fixed-order step() pipeline across those systems; a few
+## methods are kept here as thin forwarders for external callers.
 
 var config: SimConfig
 var rng := RandomNumberGenerator.new()
@@ -86,71 +90,8 @@ func primary_body() -> SimBody:
 	return best
 
 # --------------------------------------------------------------------------
-# Spawning
-# --------------------------------------------------------------------------
-
-func place_in_orbit(s: SimShip) -> void:
-	var center := Vector2.ZERO
-	var m := 0.0
-	var primary := primary_body()
-	if primary != null:
-		center = primary.pos
-		m = primary.mass
-	# Teams spawn (and respawn) together in their own sector of the ring —
-	# golden-angle spacing keeps any team count spread apart. FFA ships use
-	# the whole circle.
-	var ang: float
-	if s.team >= 0:
-		ang = wrapf(float(s.team) * 2.399963 + rng.randf_range(-0.6, 0.6), 0.0, TAU)
-	else:
-		ang = rng.randf() * TAU
-	# The ring respects the ACTUAL star: a maxed star-size slider must not
-	# leave pilots spawning inside the well (and never at the map's wall).
-	var r := config.spawn_orbit_radius
-	if primary != null:
-		r = maxf(r, primary.radius * 3.0 + 200.0)
-	r = minf(r, config.arena_size * 0.5 * 0.85)
-	# Clearance: never materialize inside (or kissing) a rock/satellite —
-	# re-roll the ring angle a few times; deterministic via the world rng.
-	for _attempt in range(10):
-		var probe := center + Vector2(cos(ang), sin(ang)) * r
-		var blocked := false
-		for b in bodies:
-			if b.lethal and probe.distance_to(b.pos) < b.radius + s.radius + 60.0:
-				blocked = true
-				break
-		if not blocked:
-			break
-		# Keep team ships in their sector on retry; FFA ships roam freely.
-		if s.team >= 0:
-			ang = wrapf(float(s.team) * 2.399963 + rng.randf_range(-0.6, 0.6), 0.0, TAU)
-		else:
-			ang = rng.randf() * TAU
-	s.pos = center + Vector2(cos(ang), sin(ang)) * r
-	# Circular-orbit speed, perpendicular to the radius, random direction.
-	var speed := 0.0
-	if m > 0.0:
-		# True circular-orbit speed (Keplerian, pure 1/r^2): a still pilot
-		# orbits a stable closed ellipse forever.
-		speed = sqrt(config.gravity_constant * m / r)
-	var dir := Vector2(-sin(ang), cos(ang))
-	if rng.randf() < 0.5:
-		dir = -dir
-	s.vel = dir * speed
-	s.angle = dir.angle()
-	s.fuel = config.max_fuel
-	s.ammo = config.max_ammo
-	s.ammo_timer = 0.0
-	s.mines = config.max_mines
-	s.mine_timer = 0.0
-	s.mine_cooldown = 0.0
-	s.alive = true
-	s.respawn_timer = 0.0
-	s.fire_cooldown = 0.0
-	s.spawn_grace = config.spawn_grace
-
-# --------------------------------------------------------------------------
-# Stepping
+# Stepping — the fixed-order pipeline across the systems. The call order here
+# is determinism-critical (it fixes the RNG-consumption order); do not reorder.
 # --------------------------------------------------------------------------
 
 func step(dt: float = -1.0) -> void:
@@ -161,21 +102,21 @@ func step(dt: float = -1.0) -> void:
 	# frames) nothing is lost. Consumers track the last tick they processed;
 	# the cap below bounds memory for consumer-less worlds (dedicated).
 
-	_advance_bodies(dt)
+	GravitySystem.advance_bodies(self, dt)
 
 	for s in ships:
-		_step_ship(s, dt)
+		SpawnSystem.step_ship(self, s, dt)
 
-	_integrate_ships(dt)
+	GravitySystem.integrate_ships(self, dt)
 	_step_torpedoes(dt)
-	_step_mines(dt)
-	_step_pickups(dt)
-	_resolve_collisions(dt)
+	MineSystem.step_mines(self, dt)
+	PickupSystem.step_pickups(self, dt)
+	CollisionSystem.resolve(self, dt)
 
 	if config.wrap_edges:
-		_wrap_positions()
+		WrapSystem.wrap_positions(self)
 	elif config.lethal_edges:
-		_enforce_lethal_edges()
+		WrapSystem.enforce_lethal_edges(self)
 
 	if events.size() > 512:
 		events = events.slice(events.size() - 256)
@@ -183,132 +124,8 @@ func step(dt: float = -1.0) -> void:
 	time += dt
 	tick += 1
 
-func _advance_bodies(dt: float) -> void:
-	for b in bodies:
-		if not b.is_orbiting():
-			continue
-		var parent := body_by_id(b.parent_id)
-		if parent == null:
-			continue
-		var prev := b.pos
-		b.orbit_angle = wrapf(b.orbit_angle + b.orbit_speed * dt, 0.0, TAU)
-		b.pos = parent.pos + Vector2(cos(b.orbit_angle), sin(b.orbit_angle)) * b.orbit_radius
-		b.vel = (b.pos - prev) / dt if dt > 0.0 else Vector2.ZERO
-
-func _step_ship(s: SimShip, dt: float) -> void:
-	if not s.alive:
-		# Lives mode: out of lives means out of the match — no respawn.
-		if config.lives > 0 and s.deaths >= config.lives:
-			s.clear_inputs()
-			return
-		s.respawn_timer -= dt
-		if s.respawn_timer <= 0.0:
-			place_in_orbit(s)
-		s.clear_inputs()
-		return
-
-	# Timers / resource regen.
-	s.spawn_grace = maxf(0.0, s.spawn_grace - dt)
-	s.fire_cooldown = maxf(0.0, s.fire_cooldown - dt)
-	s.hyperspace_cooldown = maxf(0.0, s.hyperspace_cooldown - dt)
-	s.mine_cooldown = maxf(0.0, s.mine_cooldown - dt)
-	if s.ammo < config.max_ammo:
-		s.ammo_timer += dt
-		while s.ammo_timer >= config.ammo_regen_interval and s.ammo < config.max_ammo:
-			s.ammo_timer -= config.ammo_regen_interval
-			s.ammo += 1
-	if s.mines < config.max_mines:
-		s.mine_timer += dt
-		while s.mine_timer >= config.mine_regen_interval and s.mines < config.max_mines:
-			s.mine_timer -= config.mine_regen_interval
-			s.mines += 1
-
-	# Rotation.
-	s.angle = wrapf(s.angle + s.in_turn * config.turn_rate * dt, -PI, PI)
-
-	# Thrust (fuel-limited). Integration of velocity happens in _integrate_ships
-	# alongside gravity; here we just apply the thrust impulse and burn fuel.
-	if s.in_thrust and s.fuel > 0.0:
-		s.vel += s.facing() * config.thrust_accel * dt
-		s.fuel = maxf(0.0, s.fuel - config.thrust_fuel_per_sec * dt)
-		events.append({"tk": tick, "type": "thrust", "ship": s.id, "pos": s.pos})
-	else:
-		s.fuel = minf(config.max_fuel, s.fuel + config.fuel_regen_per_sec * dt)
-
-	# Fire.
-	if s.in_fire and s.fire_cooldown <= 0.0 and s.ammo > 0:
-		_fire_torpedo(s)
-
-	# Drop a mine behind us.
-	if s.in_mine and s.mine_cooldown <= 0.0 and s.mines > 0:
-		_drop_mine(s)
-
-	# Hyperspace.
-	if s.in_hyper and s.hyperspace_cooldown <= 0.0:
-		_hyperspace(s)
-
-	s.clear_inputs()
-
-func _fire_torpedo(s: SimShip) -> void:
-	var t := SimTorpedo.new()
-	t.id = alloc_id()
-	t.owner_id = s.id
-	t.team = s.team
-	t.radius = config.torpedo_radius
-	var fwd := s.facing()
-	t.pos = s.pos + fwd * (s.radius + t.radius + 2.0)
-	t.vel = s.vel + fwd * config.torpedo_speed
-	t.life = config.torpedo_life
-	torpedoes.append(t)
-	s.ammo -= 1
-	s.fire_cooldown = config.fire_cooldown
-	events.append({"tk": tick, "type": "fire", "ship": s.id, "pos": t.pos})
-
-func _drop_mine(s: SimShip) -> void:
-	var m := SimMine.new()
-	m.id = alloc_id()
-	m.owner_id = s.id
-	m.team = s.team
-	m.radius = config.mine_radius
-	m.pos = s.pos - s.facing() * (s.radius + m.radius + 6.0)
-	m.vel = s.vel * 0.85  # sheds a little speed so it falls behind
-	m.life = config.mine_life
-	mines.append(m)
-	s.mines -= 1
-	s.mine_cooldown = config.mine_drop_cooldown
-	events.append({"tk": tick, "type": "mine", "ship": s.id, "pos": m.pos})
-
-func _hyperspace(s: SimShip) -> void:
-	s.hyperspace_uses += 1
-	s.hyperspace_cooldown = config.hyperspace_cooldown
-	events.append({"tk": tick, "type": "hyperspace", "ship": s.id, "pos": s.pos})
-	var risk := config.hyperspace_base_risk + config.hyperspace_risk_per_use * float(s.hyperspace_uses - 1)
-	if rng.randf() < risk:
-		_destroy_ship(s, -1, "hyperspace")
-		return
-	# place_in_orbit is a SPAWN helper (full resupply + grace); a jump is
-	# just a relocation — keep the pilot's resources and grant no shield.
-	var keep := [s.fuel, s.ammo, s.ammo_timer, s.mines, s.mine_timer,
-		s.mine_cooldown, s.fire_cooldown]
-	place_in_orbit(s)
-	s.fuel = keep[0]
-	s.ammo = keep[1]
-	s.ammo_timer = keep[2]
-	s.mines = keep[3]
-	s.mine_timer = keep[4]
-	s.mine_cooldown = keep[5]
-	s.fire_cooldown = keep[6]
-	s.spawn_grace = 0.0
-
-func _integrate_ships(dt: float) -> void:
-	# Semi-implicit (symplectic) Euler: update velocity from gravity, then
-	# position from the new velocity. Stable for orbits.
-	for s in ships:
-		if not s.alive:
-			continue
-		s.vel += gravity_accel(s.pos) * dt
-		s.pos += s.vel * dt
-
+## Torpedo drift/expiry. Kept on SimWorld (issue #18 listed no torpedo system);
+## a small projectile-stepping helper that leans on Gravity/Wrap systems.
 func _step_torpedoes(dt: float) -> void:
 	var survivors: Array[SimTorpedo] = []
 	for t in torpedoes:
@@ -320,103 +137,20 @@ func _step_torpedoes(dt: float) -> void:
 			if t.life <= 0.0:
 				continue
 		if config.torpedo_gravity:
-			t.vel += gravity_accel(t.pos) * dt
+			t.vel += GravitySystem.accel(self, t.pos) * dt
 		t.pos += t.vel * dt
 		if config.wrap_edges:
-			var wb_t := _wrap_with_boost(t.pos, t.vel)
+			var wb_t := WrapSystem.wrap_with_boost(self, t.pos, t.vel)
 			if not wb_t.is_empty():
 				t.pos = wb_t[0]
 				t.vel = wb_t[1]
 		survivors.append(t)
 	torpedoes = survivors
 
-func _break_rock(rock: SimBody) -> void:
-	bodies.erase(rock)
-	removed_body_ids.append(rock.id)
-	events.append({"tk": tick, "type": "rock_break", "pos": rock.pos})
-	if rng.randf() < config.pickup_chance:
-		var p := SimPickup.new()
-		p.id = alloc_id()
-		p.kind = rng.randi() % SimPickup.Kind.size()
-		p.pos = rock.pos
-		var ang := rng.randf() * TAU
-		p.vel = Vector2(cos(ang), sin(ang)) * rng.randf_range(10.0, 50.0)
-		p.ttl = config.pickup_ttl
-		p.radius = config.pickup_radius
-		pickups.append(p)
-
-func _step_pickups(dt: float) -> void:
-	var survivors: Array[SimPickup] = []
-	for p in pickups:
-		p.age += dt
-		p.ttl -= dt
-		if p.ttl <= 0.0:
-			continue
-		p.vel += gravity_accel(p.pos) * dt
-		p.pos += p.vel * dt
-		if config.wrap_edges:
-			var wb_p := _wrap_with_boost(p.pos, p.vel)
-			if not wb_p.is_empty():
-				p.pos = wb_p[0]
-				p.vel = wb_p[1]
-		var claimed := false
-		for s in ships:
-			if not s.alive:
-				continue
-			if p.pos.distance_to(s.pos) <= p.radius + s.radius:
-				_grant_pickup(s, p)
-				claimed = true
-				break
-		if not claimed:
-			survivors.append(p)
-	pickups = survivors
-
-func _grant_pickup(s: SimShip, p: SimPickup) -> void:
-	match p.kind:
-		SimPickup.Kind.FUEL:
-			s.fuel = minf(config.max_fuel, s.fuel + config.pickup_fuel_amount)
-		SimPickup.Kind.AMMO:
-			s.ammo = mini(config.max_ammo, s.ammo + config.pickup_ammo_amount)
-		SimPickup.Kind.MINES:
-			s.mines = mini(config.max_mines, s.mines + config.pickup_mines_amount)
-	events.append({"tk": tick, "type": "pickup", "ship": s.id, "kind": p.kind, "pos": p.pos})
-
-func _step_mines(dt: float) -> void:
-	var survivors: Array[SimMine] = []
-	for m in mines:
-		m.age += dt
-		m.life -= dt
-		if m.life <= 0.0:
-			continue
-		m.vel += gravity_accel(m.pos) * dt
-		m.pos += m.vel * dt
-		if config.wrap_edges:
-			var wb_m := _wrap_with_boost(m.pos, m.vel)
-			if not wb_m.is_empty():
-				m.pos = wb_m[0]
-				m.vel = wb_m[1]
-		survivors.append(m)
-	mines = survivors
-
-func gravity_accel(p: Vector2) -> Vector2:
-	var a := Vector2.ZERO
-	for b in bodies:
-		if not b.gravity or b.mass <= 0.0:
-			continue
-		var d := b.pos - p
-		var r2 := d.length_squared()
-		# Softening near the core so the acceleration never blows up.
-		var soft := b.radius * 0.5
-		r2 = maxf(r2, soft * soft)
-		var r := sqrt(r2)
-		a += d * (config.gravity_constant * b.mass / (r2 * r))
-	return a  # pure Newtonian inverse-square — no caps (star mass is sized
-	          # to the arena instead; see GameSession._build / README Physics)
-
 ## Advance one ship's pilot kinematics (turn / thrust+fuel / gravity /
 ## position / wrap) exactly as a full step would, without weapons, timers, or
 ## collisions. Used by net clients to predict the local ship: the order
-## matches _step_ship -> _integrate_ships for a single ship.
+## matches SpawnSystem.step_ship -> GravitySystem.integrate_ships for one ship.
 func step_ship_kinematics(s: SimShip, turn: float, thrust: bool, dt: float) -> void:
 	s.angle = wrapf(s.angle + clampf(turn, -1.0, 1.0) * config.turn_rate * dt, -PI, PI)
 	if thrust and s.fuel > 0.0:
@@ -424,248 +158,30 @@ func step_ship_kinematics(s: SimShip, turn: float, thrust: bool, dt: float) -> v
 		s.fuel = maxf(0.0, s.fuel - config.thrust_fuel_per_sec * dt)
 	else:
 		s.fuel = minf(config.max_fuel, s.fuel + config.fuel_regen_per_sec * dt)
-	s.vel += gravity_accel(s.pos) * dt
+	s.vel += GravitySystem.accel(self, s.pos) * dt
 	s.pos += s.vel * dt
 	if config.wrap_edges:
-		var wb := _wrap_with_boost(s.pos, s.vel)
+		var wb := WrapSystem.wrap_with_boost(self, s.pos, s.vel)
 		if not wb.is_empty():
 			s.pos = wb[0]
 			s.vel = wb[1]
 
 # --------------------------------------------------------------------------
-# Collisions
+# Thin forwarders kept for external callers (net_client, tests, scene_smoke)
+# so the extraction in issue #18 preserves the public API.
 # --------------------------------------------------------------------------
 
-## True if the swept path p0->p1 passes within r of c. Degenerates to a
-## point test for tiny displacement; callers must teleport-guard wraps.
-static func _segment_hits_circle(p0: Vector2, p1: Vector2, c: Vector2, r: float) -> bool:
-	var d := p1 - p0
-	var len_sq := d.length_squared()
-	if len_sq < 0.000001:
-		return p0.distance_to(c) <= r
-	var t := clampf((c - p0).dot(d) / len_sq, 0.0, 1.0)
-	return (p0 + d * t).distance_to(c) <= r
+func gravity_accel(p: Vector2) -> Vector2:
+	return GravitySystem.accel(self, p)
 
-func _resolve_collisions(dt: float) -> void:
-	# Torpedoes vs bodies. Stars/planets simply eat torpedoes; ASTEROIDS are
-	# destructible — the rock shatters and sometimes drops its cargo.
-	var torp_survivors: Array[SimTorpedo] = []
-	var broken_rocks: Array[SimBody] = []
-	for t in torpedoes:
-		var hit_body := false
-		var t_prev := t.pos - t.vel * dt
-		if t_prev.distance_to(t.pos) > config.arena_size * 0.4:
-			t_prev = t.pos  # wrapped this step: sweep would span the map
-		for b in bodies:
-			if not b.lethal:
-				continue
-			if _segment_hits_circle(t_prev, t.pos, b.pos, b.radius + t.radius):
-				hit_body = true
-				if b.kind == SimBody.Kind.ASTEROID and not broken_rocks.has(b):
-					broken_rocks.append(b)
-				break
-		if not hit_body:
-			torp_survivors.append(t)
-	torpedoes = torp_survivors
-	for rock in broken_rocks:
-		_break_rock(rock)
+func _advance_bodies(dt: float) -> void:
+	GravitySystem.advance_bodies(self, dt)
 
-	# Torpedoes vs ships.
-	var remaining: Array[SimTorpedo] = []
-	for t in torpedoes:
-		var consumed := false
-		for s in ships:
-			if not s.alive or s.spawn_grace > 0.0:
-				continue
-			if s.id == t.owner_id and (t.age < SELF_HIT_GRACE or not config.friendly_fire):
-				continue
-			if s.id != t.owner_id and s.team == t.team and s.team != -1 and not config.friendly_fire:
-				continue
-			var rel_prev := (t.pos - t.vel * dt) - (s.pos - s.vel * dt)
-			var rel_now := t.pos - s.pos
-			if rel_prev.distance_to(rel_now) > config.arena_size * 0.4:
-				rel_prev = rel_now  # wrap teleport: fall back to a point test
-			if _segment_hits_circle(rel_prev, rel_now, Vector2.ZERO, s.radius + t.radius):
-				var killer := -1 if s.id == t.owner_id else t.owner_id
-				_destroy_ship(s, killer, "torpedo")
-				consumed = true
-				break
-		if not consumed:
-			remaining.append(t)
-	torpedoes = remaining
+func place_in_orbit(s: SimShip) -> void:
+	SpawnSystem.place_in_orbit(self, s)
 
-	_resolve_mines()
-
-	# Ships vs bodies.
-	for s in ships:
-		if not s.alive or s.spawn_grace > 0.0:
-			continue
-		var s_prev := s.pos - s.vel * dt
-		if s_prev.distance_to(s.pos) > config.arena_size * 0.4:
-			s_prev = s.pos  # wrapped this step
-		for b in bodies:
-			if not b.lethal:
-				continue
-			if _segment_hits_circle(s_prev, s.pos, b.pos, b.radius + s.radius):
-				_destroy_ship(s, -1, "body")
-				break
-
-	# Ships vs ships.
-	for i in range(ships.size()):
-		var a := ships[i]
-		if not a.alive or a.spawn_grace > 0.0:
-			continue
-		for j in range(i + 1, ships.size()):
-			var b := ships[j]
-			if not b.alive or b.spawn_grace > 0.0:
-				continue
-			if a.pos.distance_to(b.pos) > a.radius + b.radius:
-				continue
-			if a.team == b.team and a.team != -1 and not config.friendly_fire:
-				continue
-			if config.ship_collision_lethal:
-				_destroy_ship(a, -1, "ram")
-				_destroy_ship(b, -1, "ram")
-			else:
-				_bounce(a, b)
-
-func _resolve_mines() -> void:
-	var survivors: Array[SimMine] = []
-	for m in mines:
-		var exploded := false
-		# Consumed (detonated) by lethal bodies.
-		for b in bodies:
-			if b.lethal and m.pos.distance_to(b.pos) <= b.radius + m.radius:
-				exploded = true
-				break
-		# Shot by a torpedo — detonates even unarmed. This is the counterplay.
-		if not exploded:
-			var remaining: Array[SimTorpedo] = []
-			for t in torpedoes:
-				if not exploded and m.pos.distance_to(t.pos) <= m.radius + t.radius + 4.0:
-					exploded = true
-					continue  # the torpedo is consumed by the blast
-				remaining.append(t)
-			torpedoes = remaining
-		# Proximity fuse once armed. The owner never trips the fuse (but is
-		# not safe from the blast itself when friendly fire is on).
-		if not exploded and m.age >= config.mine_arm_time:
-			for s in ships:
-				if not s.alive or s.spawn_grace > 0.0 or s.id == m.owner_id:
-					continue
-				if s.team == m.team and s.team != -1 and not config.friendly_fire:
-					continue
-				if m.pos.distance_to(s.pos) <= config.mine_trigger_radius + s.radius:
-					exploded = true
-					break
-		if exploded:
-			_explode_mine(m)
-		else:
-			survivors.append(m)
-	mines = survivors
-
-func _explode_mine(m: SimMine) -> void:
-	events.append({"tk": tick, "type": "mine_explode", "pos": m.pos})
-	for s in ships:
-		if not s.alive or s.spawn_grace > 0.0:
-			continue
-		if not config.friendly_fire and (s.id == m.owner_id or (s.team == m.team and s.team != -1)):
-			continue
-		if m.pos.distance_to(s.pos) <= config.mine_blast_radius + s.radius:
-			_destroy_ship(s, m.owner_id if s.id != m.owner_id else -1, "mine")
-
-func _bounce(a: SimShip, b: SimShip) -> void:
-	# Equal-mass elastic bounce along the contact normal.
-	var n := (b.pos - a.pos)
-	if n.length() < 0.0001:
-		return
-	n = n.normalized()
-	var va := a.vel.dot(n)
-	var vb := b.vel.dot(n)
-	a.vel += n * (vb - va)
-	b.vel += n * (va - vb)
-	# Separate so they don't stick.
-	var overlap := (a.radius + b.radius) - a.pos.distance_to(b.pos)
-	if overlap > 0.0:
-		a.pos -= n * overlap * 0.5
-		b.pos += n * overlap * 0.5
+func _hyperspace(s: SimShip) -> void:
+	SpawnSystem.hyperspace(self, s)
 
 func _destroy_ship(s: SimShip, killer_id: int, cause: String) -> void:
-	if not s.alive:
-		return
-	s.alive = false
-	s.deaths += 1
-	s.respawn_timer = config.respawn_time
-	events.append({"tk": tick, "type": "explosion", "ship": s.id, "pos": s.pos, "vel": s.vel, "cause": cause, "killer": killer_id})
-	if killer_id >= 0 and killer_id != s.id:
-		var killer := ship_by_id(killer_id)
-		if killer != null:
-			killer.kills += 1
-			killer.score += 1
-			events.append({"tk": tick, "type": "kill", "killer": killer_id, "victim": s.id})
-	elif cause == "torpedo" or cause == "hyperspace" or cause == "mine":
-		s.score -= 1  # suicide / self-destruct penalty
-
-# --------------------------------------------------------------------------
-# Arena wrapping
-# --------------------------------------------------------------------------
-
-## Wrap-mode bonus (Aaron's rule): crossing the map edge DOUBLES your speed —
-## the toroidal seam is a slingshot. Capped well above gameplay speeds so the
-## math can't run away into absurdity.
-const WRAP_BOOST := 2.0
-const WRAP_SPEED_CAP := 20000.0
-
-## Toroidal wrap: position teleports across the seam, velocity is PRESERVED
-## (space is a torus — no free energy). Returns [wrapped_pos, vel] or empty.
-## (The old slingshot doubled speed here and compounded into an unrecoverable
-## runaway on small wrapping maps — removed in favor of honest physics.)
-func _wrap_with_boost(pos: Vector2, vel: Vector2) -> Array:
-	var wrapped := _wrap_point(pos)
-	if wrapped == pos:
-		return []
-	return [wrapped, vel]
-
-func _wrap_positions() -> void:
-	for s in ships:
-		var wb := _wrap_with_boost(s.pos, s.vel)
-		if not wb.is_empty():
-			s.pos = wb[0]
-			s.vel = wb[1]
-			events.append({"tk": tick, "type": "wrap", "ship": s.id, "pos": s.pos})
-
-## Lethal-edge mode: the border is a wall of death. Ships crossing it are
-## destroyed (environmental, no score penalty — like flying into a rock);
-## loose ordnance and cargo simply leave the field.
-func _enforce_lethal_edges() -> void:
-	var half := config.arena_size * 0.5
-	for s in ships:
-		if s.alive and (absf(s.pos.x) > half or absf(s.pos.y) > half):
-			_destroy_ship(s, -1, "edge")
-	var t_keep: Array[SimTorpedo] = []
-	for t in torpedoes:
-		if absf(t.pos.x) <= half and absf(t.pos.y) <= half:
-			t_keep.append(t)
-	torpedoes = t_keep
-	var m_keep: Array[SimMine] = []
-	for m in mines:
-		if absf(m.pos.x) <= half and absf(m.pos.y) <= half:
-			m_keep.append(m)
-	mines = m_keep
-	var p_keep: Array[SimPickup] = []
-	for p in pickups:
-		if absf(p.pos.x) <= half and absf(p.pos.y) <= half:
-			p_keep.append(p)
-	pickups = p_keep
-
-func _wrap_point(p: Vector2) -> Vector2:
-	var half := config.arena_size * 0.5
-	if p.x > half:
-		p.x -= config.arena_size
-	elif p.x < -half:
-		p.x += config.arena_size
-	if p.y > half:
-		p.y -= config.arena_size
-	elif p.y < -half:
-		p.y += config.arena_size
-	return p
+	CollisionSystem.destroy_ship(self, s, killer_id, cause)
