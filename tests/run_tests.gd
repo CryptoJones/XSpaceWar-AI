@@ -45,6 +45,7 @@ func _initialize() -> void:
 	_test_match_stats()
 	_test_corrupt_replay_rejected()
 	_test_replay()
+	_test_sim_config_roundtrip()
 	print("=== %d passed, %d failed ===" % [_passed, _failed])
 	quit(1 if _failed > 0 else 0)
 
@@ -1032,3 +1033,58 @@ func _test_replay() -> void:
 			exact2 = false
 			break
 	_check("replay: state after scrubbing is still bit-exact", exact2)
+
+
+func _test_sim_config_roundtrip() -> void:
+	# Guards the network/replay wire contract for SimConfig (see closed issue
+	# #15): to_wire() -> from_wire() -> to_wire() must be bit-identical, and
+	# every host-selectable option must survive the trip. Cheap insurance — if
+	# a wire-excluded field ever becomes host-tunable and the to_wire/from_wire
+	# pair isn't kept in sync, this fails loudly in CI.
+	var ok := true
+	var detail := ""
+	for sd in [0, 1, 42, 1337, 999983]:
+		var cfg := SimConfig.from_seed(sd)
+		# Push host-selectable options off their defaults so the test exercises
+		# real serialization, not just default values.
+		cfg.respawn_time = 3.5
+		cfg.lethal_edges = (sd % 2 == 0)
+		cfg.wrap_edges = not cfg.lethal_edges
+		cfg.arena_size = 2048.0 + float(sd % 7) * 100.0
+		cfg.spawn_orbit_radius = 480.0 + float(sd % 5) * 25.0
+		cfg.lives = 5 + (sd % 4)
+
+		var w1 := cfg.to_wire()
+		var rebuilt := SimConfig.from_wire(w1)
+		var w2 := rebuilt.to_wire()
+
+		# 1. Round-trip must be bit-identical, key by key.
+		if w1.size() != w2.size():
+			ok = false
+			detail = "key count differs @seed %d" % sd
+			break
+		for k in w1:
+			if not w2.has(k) or w1[k] != w2[k]:
+				ok = false
+				detail = "wire mismatch @seed %d key '%s'" % [sd, str(k)]
+				break
+		if not ok:
+			break
+
+		# 2. Every host-selectable option must survive intact.
+		if rebuilt.seed != cfg.seed \
+				or not is_equal_approx(rebuilt.respawn_time, cfg.respawn_time) \
+				or rebuilt.lethal_edges != cfg.lethal_edges \
+				or not is_equal_approx(rebuilt.arena_size, cfg.arena_size) \
+				or not is_equal_approx(rebuilt.spawn_orbit_radius, cfg.spawn_orbit_radius) \
+				or rebuilt.lives != cfg.lives:
+			ok = false
+			detail = "option lost @seed %d" % sd
+			break
+
+		# 3. from_wire() must keep wrap_edges as the inverse of lethal_edges.
+		if rebuilt.wrap_edges == rebuilt.lethal_edges:
+			ok = false
+			detail = "wrap_edges not inverse of lethal_edges @seed %d" % sd
+			break
+	_check("sim_config: wire round-trip is bit-exact and lossless", ok, detail)
