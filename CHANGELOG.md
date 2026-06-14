@@ -2,6 +2,30 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [2.3.0] — 2026-06-14
+
+### Changed
+- **Player input is now routed through Godot InputMap actions.** Movement,
+  firing, and menu controls resolve through named InputMap actions instead of
+  scattered hardcoded key checks, giving bindings a single source of truth.
+- **Internal architecture refactors (no gameplay change).** `SimWorld` was
+  split into per-phase systems (gravity / spawn / mine / pickup / collision /
+  wrap); `BotController` was rebuilt as a behavior-tree decision cascade; and
+  `WorldView` was split into camera / particle / sky helper modules.
+
+### Fixed
+- **Host hardened against inbound denial-of-service.** Inbound packets are now
+  size-checked, flood-limited, and rate-limited per source IP, so a malicious
+  or malformed peer can no longer exhaust the host.
+- **Client crash on malformed snapshot entries.** Snapshot entries are
+  bounds-checked before use, preventing an out-of-range crash from a bad packet.
+- **LAN discovery could spin on a flooded UDP socket.** The discovery drain is
+  now capped per frame.
+
+### Internal
+- Added a regression test guarding the `SimConfig` wire round-trip
+  (bit-exact, lossless).
+
 ## [2.2.0] — 2026-06-14
 
 ### Added
