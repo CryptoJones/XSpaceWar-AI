@@ -620,6 +620,7 @@ func _test_solo_practice() -> void:
 
 func _test_team_spawns() -> void:
 	var s := GameSession.new()
+	s._rng.seed = 1  # fixed seed — team spawn clustering must not depend on luck
 	s.start_skirmish(8, GameSession.Mode.TEAM, BotController.Difficulty.ROOKIE)
 	var primary := s.world.primary_body()
 	var mean0 := Vector2.ZERO

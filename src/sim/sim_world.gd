@@ -121,7 +121,11 @@ func place_in_orbit(s: SimShip) -> void:
 				break
 		if not blocked:
 			break
-		ang = rng.randf() * TAU
+		# Keep team ships in their sector on retry; FFA ships roam freely.
+		if s.team >= 0:
+			ang = wrapf(float(s.team) * 2.399963 + rng.randf_range(-0.6, 0.6), 0.0, TAU)
+		else:
+			ang = rng.randf() * TAU
 	s.pos = center + Vector2(cos(ang), sin(ang)) * r
 	# Circular-orbit speed, perpendicular to the radius, random direction.
 	var speed := 0.0
