@@ -246,14 +246,18 @@ HTMFPWGCBNOTDOD!
 
 ## Running on macOS
 
-The macOS build is **ad-hoc signed but not notarized** (no paid Apple Developer ID yet),
-so on first launch macOS Gatekeeper may warn that **"XSpaceWar-AI is damaged and can't be
-opened."** It is **not** damaged — that's just Gatekeeper blocking an un-notarized download.
-Open it any one of these ways:
+XSpaceWar-AI doesn't have a paid Apple Developer account yet, so the macOS build is
+**ad-hoc signed and not notarized**. On first launch, macOS Gatekeeper may warn that
+**"XSpaceWar-AI is damaged and can't be opened."** It is **not** damaged — macOS just
+quarantines un-notarized downloads. Clear the quarantine flag in Terminal and it opens
+normally:
 
-- **Right-click** the app → **Open** → **Open** (only needed once), or
-- In Terminal: `xattr -dr com.apple.quarantine /path/to/XSpaceWar-AI.app`, or
-- System Settings → **Privacy & Security** → **Open Anyway** (after the first blocked attempt).
+```sh
+xattr -dr com.apple.quarantine /path/to/XSpaceWar-AI.app
+```
+
+> Note: right-click → **Open** (and System Settings → **Open Anyway**) do **not** clear the
+> "damaged" warning — only removing the quarantine attribute with the command above does.
 
 ## Mirrors
 

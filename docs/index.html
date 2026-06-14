@@ -101,7 +101,7 @@
     <a class="btn soon">AUR &middot; soon</a>
   </div>
   <p style="color:var(--dim);font-size:15px;border-left:3px solid var(--accent);background:var(--panel);padding:10px 15px;border-radius:5px;margin-top:16px">
-    <b style="color:var(--stamp)">Opening on macOS:</b> the build is ad-hoc signed but not notarized, so Gatekeeper may say <em>&ldquo;XSpaceWar-AI is damaged and can&rsquo;t be opened.&rdquo;</em> It isn&rsquo;t damaged &mdash; right-click the app &rarr; <b>Open</b> &rarr; <b>Open</b>, or run <code>xattr -dr com.apple.quarantine /path/to/XSpaceWar-AI.app</code>.
+    <b style="color:var(--stamp)">Opening on macOS:</b> no paid Apple Developer account yet, so the build is ad-hoc signed but not notarized &mdash; Gatekeeper may say <em>&ldquo;XSpaceWar-AI is damaged and can&rsquo;t be opened.&rdquo;</em> It isn&rsquo;t damaged; macOS just quarantines un-notarized downloads. Clear the flag in Terminal and it opens normally: <code>xattr -dr com.apple.quarantine /path/to/XSpaceWar-AI.app</code>. (Right-click &rarr; Open does <b>not</b> clear this warning &mdash; only the command does.)
   </p>
 
   <h2>Heritage</h2>
