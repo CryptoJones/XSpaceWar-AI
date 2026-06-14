@@ -38,6 +38,13 @@ var aim := AimAnalyzer.new()  ## host-side aim-anomaly heuristics (warnings only
 var _advertiser: LanDiscovery
 var _event_accum: Array = []  ## forwarded events since the last snapshot
 var _snap_accum := 0.0
+var _last_hello_tick := {}    ## remote IP -> sim tick of last processed hello (flood throttle)
+
+# Inbound DoS hardening (issue #13). Loopback/relay are exempt from per-IP
+# limits (see _skip_ip_limits) so local play and relay clients are unaffected.
+const MAX_PEERS_PER_IP := 4              ## established-connection cap per remote IP
+const MAX_PACKETS_PER_PUMP_PER_PEER := 8 ## drop a peer's packet flood within one pump
+const MIN_HELLO_GAP_TICKS := 3           ## min sim-ticks between processed hellos per IP
 
 func _init(p_session: GameSession) -> void:
 	session = p_session
@@ -186,6 +193,7 @@ func _broadcast_snapshot() -> void:
 		_t.send(peer, bytes, false, NetProtocol.CH_STATE)
 
 func _pump() -> void:
+	var per_peer := {}  # peer -> data packets handled this pump (flood cap)
 	for ev in _t.poll():
 		match String(ev["t"]):
 			"connect":
@@ -193,10 +201,20 @@ func _pump() -> void:
 			"disconnect":
 				_drop_peer(ev["peer"])
 			"data":
-				_on_packet(ev["peer"], ev["bytes"])
+				var peer = ev["peer"]
+				var n := int(per_peer.get(peer, 0))
+				if n >= MAX_PACKETS_PER_PUMP_PER_PEER:
+					continue  # this peer is flooding — drop the rest this frame
+				per_peer[peer] = n + 1
+				_on_packet(peer, ev["bytes"])
+
+## True for addresses we don't apply per-IP limits to: loopback (local play /
+## tests) and relay (which hides client addresses as "").
+func _skip_ip_limits(addr: String) -> bool:
+	return addr == "" or addr == "127.0.0.1" or addr == "::1"
 
 func _on_packet(peer, bytes: PackedByteArray) -> void:
-	var msg := NetProtocol.unpack(bytes)
+	var msg := NetProtocol.unpack(bytes, NetProtocol.MAX_CLIENT_PACKET)
 	if msg.is_empty():
 		return
 	var data: Dictionary = msg["data"]
@@ -241,6 +259,23 @@ func _on_hello(peer, data: Dictionary) -> void:
 	if _is_banned(peer, String(data.get("name", ""))):
 		_reject(peer, "You are banned from this server.")
 		return
+	# Inbound DoS hardening (issue #13), direct/LAN only — relay/loopback exempt.
+	var addr := _peer_addr(peer)
+	if not _skip_ip_limits(addr):
+		# Throttle rapid reconnect/hello spam from one address.
+		var now_tick := session.world.tick
+		if now_tick - int(_last_hello_tick.get(addr, -1000000)) < MIN_HELLO_GAP_TICKS:
+			_reject(peer, "connecting too fast")
+			return
+		_last_hello_tick[addr] = now_tick
+		# Cap simultaneous connections from one address (anti connection-flood).
+		var same_ip := 0
+		for p in _peers:
+			if _peer_addr(p) == addr:
+				same_ip += 1
+		if same_ip >= MAX_PEERS_PER_IP:
+			_reject(peer, "too many connections from your address")
+			return
 	# Spectators get snapshots but no ship (sid -1).
 	if bool(data.get("spec", false)):
 		if _spectator_count() >= 8:

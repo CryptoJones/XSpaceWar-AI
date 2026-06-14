@@ -72,8 +72,18 @@ const FORWARDED_EVENTS := ["explosion", "hyperspace", "fire", "kill"]
 static func pack(type: int, payload: Dictionary) -> PackedByteArray:
 	return var_to_bytes([type, payload])
 
+## Largest inbound packet the host will deserialize from a client. Client
+## hellos/inputs/pings are all well under 1 KB; anything bigger is a large-
+## packet DoS attempt and is rejected before bytes_to_var() (issue #13).
+const MAX_CLIENT_PACKET := 4096
+
 ## Decode a packet. Returns {"type": int, "data": Dictionary} or {} on garbage.
-static func unpack(bytes: PackedByteArray) -> Dictionary:
+## ``max_bytes`` rejects oversized packets before the expensive bytes_to_var()
+## deserialization; the host passes MAX_CLIENT_PACKET, clients keep the larger
+## default to allow full snapshots.
+static func unpack(bytes: PackedByteArray, max_bytes: int = 1048576) -> Dictionary:
+	if bytes.size() > max_bytes:
+		return {}
 	var v: Variant = bytes_to_var(bytes)
 	if typeof(v) != TYPE_ARRAY:
 		return {}
