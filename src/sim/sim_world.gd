@@ -544,7 +544,7 @@ func _resolve_mines() -> void:
 				remaining.append(t)
 			torpedoes = remaining
 		# Proximity fuse once armed. The owner never trips the fuse (but is
-		# not safe from the blast itself).
+		# not safe from the blast itself when friendly fire is on).
 		if not exploded and m.age >= config.mine_arm_time:
 			for s in ships:
 				if not s.alive or s.spawn_grace > 0.0 or s.id == m.owner_id:
@@ -565,7 +565,7 @@ func _explode_mine(m: SimMine) -> void:
 	for s in ships:
 		if not s.alive or s.spawn_grace > 0.0:
 			continue
-		if s.team == m.team and s.team != -1 and not config.friendly_fire and s.id != m.owner_id:
+		if not config.friendly_fire and (s.id == m.owner_id or (s.team == m.team and s.team != -1)):
 			continue
 		if m.pos.distance_to(s.pos) <= config.mine_blast_radius + s.radius:
 			_destroy_ship(s, m.owner_id if s.id != m.owner_id else -1, "mine")
