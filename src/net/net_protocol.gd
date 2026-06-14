@@ -173,6 +173,8 @@ static func apply_snapshot(world: SimWorld, snap: Dictionary) -> Dictionary:
 	world.time = float(snap.get("t", world.time))
 
 	for entry in snap.get("s", []):
+		if typeof(entry) != TYPE_ARRAY or entry.size() < 13:
+			continue  # truncated/corrupt entry — skip rather than crash
 		var s := world.ship_by_id(int(entry[0]))
 		if s == null:
 			continue
@@ -191,6 +193,8 @@ static func apply_snapshot(world: SimWorld, snap: Dictionary) -> Dictionary:
 
 	world.torpedoes.clear()
 	for entry in snap.get("p", []):
+		if typeof(entry) != TYPE_ARRAY or entry.size() < 6:
+			continue
 		var t := SimTorpedo.new()
 		t.id = int(entry[0])
 		t.owner_id = int(entry[1])
@@ -204,6 +208,8 @@ static func apply_snapshot(world: SimWorld, snap: Dictionary) -> Dictionary:
 
 	world.mines.clear()
 	for entry in snap.get("mn", []):
+		if typeof(entry) != TYPE_ARRAY or entry.size() < 6:
+			continue
 		var m := SimMine.new()
 		m.id = int(entry[0])
 		m.owner_id = int(entry[1])
@@ -217,6 +223,8 @@ static func apply_snapshot(world: SimWorld, snap: Dictionary) -> Dictionary:
 
 	world.pickups.clear()
 	for entry in snap.get("pk", []):
+		if typeof(entry) != TYPE_ARRAY or entry.size() < 5:
+			continue
 		var p := SimPickup.new()
 		p.id = int(entry[0])
 		p.kind = int(entry[1])
@@ -236,6 +244,8 @@ static func apply_snapshot(world: SimWorld, snap: Dictionary) -> Dictionary:
 			world.removed_body_ids.append(int(rid))
 
 	for entry in snap.get("b", []):
+		if typeof(entry) != TYPE_ARRAY or entry.size() < 2:
+			continue
 		var b := world.body_by_id(int(entry[0]))
 		if b == null or not b.is_orbiting():
 			continue

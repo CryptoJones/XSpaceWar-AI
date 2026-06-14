@@ -16,6 +16,7 @@ var _failed := 0
 func _initialize() -> void:
 	print("=== XSpaceWar-AI — net tests ===")
 	_test_protocol_roundtrip()
+	_test_snapshot_bounds()
 	_test_host_join_sync()
 	_test_prediction()
 	_test_spectator()
@@ -68,6 +69,28 @@ func _test_protocol_roundtrip() -> void:
 	_check("protocol: garbage rejected",
 		NetProtocol.unpack(PackedByteArray([9, 9, 9])).is_empty()
 		and NetProtocol.unpack(var_to_bytes("nope")).is_empty())
+
+func _test_snapshot_bounds() -> void:
+	# A truncated or wrong-typed snapshot entry must be skipped, never crash the
+	# client with an out-of-bounds index (issue #6).
+	var w := SimWorld.new(SimConfig.from_seed(123))
+	ArenaGen.populate(w, {"asteroid_density": 5})
+	w.add_ship()
+	w.step()
+	var snap := NetProtocol.snapshot_of(w, [], [])
+	# Corrupt every array category: a too-short entry and a wrong-typed entry.
+	snap["s"] = [[w.ships[0].id], "not-an-array"]   # ship needs 13 fields
+	snap["p"] = [[1, 2]]                             # torpedo needs 6
+	snap["mn"] = [[1]]                               # mine needs 6
+	snap["pk"] = [42]                                # pickup needs an array of 5
+	snap["b"] = [[]]                                 # body needs 2
+	var cw := SimWorld.new(SimConfig.from_seed(123))
+	ArenaGen.populate(cw, {"asteroid_density": 5})
+	cw.add_ship()
+	var res = NetProtocol.apply_snapshot(cw, snap)  # must not crash
+	_check("protocol: malformed snapshot entries skipped (no crash)",
+		typeof(res) == TYPE_DICTIONARY
+		and cw.torpedoes.is_empty() and cw.mines.is_empty() and cw.pickups.is_empty())
 
 func _test_host_join_sync() -> void:
 	var hsession := GameSession.new()
