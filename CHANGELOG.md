@@ -2,6 +2,26 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [2.2.0] — 2026-06-14
+
+### Added
+- **Friendly fire toggle in match setup.** A new *Friendly fire* CheckButton
+  sits below *Boundary* in the match settings tab (default **off**). When off,
+  teammates can no longer take blast or torpedo damage from one another, and an
+  owner is permanently immune to their own torpedoes (previously only during
+  the brief self-hit grace window). When on, all damage applies regardless of
+  team. Movie mode always resets friendly fire to off.
+
+### Fixed
+- **Owner caught in their own mine blast even with friendly fire off.**
+  `_explode_mine` exempted teammates from blast damage but always included the
+  owner. With friendly fire off, the owner and teammates are now both exempt.
+- **Team ships scattered out of their sector on a blocked spawn retry.**
+  `place_in_orbit` fell back to a random angle when a team ship's spawn cell
+  was blocked by a lethal body, so a single rock could fling ships anywhere and
+  break team clustering (and flake CI). Retries now stay within the team's
+  golden-angle sector; the team-spawn test seed is pinned for determinism.
+
 ## [2.1.6] — 2026-06-13
 
 ### Fixed
