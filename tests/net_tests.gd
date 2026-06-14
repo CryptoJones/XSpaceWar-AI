@@ -17,6 +17,7 @@ func _initialize() -> void:
 	print("=== XSpaceWar-AI — net tests ===")
 	_test_protocol_roundtrip()
 	_test_snapshot_bounds()
+	_test_packet_size_cap()
 	_test_host_join_sync()
 	_test_prediction()
 	_test_spectator()
@@ -91,6 +92,19 @@ func _test_snapshot_bounds() -> void:
 	_check("protocol: malformed snapshot entries skipped (no crash)",
 		typeof(res) == TYPE_DICTIONARY
 		and cw.torpedoes.is_empty() and cw.mines.is_empty() and cw.pickups.is_empty())
+
+func _test_packet_size_cap() -> void:
+	# Oversized inbound packets are rejected before the expensive bytes_to_var()
+	# deserialization, denying the large-packet DoS vector (issue #13).
+	var blob := PackedByteArray()
+	blob.resize(NetProtocol.MAX_CLIENT_PACKET + 1)
+	_check("protocol: oversized packet rejected at host cap",
+		NetProtocol.unpack(blob, NetProtocol.MAX_CLIENT_PACKET).is_empty())
+	# A normal-size valid packet still decodes under the same cap.
+	var ok := NetProtocol.unpack(NetProtocol.pack(NetProtocol.MSG_PING, {"t": 1.0}),
+		NetProtocol.MAX_CLIENT_PACKET)
+	_check("protocol: in-bounds packet still decodes under host cap",
+		int(ok.get("type", -1)) == NetProtocol.MSG_PING)
 
 func _test_host_join_sync() -> void:
 	var hsession := GameSession.new()
