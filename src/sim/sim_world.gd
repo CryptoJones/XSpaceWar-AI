@@ -473,7 +473,7 @@ func _resolve_collisions(dt: float) -> void:
 		for s in ships:
 			if not s.alive or s.spawn_grace > 0.0:
 				continue
-			if s.id == t.owner_id and t.age < SELF_HIT_GRACE:
+			if s.id == t.owner_id and (t.age < SELF_HIT_GRACE or not config.friendly_fire):
 				continue
 			if s.id != t.owner_id and s.team == t.team and s.team != -1 and not config.friendly_fire:
 				continue

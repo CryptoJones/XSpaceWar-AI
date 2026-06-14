@@ -44,6 +44,7 @@ var time_limit := 0.0              ## seconds; 0 = no clock
 var hazard := 0.3                  ## asteroid slider 0..1 (1 = every 3rd cell)
 var respawn_seconds := 6.0         ## death cooldown (player-configurable)
 var lethal_edges := false          ## border kills instead of wrapping
+var friendly_fire := false         ## teammates can damage/kill each other
 var star_scale := 1.0              ## star size+gravity multiplier (slider 25 = 1.0)
 var map_size := 40000.0            ## arena edge length (slider 2000-40000)
 var lives := 0                     ## deaths before elimination (0 = unlimited)
@@ -92,6 +93,7 @@ func _randomize_match_params() -> void:
 	# Skirmish-only settings must not leak into the attract loop (a lethal
 	# boundary or 1s respawn from the last match would contaminate it).
 	lethal_edges = false
+	friendly_fire = false
 	respawn_seconds = 6.0
 	score_limit = 0
 	time_limit = 0.0
@@ -113,6 +115,7 @@ func _build(seed: int) -> void:
 	cfg.lives = maxi(0, lives) if not movie_mode else 0
 	cfg.lethal_edges = lethal_edges
 	cfg.wrap_edges = not lethal_edges
+	cfg.friendly_fire = friendly_fire
 	world = SimWorld.new(cfg)
 	bots.clear()
 	ship_names.clear()

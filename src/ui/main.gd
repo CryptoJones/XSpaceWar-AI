@@ -23,6 +23,7 @@ var _star_slider: HSlider
 var _planets_slider: HSlider
 var _map_slider: HSlider
 var _edge_check: CheckButton
+var _ff_check: CheckButton
 var _slider_readouts := {}         ## HSlider -> [readout LineEdit, fmt Callable]
 var _name_edit: LineEdit
 var _ip_edit: LineEdit
@@ -486,6 +487,11 @@ func _build_match_tab() -> Control:
 	_edge_check.text = "Lethal map edge"
 	_edge_check.tooltip_text = "Off: the map wraps around · On: the border destroys ships"
 	_grid_row(grid, "Boundary", _edge_check)
+
+	_ff_check = CheckButton.new()
+	_ff_check.text = "Friendly fire"
+	_ff_check.tooltip_text = "Off: teammates cannot harm each other · On: all damage applies"
+	_grid_row(grid, "Friendly fire", _ff_check)
 
 	var stretch := Control.new()
 	stretch.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -958,6 +964,7 @@ func _start_configured_match() -> void:
 	session.hazard = _hazard_slider.value / 100.0
 	session.respawn_seconds = _respawn_slider.value
 	session.lethal_edges = _edge_check.button_pressed
+	session.friendly_fire = _ff_check.button_pressed
 	session.star_scale = _star_slider.value / 25.0
 	session.map_size = _map_slider.value
 	session.lives = int(_lives_slider.value)
