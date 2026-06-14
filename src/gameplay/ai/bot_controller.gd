@@ -58,6 +58,9 @@ var _want_angle: float = 0.0
 var _want_thrust: bool = false
 var _aim_noise: float = 0.0
 
+## Priority-ordered steering behaviors (issue #21); built once in _init.
+var _behaviors: Array = []
+
 func _init(p_world: SimWorld, p_ship_id: int, p_difficulty: int = Difficulty.VETERAN,
 		p_personality := -1, p_roam := -1, p_aggression := -1) -> void:
 	world = p_world
@@ -85,6 +88,8 @@ func _init(p_world: SimWorld, p_ship_id: int, p_difficulty: int = Difficulty.VET
 		# gently, insane pilots relentlessly).
 		aggression = clampi(int(float(aggression) * float(pp["aggr"])
 			* float(_p["aggression"])), 1, 100)
+
+	_behaviors = BotBehaviors.make_cascade()
 
 static func difficulty_from_name(n: String) -> int:
 	match n.to_lower():
@@ -224,103 +229,29 @@ func _wanted_pickup(ship: SimShip) -> SimPickup:
 	return best
 
 func _decide(ship: SimShip) -> void:
+	# Per-decision context shared by the behavior cascade. These are pure reads
+	# (no RNG), so computing them up front doesn't change behavior.
 	var primary := world.primary_body()
 	var star_pos := primary.pos if primary != null else Vector2.ZERO
-	var star_r := primary.radius if primary != null else 0.0
-	var dist_star := ship.pos.distance_to(star_pos)
+	var ctx := {
+		"primary": primary,
+		"star_pos": star_pos,
+		"star_r": primary.radius if primary != null else 0.0,
+		"dist_star": ship.pos.distance_to(star_pos),
+		"aggr": float(aggression - 1) / 99.0,
+		"target": world.ship_by_id(_target_id),
+	}
 
-	# Refresh aim jitter for this decision window.
+	# Refresh aim jitter for this decision window (consumes RNG first, exactly
+	# as the original priority chain did).
 	_aim_noise = _rng.randf_range(-1.0, 1.0) * float(_p["aim_error"])
 
-	# 0.5) Lethal boundary: never fly off the map. Burn back toward the well
-	# the moment our heading would carry us into the wall.
-	if world.config.lethal_edges:
-		var half := world.config.arena_size * 0.5
-		var ahead := ship.pos + ship.vel * 1.5
-		if absf(ahead.x) > half - 300.0 or absf(ahead.y) > half - 300.0:
-			_want_angle = (star_pos - ship.pos).angle()
-			_want_thrust = true
+	# Priority-ordered, early-exit cascade (issue #21). The behaviors preserve
+	# the original branch order and the CONDITIONAL RNG draws (Patrol's chase
+	# roll, LeadAimRange's approach-thrust roll), so the sim stays deterministic.
+	for b in _behaviors:
+		if b.decide(self, ship, ctx):
 			return
-
-	# 1) Survival. Veteran+ pilots dodge whatever they're about to hit by
-	# burning perpendicular to the collision course (bodies and armed enemy
-	# mines alike); everyone burns away from the star's kill zone.
-	if difficulty >= Difficulty.VETERAN:
-		var hz_pos := Vector2.INF
-		var hazard := _imminent_hazard(ship)
-		if hazard != null:
-			hz_pos = hazard.pos
-		else:
-			var mz := _imminent_mine(ship)
-			if mz != null:
-				hz_pos = mz.pos
-		if hz_pos.is_finite():
-			var lateral := Vector2(-ship.vel.y, ship.vel.x).normalized()
-			if lateral.dot(hz_pos - ship.pos) > 0.0:
-				lateral = -lateral
-			_want_angle = lateral.angle()
-			_want_thrust = true
-			return
-	if dist_star < star_r + 260.0:
-		_want_angle = (ship.pos - star_pos).angle()
-		_want_thrust = true
-		return
-
-	var aggr := float(aggression - 1) / 99.0
-	var target := world.ship_by_id(_target_id)
-
-	# 1.6) Fear: timid pilots run FROM ships. The less aggressive, the larger
-	# the radius at which they break and flee (still snapping off shots when
-	# their nose happens to cross someone — see _apply).
-	if target != null:
-		var dist_t := ship.pos.distance_to(target.pos)
-		var flee_r := lerpf(1500.0, 0.0, aggr)
-		if dist_t < flee_r:
-			_want_angle = (ship.pos - target.pos).angle() + _aim_noise
-			_want_thrust = true
-			return
-
-	# 1.7) Logistics: detour to a nearby supply drop when we're short — but
-	# never abandon an enemy already inside firing range. Fighting > shopping.
-	if target == null or ship.pos.distance_to(target.pos) > _fire_range:
-		var want_pickup := _wanted_pickup(ship)
-		if want_pickup != null:
-			var lead := want_pickup.pos + want_pickup.vel * 0.4 - ship.pos
-			_want_angle = lead.angle()
-			_want_thrust = true
-			return
-
-	# 1.8) Hunter-killer patrol: every pilot has a preferred ring around the
-	# star (roam 1 = hug it, 100 = prowl the far edges). With no target —
-	# or no appetite to chase — correct back to the ring instead of letting
-	# gravity swarm everyone into the well.
-	var chase := target != null and _rng.randf() < maxf(0.12, aggr)
-	if target == null or not chase:
-		var want_r := _roam_radius(star_r)
-		var dist_now := maxf(1.0, dist_star)
-		if absf(dist_now - want_r) > 280.0:
-			# Aim at a point on our ring, a little ahead of us angularly.
-			var dir := (ship.pos - star_pos) / dist_now
-			var ring_point := star_pos + dir.rotated(0.55) * want_r
-			_want_angle = (ring_point - ship.pos).angle()
-			_want_thrust = true
-		else:
-			_want_angle = ship.vel.angle()
-			_want_thrust = ship.vel.length() < 120.0
-		return
-
-	# 2) Lead-aim: predict intercept accounting for relative velocity.
-	var rel := target.pos - ship.pos
-	var aim := Vector2.from_angle(_lead_angle(ship, target))
-	_want_angle = aim.angle() + _aim_noise
-
-	# 3) Range management per personality; slingshotters bias their approach
-	# toward the star to pick up a gravity assist on the way in.
-	var dist := rel.length()
-	if _sling > 0.0 and dist > _preferred_range * 1.7 and primary != null:
-		var blended := aim.normalized().lerp((star_pos - ship.pos).normalized(), _sling)
-		_want_angle = blended.angle() + _aim_noise
-	_want_thrust = dist > _preferred_range and _rng.randf() < maxf(0.15, aggr)
 
 func _apply(ship: SimShip, dt: float) -> void:
 	# Steer toward the desired heading.
