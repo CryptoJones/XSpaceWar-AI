@@ -19,10 +19,10 @@ Built with **Godot 4** for **Windows, Linux, and macOS**. Licensed under
 
 ## Get it
 
-- 🌐 **Website:** <https://cryptojones.github.io/XSpaceWar-AI/>
-- ⬇️ **Download — Windows · macOS · Linux:** [GitHub Releases](https://github.com/CryptoJones/XSpaceWar-AI/releases/latest)
-- 🎮 **itch.io:** <https://cryptojones.itch.io/xspacewar-ai>
-- 🎟️ **Steam:** coming soon
+[![Website](https://img.shields.io/badge/website-cryptojones.github.io-0a7bbd?logo=github&logoColor=white)](https://cryptojones.github.io/XSpaceWar-AI/)
+[![Download](https://img.shields.io/github/v/release/CryptoJones/XSpaceWar-AI?label=download&logo=github&color=238636)](https://github.com/CryptoJones/XSpaceWar-AI/releases/latest)
+[![itch.io](https://img.shields.io/badge/itch.io-play%20%2F%20download-fa5c5c?logo=itch.io&logoColor=white)](https://cryptojones.itch.io/xspacewar-ai)
+[![Steam](https://img.shields.io/badge/steam-coming%20soon-1b2838?logo=steam&logoColor=white)](https://store.steampowered.com)
 
 > **macOS:** the build is ad-hoc signed but not notarized — if Gatekeeper says it's "damaged", see [Running on macOS](#running-on-macos).
 
