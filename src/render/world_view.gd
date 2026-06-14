@@ -98,6 +98,9 @@ var _popups: Array[Dictionary] = [] ## floating kill texts: pos/vel/text/ttl/col
 const DUEL_SHOT_TIME := 7.0         ## seconds before the movie camera recuts
 
 func _ready() -> void:
+	# Register the InputMap actions from the default key_binds (issue #25);
+	# main.gd re-syncs after loading saved binds and after each rebind.
+	sync_input_actions()
 	# Parallax nebula backdrop: screen-fixed full-rect shader, below the world.
 	var bg_layer := CanvasLayer.new()
 	bg_layer.layer = -10
@@ -301,14 +304,14 @@ func set_background_prefs(nebula: float, stars: float, far: bool) -> void:
 ## X or RB = fire, Y or LB = hyperspace.
 func gather_local_input() -> Dictionary:
 	var turn := 0.0
-	if _bind_down("turn_left") or Input.is_physical_key_pressed(KEY_LEFT):
+	if Input.is_action_pressed("xsw_turn_left"):
 		turn -= 1.0
-	if _bind_down("turn_right") or Input.is_physical_key_pressed(KEY_RIGHT):
+	if Input.is_action_pressed("xsw_turn_right"):
 		turn += 1.0
-	var thrust := _bind_down("thrust") or Input.is_physical_key_pressed(KEY_UP)
-	var fire := _bind_down("fire")
-	var hyper := _bind_down("hyper") or Input.is_physical_key_pressed(KEY_ENTER)
-	var mine := _bind_down("mine") or Input.is_physical_key_pressed(KEY_DOWN)
+	var thrust := Input.is_action_pressed("xsw_thrust")
+	var fire := Input.is_action_pressed("xsw_fire")
+	var hyper := Input.is_action_pressed("xsw_hyper")
+	var mine := Input.is_action_pressed("xsw_mine")
 
 	var pads := Input.get_connected_joypads()
 	if not pads.is_empty():
@@ -327,8 +330,31 @@ func gather_local_input() -> Dictionary:
 
 	return {"u": turn, "t": thrust, "f": fire, "h": hyper, "m": mine}
 
-func _bind_down(action: String) -> bool:
-	return Input.is_physical_key_pressed(int(key_binds[action]))
+## Alternate (non-rebindable) keys that stay active alongside the bound key.
+const _ALT_KEYS := {
+	"turn_left": KEY_LEFT,
+	"turn_right": KEY_RIGHT,
+	"thrust": KEY_UP,
+	"hyper": KEY_ENTER,
+	"mine": KEY_DOWN,
+}
+
+## Mirror key_binds into the Godot InputMap so gameplay/UI input flows through
+## actions (issue #25): gains joypad remapping, touch, and Steam Input. Rebinding
+## and persistence still live on key_binds (main.gd); call after any bind change.
+func sync_input_actions() -> void:
+	for action in key_binds:
+		var act := "xsw_" + str(action)
+		if not InputMap.has_action(act):
+			InputMap.add_action(act)
+		InputMap.action_erase_events(act)
+		var primary := InputEventKey.new()
+		primary.physical_keycode = int(key_binds[action])
+		InputMap.action_add_event(act, primary)
+		if _ALT_KEYS.has(action):
+			var alt := InputEventKey.new()
+			alt.physical_keycode = int(_ALT_KEYS[action])
+			InputMap.action_add_event(act, alt)
 
 func _read_human_input() -> void:
 	if not input_enabled:

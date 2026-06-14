@@ -28,6 +28,49 @@ window/stretch/aspect="expand"
 
 pointing/emulate_touch_from_mouse=true
 
+[input]
+
+; Gameplay + UI actions. Events are declared empty here and populated at
+; runtime from WorldView.key_binds via sync_input_actions() (issue #25), so the
+; rebind panel / settings.cfg remain the source of truth while input now flows
+; through Godot's InputMap (gaining joypad remapping, touch, and Steam Input).
+xsw_turn_left={
+"deadzone": 0.5,
+"events": []
+}
+xsw_turn_right={
+"deadzone": 0.5,
+"events": []
+}
+xsw_thrust={
+"deadzone": 0.5,
+"events": []
+}
+xsw_fire={
+"deadzone": 0.5,
+"events": []
+}
+xsw_mine={
+"deadzone": 0.5,
+"events": []
+}
+xsw_hyper={
+"deadzone": 0.5,
+"events": []
+}
+xsw_toggle_map={
+"deadzone": 0.5,
+"events": []
+}
+xsw_toggle_feed={
+"deadzone": 0.5,
+"events": []
+}
+xsw_toggle_score={
+"deadzone": 0.5,
+"events": []
+}
+
 [internationalization]
 
 locale/translations=PackedStringArray("res://locale/es.po", "res://locale/fr.po", "res://locale/zh_CN.po", "res://locale/ar.po", "res://locale/hi.po")

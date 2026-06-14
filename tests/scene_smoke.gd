@@ -46,6 +46,15 @@ func _on_frame() -> void:
 			return
 	if _frames == FRAMES:
 		var main := root.get_node_or_null("Main")
+		# Issue #25: WorldView._ready() must have mirrored key_binds into the
+		# Godot InputMap, so gameplay/UI actions exist and are populated.
+		var input_ok: bool = InputMap.has_action("xsw_fire") \
+			and InputMap.has_action("xsw_toggle_map") \
+			and not InputMap.action_get_events("xsw_fire").is_empty()
+		if not input_ok:
+			print("  [FAIL] InputMap actions not registered from key_binds (#25)")
+			quit(1)
+			return
 		var ok: bool = main != null and main.session != null and main.session.world != null \
 			and main.session.world.tick > 0
 		if ok:
