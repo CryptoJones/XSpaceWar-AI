@@ -2,6 +2,31 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [2.3.1] — 2026-06-15
+
+### Security
+- **Relay server rate-limited.** The standalone relay now caps how many packets
+  it acts on per peer per pump and bounds the total number of rooms, closing the
+  gap where relay-hosted games bypassed the host's per-IP connection throttling.
+- **Client input sequence hardened.** The host rejects implausible jumps in a
+  client's input sequence number, so a malformed or malicious value can no
+  longer pin the acknowledged sequence and suppress a ship's later inputs.
+
+### Added
+- **Dedicated-server bans persist.** `--banfile` is now a load-and-save store —
+  console `ban`/`unban` survive a server restart.
+
+### Changed
+- **Internal decomposition (no gameplay change).** The simulation test harness
+  was split into per-domain suites (core sim / combat / bot AI / gameplay), and
+  the `main.gd` UI god-object had its Match History, Replays, and Manage Players
+  modals extracted into focused sub-controllers.
+
+### Docs
+- Clarified that the host's aim-anomaly heuristics only ever raise a warning for
+  an operator to review — they never auto-ban or auto-kick. Documented the
+  runtime-populated InputMap actions and expanded the test-suite list.
+
 ## [2.3.0] — 2026-06-14
 
 ### Changed
