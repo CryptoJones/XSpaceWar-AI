@@ -16,7 +16,7 @@ extends SceneTree
 ##   --score N        first-to-N, 0=endless (default 10)
 ##   --time MIN       match clock, 0=off    --lives N       0=unlimited
 ##   --hazard 0-100   asteroid level        --star 5-100    star size (25=classic)
-##   --planets 0-6    (default 2)           --map 2000-40000 arena edge
+##   --planets 0-12   (default 2)           --map 4000-160000 arena edge
 ##   --respawn SEC    1-15 (default 6)      --edges          lethal boundary
 ##   --reclaim        TRUSTED servers: rejoining with the same name kicks
 ##                    the old session (ghosts) and inherits its ship/score.
@@ -70,7 +70,7 @@ func _initialize() -> void:
 	session.hazard = clampf(float(a.get("hazard", "30")) / 100.0, 0.0, 1.0)
 	session.star_scale = clampf(float(a.get("star", "25")) / 25.0, 0.2, 4.0)
 	session.planet_count = int(a.get("planets", "2"))
-	session.map_size = clampf(float(a.get("map", "40000")), 2601.0, 40000.0)
+	session.map_size = clampf(float(a.get("map", "40000")), 4000.0, 160000.0)
 	session.respawn_seconds = float(a.get("respawn", "6"))
 	session.lethal_edges = a.has("edges")
 	var mode := GameSession.Mode.TEAM if String(a.get("mode", "ffa")) == "team" else GameSession.Mode.FFA

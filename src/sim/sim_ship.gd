@@ -32,6 +32,12 @@ var hyperspace_cooldown: float = 0.0
 var hyperspace_uses: int = 0
 var spawn_grace: float = 0.0
 var radius: float = 12.0
+## DEBUG ONLY (dev-mode freeze key): park in place — skip gravity/motion and be
+## immune to collision. Never set in normal or networked play; defaults false so
+## the deterministic sim is unaffected.
+var frozen: bool = false
+## DEBUG ONLY (dev-mode immortal key): immune to all death. Same caveats.
+var invulnerable: bool = false
 
 # --- Stats ---
 var score: int = 0

@@ -2,6 +2,43 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [3.0.8] — 2026-06-15
+
+A gameplay release — arenas, planets, and the minimap all change substantially,
+hence the major-version bump.
+
+### Changed
+- **Distance-driven minimap.** The radar now auto-zooms by how far you are from
+  the star: tightest at the star (local detail — asteroids, moons, torpedoes),
+  easing out to the whole arena at the map edge, smoothly and identically on
+  every map size. The star is drawn to scale (exaggerated 4×), and the minimap
+  uses a fixed legend — stars yellow, planets green, friendlies blue, enemies
+  red — instead of each ship's random colour.
+- **Planet system overhaul.** Up to 12 planets (was 2), spread evenly around the
+  star and orbiting clockwise; inner planets orbit faster (Keplerian feel) under
+  a linear-speed cap of 1/8 the top ship speed, so planets on a huge map barely
+  drift. Planet size scales with orbit — the outermost is largest (up to 1.9× the
+  star) and each step inward is 12% smaller. Orbit radii scale with the map, so
+  planets fan from ~30% of the half-map out to the edge and never share the
+  star's central 10,000-unit clear zone. Planets render Earth-like (blue oceans,
+  green continents) and are never yellow.
+- **Map size range 4,000–160,000.** The arena can now be as small as 4,000 or as
+  large as 160,000 units (was capped at 40,000); the menu slider and the
+  dedicated-server `--map` flag track the new range.
+- **Asteroids fill the arena.** The hazard field now scatters across the whole
+  map (cell size scales with the arena) instead of bunching near the star, with
+  a bounded rock count at any map size.
+
+### Added
+- **Developer testing aids (debug launch only).** Started with `--debug`, the
+  pilot can toggle an immortal flag and a freeze-in-place flag; both persist
+  across respawns and match restarts. The dedicated server gains `--planets 0-12`.
+
+### Internal
+- Continued decomposition: the minimap span math is extracted as a pure,
+  unit-tested helper, and the orbit-stability and gravity-sweep tests were
+  updated for the new map range (4,000–160,000) and planet layout.
+
 ## [2.3.1] — 2026-06-15
 
 ### Security

@@ -449,17 +449,30 @@ func _draw_star(b: SimBody, t: float) -> void:
 	draw_circle(b.pos, b.radius * 0.62, Color(3.4, 3.0, 2.2))
 
 func _draw_planet(b: SimBody, world: SimWorld) -> void:
-	var hue := float(b.seed % 997) / 997.0
-	var base := Color.from_hsv(hue, 0.55, 0.75)
+	# Earth-like: a blue ocean world flecked with green "continents". The hue is
+	# locked to the green<->blue band so a planet is NEVER yellow — only stars
+	# and ships are. Shade + continents are seeded, so a planet looks the same
+	# every frame / on every peer.
+	var t := float(b.seed % 997) / 997.0
+	var ocean := Color.from_hsv(lerpf(0.54, 0.62, t), 0.62, 0.72)   # cyan-blue -> blue
+	var land := Color.from_hsv(lerpf(0.30, 0.42, t), 0.58, 0.62)    # green -> teal-green
 	# Light the day side toward the star.
 	var primary := world.primary_body()
 	var light := Vector2.RIGHT
 	if primary != null and primary.pos.distance_to(b.pos) > 1.0:
 		light = (primary.pos - b.pos).normalized()
-	draw_circle(b.pos, b.radius * 1.06, Color(base.r, base.g, base.b, 0.25))  # atmosphere rim
-	draw_circle(b.pos, b.radius, base.darkened(0.55))
-	draw_circle(b.pos + light * b.radius * 0.28, b.radius * 0.78, base)
-	draw_circle(b.pos + light * b.radius * 0.45, b.radius * 0.45, base.lightened(0.25))
+	draw_circle(b.pos, b.radius * 1.06, Color(ocean.r, ocean.g, ocean.b, 0.22))  # atmosphere rim
+	draw_circle(b.pos, b.radius, ocean.darkened(0.5))                            # night ocean
+	draw_circle(b.pos + light * b.radius * 0.26, b.radius * 0.82, ocean)         # lit ocean
+	# A few green continents over the disk (deterministic from the seed).
+	var rng := RandomNumberGenerator.new()
+	rng.seed = b.seed
+	for _i in range(3):
+		var ang := rng.randf() * TAU
+		var rr := rng.randf_range(0.0, 0.55) * b.radius
+		var c := b.pos + Vector2(cos(ang), sin(ang)) * rr
+		draw_circle(c, b.radius * rng.randf_range(0.16, 0.30), land)
+	draw_circle(b.pos + light * b.radius * 0.5, b.radius * 0.24, ocean.lightened(0.3))  # specular glint
 
 func _draw_minor(b: SimBody) -> void:
 	if b.kind == SimBody.Kind.SATELLITE:

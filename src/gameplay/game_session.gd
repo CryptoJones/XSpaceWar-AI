@@ -46,7 +46,7 @@ var respawn_seconds := 6.0         ## death cooldown (player-configurable)
 var lethal_edges := false          ## border kills instead of wrapping
 var friendly_fire := false         ## teammates can damage/kill each other
 var star_scale := 1.0              ## star size+gravity multiplier (slider 25 = 1.0)
-var map_size := 40000.0            ## arena edge length (slider 2000-40000)
+var map_size := 40000.0            ## arena edge length (slider 4000-160000)
 var lives := 0                     ## deaths before elimination (0 = unlimited)
 var planet_count := 2              ## planets orbiting the star (0 = none)
 var net_rtt_ms := -1               ## display-only: client's measured ping
@@ -108,7 +108,7 @@ func _randomize_match_params() -> void:
 
 func _build(seed: int) -> void:
 	var cfg := SimConfig.from_seed(seed)
-	cfg.arena_size = clampf(map_size, 2601.0, 40000.0)
+	cfg.arena_size = clampf(map_size, 4000.0, 160000.0)
 	# Spawn ring scales down with small maps (and never sits outside them).
 	cfg.spawn_orbit_radius = clampf(cfg.arena_size * 0.035, 550.0, 1400.0)
 	cfg.respawn_time = clampf(respawn_seconds, 1.0, 15.0)
@@ -133,7 +133,7 @@ func _build(seed: int) -> void:
 		"star_count": 1,  # exactly one gravity well per map
 		"star_mass": base_star_mass,
 		"star_scale": clampf(star_scale, 0.2, 4.0),
-		"planets": clampi(planet_count, 0, 6),
+		"planets": clampi(planet_count, 0, 12),
 		"hazard": clampf(hazard, 0.0, 1.0),
 		"satellites": _rng.randi_range(0, 2),
 		"mirror": mode == Mode.TEAM,

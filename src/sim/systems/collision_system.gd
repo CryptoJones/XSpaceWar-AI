@@ -138,6 +138,8 @@ static func bounce(a: SimShip, b: SimShip) -> void:
 static func destroy_ship(world: SimWorld, s: SimShip, killer_id: int, cause: String) -> void:
 	if not s.alive:
 		return
+	if s.frozen or s.invulnerable:
+		return  # DEBUG: frozen (parked) or immortal — can't be killed
 	s.alive = false
 	s.deaths += 1
 	s.respawn_timer = world.config.respawn_time
