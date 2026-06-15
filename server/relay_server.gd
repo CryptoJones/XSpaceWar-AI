@@ -16,6 +16,15 @@ var _peer_info := {}    ## peer -> {"role": "host"|"client", "code": String, "pi
 var _next_pid := 1
 var _rng := RandomNumberGenerator.new()
 
+# Public-facing DoS hardening: this service answers the open internet, so a
+# single peer must not be able to burn CPU/forwarding or exhaust memory.
+## Packets we ACT ON from one peer per pump. Excess is still drained from ENet
+## (the queue can't back up) but not processed. Sits far above any legitimate
+## burst — a host fanning one snapshot out to a full room stays well under it.
+const MAX_PACKETS_PER_PUMP_PER_PEER := 64
+## Ceiling on concurrent rooms so REGISTER-flooding can't grow memory unbounded.
+const MAX_ROOMS := 256
+
 func open(port := RelayProtocol.DEFAULT_PORT, bind_address := "*", max_peers := 128) -> Error:
 	_rng.randomize()
 	var err := _conn.create_host_bound(bind_address, port, max_peers, NetProtocol.CHANNELS)
@@ -28,7 +37,8 @@ func room_count() -> int:
 func pump() -> void:
 	if not _open:
 		return
-	for _i in range(128):
+	var per_peer := {}  # peer -> packets acted on this pump (flood cap)
+	for _i in range(256):
 		var ev: Array = _conn.service(0)
 		var t := int(ev[0])
 		if t == ENetConnection.EVENT_NONE or t == ENetConnection.EVENT_ERROR:
@@ -38,7 +48,12 @@ func pump() -> void:
 			ENetConnection.EVENT_DISCONNECT:
 				_on_leave(peer)
 			ENetConnection.EVENT_RECEIVE:
-				_on_packet(peer, peer.get_packet())
+				var pkt := peer.get_packet()  # always drain, even when over the cap
+				var n := int(per_peer.get(peer, 0))
+				if n >= MAX_PACKETS_PER_PUMP_PER_PEER:
+					continue  # this peer is flooding — ignore the rest this pump
+				per_peer[peer] = n + 1
+				_on_packet(peer, pkt)
 
 func close() -> void:
 	if not _open:
@@ -81,6 +96,8 @@ static func _as_int(v: Variant, fallback: int) -> int:
 func _register(peer: ENetPacketPeer, d: Dictionary) -> void:
 	if _peer_info.has(peer):
 		return
+	if _rooms.size() >= MAX_ROOMS:
+		return  # at capacity — refuse silently; the host gets no code and times out
 	var code := _new_code()
 	_rooms[code] = {"host": peer, "clients": {}, "info": {
 		"name": String(d.get("name", "?")).left(24),

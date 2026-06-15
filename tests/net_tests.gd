@@ -18,12 +18,14 @@ func _initialize() -> void:
 	_test_protocol_roundtrip()
 	_test_snapshot_bounds()
 	_test_packet_size_cap()
+	_test_unpack_fuzz()
 	_test_host_join_sync()
 	_test_prediction()
 	_test_spectator()
 	_test_dedicated_server()
 	_test_dedicated_restart_keeps_players()
 	_test_stale_snapshot_dropped()
+	_test_input_sequence_guard()
 	_test_name_sanitization()
 	_test_name_reclaim()
 	_test_kick_and_ban()
@@ -105,6 +107,37 @@ func _test_packet_size_cap() -> void:
 		NetProtocol.MAX_CLIENT_PACKET)
 	_check("protocol: in-bounds packet still decodes under host cap",
 		int(ok.get("type", -1)) == NetProtocol.MSG_PING)
+
+func _test_unpack_fuzz() -> void:
+	# Lock in NetProtocol.unpack()'s contract against malformed/hostile input:
+	# ONLY a 2-element [int, Dictionary] array decodes; every other shape is
+	# refused without raising. The host runs this on every inbound packet, so a
+	# crafted packet must never get past it (issue #13, v2.3.0 review).
+	var cap := NetProtocol.MAX_CLIENT_PACKET
+	var malformed := [
+		var_to_bytes([1]),                # wrong arity (too short)
+		var_to_bytes([1, {}, 3]),         # wrong arity (too long)
+		var_to_bytes(["x", {}]),          # type id not an int
+		var_to_bytes([1, "notadict"]),    # payload not a dictionary
+		var_to_bytes([1, [2, 3]]),        # payload an array, not a dict
+		var_to_bytes({"a": 1}),           # top-level dict, not an array
+		var_to_bytes(42),                 # top-level scalar
+	]
+	var all_refused := true
+	for b in malformed:
+		if not NetProtocol.unpack(b, cap).is_empty():
+			all_refused = false
+	_check("protocol: every malformed packet shape is refused", all_refused)
+
+	# Boundary: the size guard rejects STRICTLY-greater, so a packet whose size
+	# equals the cap is allowed; one byte under the cap is not (off-by-one lock).
+	var pkt := NetProtocol.pack(NetProtocol.MSG_PING, {"t": 1.0})
+	var sz := pkt.size()
+	_check("protocol: packet exactly at the cap decodes",
+		int(NetProtocol.unpack(pkt, sz).get("type", -1)) == NetProtocol.MSG_PING,
+		"size=%d" % sz)
+	_check("protocol: one byte over the cap is rejected",
+		NetProtocol.unpack(pkt, sz - 1).is_empty())
 
 func _test_host_join_sync() -> void:
 	var hsession := GameSession.new()
@@ -426,6 +459,48 @@ func _test_stale_snapshot_dropped() -> void:
 		"bodies %d -> %d" % [rocks_before, client.session.world.bodies.size()])
 	client.close()
 	host.close()
+
+func _test_input_sequence_guard() -> void:
+	# A client controls its own ship's input sequence `q`. A hostile/buggy huge
+	# q must NOT pin _acked high and suppress that ship's later legitimate
+	# inputs (defence-in-depth, issue from the v2.3.0 review). We poke the host's
+	# packet handler directly with a fake peer mapped to a ship id.
+	var hs := GameSession.new()
+	hs.start_skirmish(2, GameSession.Mode.FFA, BotController.Difficulty.ROOKIE)
+	var host := NetHost.new(hs)
+	var sid := 1
+	var peer := "fake-peer"
+	host._peers[peer] = sid
+
+	var send := func(q: int, u: float) -> void:
+		host._on_packet(peer, NetProtocol.pack(NetProtocol.MSG_INPUT, {"q": q, "u": u}))
+
+	send.call(100, 0.5)
+	_check("seq: first input re-bases _acked", int(host._acked.get(sid, -999)) == 100
+		and host._inputs.has(sid))
+	send.call(101, 0.25)
+	_check("seq: in-order advance accepted", int(host._acked[sid]) == 101)
+	# A jump far past the window is refused — _acked stays put.
+	send.call(1 << 30, -1.0)
+	_check("seq: implausible forward jump refused", int(host._acked[sid]) == 101)
+	# ...and the next legitimate input still lands (the whole point of the fix:
+	# the attack above would otherwise have pinned _acked at 2^30).
+	send.call(102, 1.0)
+	_check("seq: legit input after a jump attack still accepted",
+		int(host._acked[sid]) == 102 and float(host._inputs[sid]["u"]) == 1.0)
+	# A small backward q (reordered/stale duplicate) is dropped.
+	send.call(50, 0.0)
+	_check("seq: stale reordered input dropped", int(host._acked[sid]) == 102)
+
+	# A q far BELOW the last accepted value is a sequence reset (rejoin / match
+	# restart): re-base to it rather than ignore the ship forever.
+	var sid2 := 2
+	host._peers["peer2"] = sid2
+	host._on_packet("peer2", NetProtocol.pack(NetProtocol.MSG_INPUT, {"q": 5000, "u": 0.0}))
+	_check("seq: first input for second ship accepted", int(host._acked.get(sid2, -999)) == 5000)
+	host._on_packet("peer2", NetProtocol.pack(NetProtocol.MSG_INPUT, {"q": 3, "u": 0.7}))
+	_check("seq: large drop treated as a reset and re-based",
+		int(host._acked[sid2]) == 3 and float(host._inputs[sid2]["u"]) == 0.7)
 
 func _test_name_sanitization() -> void:
 	_check("names: CJK and markup stripped, never empty",

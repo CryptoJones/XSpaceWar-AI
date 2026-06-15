@@ -45,6 +45,12 @@ var _last_hello_tick := {}    ## remote IP -> sim tick of last processed hello (
 const MAX_PEERS_PER_IP := 4              ## established-connection cap per remote IP
 const MAX_PACKETS_PER_PUMP_PER_PEER := 8 ## drop a peer's packet flood within one pump
 const MIN_HELLO_GAP_TICKS := 3           ## min sim-ticks between processed hellos per IP
+## Largest plausible jump in a client's input sequence. The client increments
+## `q` by one per tick and buffers ~120 unacked inputs, so even a multi-second
+## packet-loss burst stays well under this. A jump past it is a buggy or hostile
+## client (e.g. q=2^31): we refuse to advance _acked that far so it can't pin the
+## counter high and make us drop the ship's later legitimate inputs.
+const MAX_INPUT_SEQ_GAP := 1024
 
 func _init(p_session: GameSession) -> void:
 	session = p_session
@@ -230,7 +236,15 @@ func _on_packet(peer, bytes: PackedByteArray) -> void:
 				if sid < 0:
 					return  # spectators don't drive ships
 				var q := int(data.get("q", 0))
-				if q >= int(_acked.get(sid, 0)):
+				var last := int(_acked.get(sid, -1))
+				# Accept the first input, an in-order advance within a sane
+				# window (tolerates packet loss), or a far-below value — the
+				# latter is a sequence reset (rejoin / match restart), so we
+				# re-base to it rather than ignore the ship forever. A jump far
+				# PAST `last` is refused: see MAX_INPUT_SEQ_GAP.
+				if last < 0 \
+						or (q >= last and q - last <= MAX_INPUT_SEQ_GAP) \
+						or (last - q > MAX_INPUT_SEQ_GAP):
 					_acked[sid] = q
 					_inputs[sid] = data
 
