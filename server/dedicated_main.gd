@@ -22,7 +22,9 @@ extends SceneTree
 ##                    the old session (ghosts) and inherits its ship/score.
 ##                    Leave OFF for public servers — names are not identity.
 ##   --ban NAME       Ban a callsign at boot (repeatable; also accepts a
-##                    comma-separated list). --banfile PATH loads one per line.
+##                    comma-separated list). --banfile PATH loads one per line
+##                    AND is rewritten when bans change, so console ban/unban
+##                    persist across restarts (the file is the ban store).
 ##   --record [DIR]   Record every match as a bit-exact replay for cheating
 ##                    adjudication (DIR default user://replays, see #4).
 ##
@@ -45,6 +47,9 @@ var _cmd_queue: Array = []
 var _record := false
 var _record_dir := "user://replays"
 var _record_gen := -1
+# --banfile doubles as the persistent ban store: loaded at boot, rewritten on
+# every console ban/unban so runtime moderation survives a restart ("" = none).
+var _banfile := ""
 
 func _initialize() -> void:
 	var a := {}
@@ -106,7 +111,8 @@ func _initialize() -> void:
 		print("dedicated: recording matches to %s (cheating-adjudication evidence)" % _record_dir)
 		_maybe_start_recording()
 	# Moderation: seed the ban list, then open the live stdin console.
-	_seed_bans(bans, String(a.get("banfile", "")))
+	_banfile = String(a.get("banfile", ""))
+	_seed_bans(bans, _banfile)
 	_start_console()
 	_last_usec = Time.get_ticks_usec()
 	process_frame.connect(_tick)
@@ -175,6 +181,23 @@ func _seed_bans(bans: Array, banfile: String) -> void:
 	if n > 0:
 		print("dedicated: %d ban(s) seeded — %s" % [n, str(host.ban_list())])
 
+## Rewrite the banfile with the current ban list so console ban/unban survive a
+## restart. No-op unless --banfile was given — that file IS the persistence
+## store (read at boot by _seed_bans, written here on change). Address bans are
+## transport-ephemeral by nature and intentionally not persisted; callsign bans
+## are the portable identity.
+func _persist_bans() -> void:
+	if _banfile == "":
+		return
+	var f := FileAccess.open(_banfile, FileAccess.WRITE)
+	if f == null:
+		printerr("dedicated: cannot write banfile %s (runtime bans won't persist)" % _banfile)
+		return
+	f.store_line("# XSpaceWar-AI ban list — one callsign per line, rewritten on change.")
+	for nm in host.ban_list():
+		f.store_line(String(nm))
+	f.close()
+
 ## Start the background stdin reader. It blocks on input; lines land on a
 ## queue drained by _tick. EOF (piped/no-tty input) just ends the thread.
 func _start_console() -> void:
@@ -217,10 +240,12 @@ func _run_command(line: String) -> void:
 			if arg == "":
 				print("usage: ban <name>"); return
 			print("dedicated: banned '%s' (removed %d connected)" % [arg, host.kick_name(arg, true)])
+			_persist_bans()
 		"unban":
 			if arg == "":
 				print("usage: unban <name>"); return
 			print("dedicated: unban '%s' — %s" % [arg, "removed" if host.unban_name(arg) else "not in list"])
+			_persist_bans()
 		"players":
 			var ps := host.connected_players()
 			print("dedicated: %d player(s) connected" % ps.size())

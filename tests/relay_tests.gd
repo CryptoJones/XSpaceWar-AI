@@ -16,6 +16,7 @@ var _failed := 0
 func _initialize() -> void:
 	print("=== XSpaceWar-AI — relay tests ===")
 	_test_online_flow()
+	_test_room_cap()
 	print("=== %d passed, %d failed ===" % [_passed, _failed])
 	quit(1 if _failed > 0 else 0)
 
@@ -148,4 +149,32 @@ func _test_online_flow() -> void:
 		and c1.error_msg == "host left", "err='%s'" % c1.error_msg)
 	_check("relay: room dissolved", relay.room_count() == 0)
 	c1.close()
+	relay.close()
+
+func _test_room_cap() -> void:
+	# REGISTER-flood guard: once the room table is full the relay refuses new
+	# registrations instead of growing memory without bound (the public relay is
+	# the most internet-exposed component; v2.3.0 review gap #1).
+	var relay := RelayServer.new()
+	if relay.open(RELAY_PORT + 5, "127.0.0.1") != OK:
+		_check("relay-cap: binds", false)
+		return
+	for i in range(RelayServer.MAX_ROOMS):
+		relay._rooms["RM%d" % i] = {"host": null, "clients": {}, "info": {}}
+	_check("relay-cap: room table saturated", relay.room_count() == RelayServer.MAX_ROOMS)
+	var hsession := GameSession.new()
+	hsession.start_skirmish(2, GameSession.Mode.FFA, BotController.Difficulty.ROOKIE)
+	var host := NetHost.new(hsession)
+	host.open_relay("127.0.0.1", RELAY_PORT + 5, "overflow")
+	var code := ""
+	for i in range(300):
+		relay.pump()
+		host.update(DT, {})
+		code = host.room_code()
+		if code != "":
+			break
+		OS.delay_msec(1)
+	_check("relay-cap: registration refused when full",
+		code == "" and relay.room_count() == RelayServer.MAX_ROOMS, "code='%s'" % code)
+	host.close()
 	relay.close()

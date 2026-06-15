@@ -131,11 +131,15 @@ well, and a dwarf is a gentle nudge — both pure `1/r²`, both honest.
 - **Moderation:** a GUI host opens *PLAYERS* in the in-game menu to kick or
   ban a pilot (ban blocks the callsign, plus the IP on direct/LAN). The
   dedicated server takes `kick`/`ban`/`unban`/`players`/`watch` on its console
-  and `--ban NAME` / `--banfile PATH` at launch; `--record` keeps a bit-exact
-  replay of every match as cheating-adjudication evidence. The host also runs
-  aim-anomaly heuristics (near-zero aim variance, sub-human acquisition,
-  tracking through the wrap seam) and surfaces a ⚠ warning to review — it
-  **never** auto-bans, because perfect input isn't even winning play here.
+  and `--ban NAME` / `--banfile PATH` at launch. Give it a `--banfile` and that
+  file becomes the persistent ban store — console `ban`/`unban` are written back
+  to it, so they survive a restart. `--record` keeps a bit-exact replay of every
+  match as cheating-adjudication evidence. The host also runs aim-anomaly
+  heuristics (near-zero aim variance, sub-human acquisition, tracking through
+  the wrap seam) and surfaces a ⚠ warning for an operator to review (the
+  console's `watch` lists them) — it **never** auto-bans or auto-kicks; acting
+  on a flag is always a human call, because perfect input isn't even winning
+  play here.
 
 ## Project layout
 
@@ -207,11 +211,16 @@ godot --headless --path . --import
 godot --path .
 
 # Run the headless test suites
-godot --headless --path . --script res://tests/run_tests.gd     # sim
-godot --headless --path . --script res://tests/net_tests.gd     # LAN netcode
-godot --headless --path . --script res://tests/relay_tests.gd   # online relay
-godot --headless --path . --script res://tests/audio_tests.gd   # synthesis
-godot --headless --path . --script res://tests/scene_smoke.gd   # scene boot
+godot --headless --path . --script res://tests/run_tests.gd       # core sim / physics
+godot --headless --path . --script res://tests/combat_tests.gd    # weapons / mines / pickups
+godot --headless --path . --script res://tests/bot_tests.gd       # BotController AI
+godot --headless --path . --script res://tests/gameplay_tests.gd  # match flow / replay
+godot --headless --path . --script res://tests/net_tests.gd       # LAN netcode
+godot --headless --path . --script res://tests/relay_tests.gd     # online relay
+godot --headless --path . --script res://tests/audio_tests.gd     # synthesis
+godot --headless --path . --script res://tests/i18n_tests.gd      # translations
+godot --headless --path . --script res://tests/aim_tests.gd       # aim-anomaly heuristics
+godot --headless --path . --script res://tests/scene_smoke.gd     # scene boot
 
 # Export release builds locally (needs export templates installed)
 build/export_all.sh

@@ -32,6 +32,21 @@ jobs:
           set -o pipefail
           godot --headless --path . --script res://tests/run_tests.gd 2>&1 | tee /tmp/t.log
           ! grep -q "SCRIPT ERROR" /tmp/t.log
+      - name: Combat tests
+        run: |
+          set -o pipefail
+          godot --headless --path . --script res://tests/combat_tests.gd 2>&1 | tee /tmp/t.log
+          ! grep -q "SCRIPT ERROR" /tmp/t.log
+      - name: Bot AI tests
+        run: |
+          set -o pipefail
+          godot --headless --path . --script res://tests/bot_tests.gd 2>&1 | tee /tmp/t.log
+          ! grep -q "SCRIPT ERROR" /tmp/t.log
+      - name: Gameplay tests
+        run: |
+          set -o pipefail
+          godot --headless --path . --script res://tests/gameplay_tests.gd 2>&1 | tee /tmp/t.log
+          ! grep -q "SCRIPT ERROR" /tmp/t.log
       - name: Net tests
         run: |
           set -o pipefail
@@ -51,6 +66,11 @@ jobs:
         run: |
           set -o pipefail
           godot --headless --path . --script res://tests/scene_smoke.gd 2>&1 | tee /tmp/t.log
+          ! grep -q "SCRIPT ERROR" /tmp/t.log
+      - name: UI smoke test
+        run: |
+          set -o pipefail
+          godot --headless --path . --script res://tests/ui_smoke.gd 2>&1 | tee /tmp/t.log
           ! grep -q "SCRIPT ERROR" /tmp/t.log
       - name: i18n tests
         run: |

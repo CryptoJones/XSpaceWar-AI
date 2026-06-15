@@ -334,6 +334,13 @@ const _ALT_KEYS := {
 ## Mirror key_binds into the Godot InputMap so gameplay/UI input flows through
 ## actions (issue #25): gains joypad remapping, touch, and Steam Input. Rebinding
 ## and persistence still live on key_binds (main.gd); call after any bind change.
+##
+## NOTE: the `xsw_*` actions are declared in project.godot with EMPTY event
+## arrays on purpose — the real bindings come from settings.cfg / the rebind
+## panel and are injected here at runtime. So reading project.godot alone makes
+## the controls look unbound; this function (called at startup and after every
+## rebind) is what actually populates them. Don't "fix" project.godot by baking
+## keys in — key_binds is the single source of truth.
 func sync_input_actions() -> void:
 	for action in key_binds:
 		var act := "xsw_" + str(action)
