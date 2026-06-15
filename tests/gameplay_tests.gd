@@ -1,0 +1,382 @@
+extends SceneTree
+## Headless tests for the GameSession / match layer: match flow and win
+## conditions, lives, lethal edges, team spawns, solo practice, scoreboard
+## colours, hull generation, the action-camera duel picker, match stats, and
+## bit-exact replay record/playback. Split out of run_tests.gd.
+##
+## Run with:
+##   godot --headless --path . --script res://tests/gameplay_tests.gd
+##
+## Exits 0 on success, 1 on any failure (CI-friendly).
+
+var _passed := 0
+var _failed := 0
+
+func _initialize() -> void:
+	print("=== XSpaceWar-AI — gameplay tests ===")
+	_test_match_flow()
+	_test_ship_colors()
+	_test_lives()
+	_test_lethal_edges()
+	_test_team_spawns()
+	_test_review_gameplay_fixes()
+	_test_solo_practice()
+	_test_hull_generation()
+	_test_pick_duel()
+	_test_match_stats()
+	_test_corrupt_replay_rejected()
+	_test_replay()
+	print("=== %d passed, %d failed ===" % [_passed, _failed])
+	quit(1 if _failed > 0 else 0)
+
+func _check(name: String, ok: bool, detail: String = "") -> void:
+	if ok:
+		_passed += 1
+		print("  [PASS] ", name)
+	else:
+		_failed += 1
+		print("  [FAIL] ", name, ("  -> " + detail) if detail != "" else "")
+
+func _make_world(seed: int) -> SimWorld:
+	var cfg := SimConfig.from_seed(seed)
+	var w := SimWorld.new(cfg)
+	ArenaGen.populate(w, {"asteroid_density": 20})
+	return w
+
+# --------------------------------------------------------------------------
+
+func _test_match_flow() -> void:
+	var s := GameSession.new()
+	s.score_limit = 3
+	s.start_skirmish(2, GameSession.Mode.FFA, BotController.Difficulty.ROOKIE)
+	var gen0 := s.generation
+	var human := s.human_ship()
+	human.score = 3
+	s.update(1.0 / 60.0)
+	_check("match: reaching the score limit ends the match",
+		s.match_over and s.winner_ship == human.id)
+	for _i in range(520):  # ride out the 8s win screen
+		s.update(1.0 / 60.0)
+	_check("match: restarts with a fresh arena after the win screen",
+		not s.match_over and s.generation == gen0 + 1)
+	_check("match: scores reset on restart",
+		s.human_ship() != null and s.human_ship().score == 0)
+
+	var t := GameSession.new()
+	t.score_limit = 2
+	t.start_skirmish(4, GameSession.Mode.TEAM, BotController.Difficulty.ROOKIE)
+	t.world.ships[0].score = 1
+	t.world.ships[2].score = 1  # ships 0 and 2 share team 0 (i % 2)
+	t.update(1.0 / 60.0)
+	_check("match: team totals trigger a team win",
+		t.match_over and t.winner_team == 0)
+
+	# Time limit: the clock expiring crowns the current leader.
+	var u := GameSession.new()
+	u.score_limit = 0
+	u.time_limit = 2.0
+	u.start_skirmish(2, GameSession.Mode.FFA, BotController.Difficulty.ROOKIE)
+	var leader := u.human_ship()
+	leader.score = 5
+	for _i in range(130):  # ~2.16s
+		u.update(1.0 / 60.0)
+	_check("match: clock expiry crowns the leader",
+		u.match_over and u.winner_ship == leader.id)
+
+func _test_ship_colors() -> void:
+	var s := GameSession.new()
+	s.start_skirmish(16, GameSession.Mode.FFA, BotController.Difficulty.ROOKIE)
+	var seen := {}
+	for ship in s.world.ships:
+		seen[WorldView.ship_color(ship)] = true
+	_check("colors: 16 FFA ships get 16 distinct colors", seen.size() == 16,
+		"distinct=%d" % seen.size())
+
+func _test_lives() -> void:
+	# World level: a pilot out of lives never respawns.
+	var s := GameSession.new()
+	s.lives = 2
+	s.score_limit = 0
+	s.start_skirmish(3, GameSession.Mode.FFA, BotController.Difficulty.ROOKIE)
+	var human := s.human_ship()
+	human.deaths = 2
+	human.alive = false
+	human.respawn_timer = 0.5
+	for _i in range(240):
+		s.update(1.0 / 60.0)
+	_check("lives: out of lives means no respawn",
+		not human.alive and s.is_eliminated(human))
+
+	# Session level: last one standing takes the match.
+	var s2 := GameSession.new()
+	s2.lives = 1
+	s2.score_limit = 0
+	s2.start_skirmish(2, GameSession.Mode.FFA, BotController.Difficulty.ROOKIE)
+	var loser := s2.human_ship()
+	loser.deaths = 1
+	loser.alive = false
+	s2.update(1.0 / 60.0)
+	var survivor_id := -1
+	for ship in s2.world.ships:
+		if ship.id != loser.id:
+			survivor_id = ship.id
+	_check("lives: last pilot standing wins",
+		s2.match_over and s2.winner_ship == survivor_id)
+
+func _test_lethal_edges() -> void:
+	var s := GameSession.new()
+	s.lethal_edges = true
+	s.score_limit = 0
+	s.start_skirmish(2, GameSession.Mode.FFA, BotController.Difficulty.ROOKIE)
+	_check("edges: lethal mode disables wrap",
+		s.world.config.lethal_edges and not s.world.config.wrap_edges)
+	var human := s.human_ship()
+	human.pos = Vector2(s.world.config.arena_size * 0.5 - 10.0, 0.0)
+	human.vel = Vector2(900, 0)
+	human.spawn_grace = 0.0
+	for _i in range(10):
+		s.update(1.0 / 60.0)
+		if not human.alive:
+			break
+	_check("edges: crossing the border destroys the ship", not human.alive)
+
+	var s2 := GameSession.new()
+	s2.start_skirmish(2, GameSession.Mode.FFA, BotController.Difficulty.ROOKIE)
+	_check("edges: toroidal wrap remains the default", s2.world.config.wrap_edges)
+
+	# Wrap-mode slingshot: crossing the seam doubles your speed.
+	var h2 := s2.human_ship()
+	h2.pos = Vector2(s2.world.config.arena_size * 0.5 - 5.0, 0.0)
+	h2.vel = Vector2(600, 0)
+	h2.spawn_grace = 0.0
+	var v_before := h2.vel.length()
+	s2.update(1.0 / 60.0)
+	_check("edges: toroidal wrap preserves velocity (no free-energy boost)",
+		h2.alive and absf(h2.vel.length() - v_before) < 5.0 and h2.pos.x < 0.0,
+		"v %.0f -> %.0f x=%.0f" % [v_before, h2.vel.length(), h2.pos.x])
+
+func _test_team_spawns() -> void:
+	var s := GameSession.new()
+	s._rng.seed = 1  # fixed seed — team spawn clustering must not depend on luck
+	s.start_skirmish(8, GameSession.Mode.TEAM, BotController.Difficulty.ROOKIE)
+	var primary := s.world.primary_body()
+	var mean0 := Vector2.ZERO
+	var mean1 := Vector2.ZERO
+	for ship in s.world.ships:
+		var dir := (ship.pos - primary.pos).normalized()
+		if ship.team == 0:
+			mean0 += dir
+		else:
+			mean1 += dir
+	_check("teams: each team spawns clustered in its own sector",
+		mean0.length() > 2.0 and mean1.length() > 2.0,
+		"m0=%.2f m1=%.2f" % [mean0.length(), mean1.length()])
+	_check("teams: the two sectors are apart",
+		mean0.normalized().angle_to(mean1.normalized()) > 0.8
+		or mean0.normalized().angle_to(mean1.normalized()) < -0.8,
+		"angle=%.2f" % mean0.normalized().angle_to(mean1.normalized()))
+
+func _test_review_gameplay_fixes() -> void:
+	# Team mutual annihilation ends the match (score decides).
+	var s := GameSession.new()
+	s.lives = 1
+	s.score_limit = 0
+	s.start_skirmish(2, GameSession.Mode.TEAM, BotController.Difficulty.ROOKIE)
+	for ship in s.world.ships:
+		ship.deaths = 1
+		ship.alive = false
+	s.world.ships[0].score = 3
+	s.update(1.0 / 60.0)
+	_check("elim: team mutual annihilation still ends the match",
+		s.match_over and s.winner_team == s.world.ships[0].team)
+
+	# Lives + solo practice: no instant victory loop.
+	var s2 := GameSession.new()
+	s2.lives = 3
+	s2.score_limit = 0
+	s2.hazard = 0.0
+	s2.start_skirmish(1, GameSession.Mode.FFA, BotController.Difficulty.ROOKIE)
+	for _i in range(120):
+		s2.update(1.0 / 60.0)
+	_check("elim: lives + solo practice does not insta-end", not s2.match_over)
+
+	# Hyperspace keeps your ammo and grants no shield.
+	var w := SimWorld.new(SimConfig.from_seed(777))
+	var ship := w.add_ship()
+	ship.pos = Vector2(5000, 0)
+	ship.ammo = 2
+	ship.fuel = 10.0
+	ship.spawn_grace = 0.0
+	w._hyperspace(ship)
+	if ship.alive:  # (passed the self-destruct roll)
+		_check("hyper: jump preserves resources, no grace",
+			ship.ammo == 2 and is_equal_approx(ship.fuel, 10.0)
+			and ship.spawn_grace == 0.0,
+			"ammo=%d fuel=%.1f grace=%.2f" % [ship.ammo, ship.fuel, ship.spawn_grace])
+
+	# Spawn clearance: hazard 1.0, many respawns, nobody dies on arrival.
+	var s3 := GameSession.new()
+	s3.hazard = 1.0
+	s3.score_limit = 0
+	s3.start_skirmish(8, GameSession.Mode.FFA, BotController.Difficulty.ROOKIE)
+	var spawn_deaths := 0
+	for _i in range(40):
+		for ship3 in s3.world.ships:
+			s3.world.place_in_orbit(ship3)
+		var deaths_before := 0
+		for ship3 in s3.world.ships:
+			deaths_before += ship3.deaths
+		s3.world.step(1.0 / 60.0)
+		var deaths_after := 0
+		for ship3 in s3.world.ships:
+			deaths_after += ship3.deaths
+		spawn_deaths += deaths_after - deaths_before
+	_check("spawn: clearance + grace stop arrival deaths at hazard 100",
+		spawn_deaths == 0, "deaths=%d" % spawn_deaths)
+
+	# Recorder is parked at restart, not captured into the new world.
+	var s4 := GameSession.new()
+	s4.score_limit = 1
+	s4.hazard = 0.0
+	s4.start_skirmish(2, GameSession.Mode.FFA, BotController.Difficulty.ROOKIE)
+	s4.recorder = Replay.begin(s4)
+	for _i in range(60):
+		s4.update(1.0 / 60.0)
+	var tick_at_win := s4.world.tick
+	s4.human_ship().score = 1
+	s4.update(1.0 / 60.0)
+	_check("recorder: match flow reached match_over", s4.match_over)
+	for _i in range(int(GameSession.RESTART_DELAY * 60.0) + 10):
+		s4.update(1.0 / 60.0)
+	_check("recorder: finished tape parked with its final tick intact",
+		s4.finished_recorder != null and s4.recorder == null
+		and s4.finished_recorder.final_tick >= tick_at_win,
+		"final_tick=%d" % (s4.finished_recorder.final_tick if s4.finished_recorder != null else -1))
+
+func _test_solo_practice() -> void:
+	var s := GameSession.new()
+	s.score_limit = 0
+	s.hazard = 0.0  # clean space: the session seed varies per run, and a
+	                # drifting lone ship occasionally clipped a random rock
+	s.start_skirmish(1, GameSession.Mode.FFA, BotController.Difficulty.ROOKIE)
+	for _i in range(120):
+		s.update(1.0 / 60.0)
+	_check("solo: one-ship practice flight runs (no bots, pilot alive)",
+		s.world.ships.size() == 1 and s.bots.is_empty()
+		and s.human_ship() != null and s.human_ship().alive)
+
+func _test_hull_generation() -> void:
+	var a: Dictionary = WorldView.hull_polygon(1234)
+	var b: Dictionary = WorldView.hull_polygon(1234)
+	var c: Dictionary = WorldView.hull_polygon(987654)
+	_check("hull: deterministic for a seed", a["poly"] == b["poly"] and a["tail"] == b["tail"])
+	_check("hull: enough points for a silhouette",
+		(a["poly"] as PackedVector2Array).size() >= 5)
+	_check("hull: different seeds give different ships", a["poly"] != c["poly"])
+
+func _test_pick_duel() -> void:
+	var w := _make_world(7777)
+	var a := w.add_ship(0)
+	var b := w.add_ship(0)   # a's teammate
+	var c := w.add_ship(1)
+	var d := w.add_ship(1)
+	a.pos = Vector2(0, 0)
+	b.pos = Vector2(60, 0)        # closest pair overall (60u), but same team
+	c.pos = Vector2(-100, 0)      # closest ENEMY: 100u from a, 160u from b
+	d.pos = Vector2(2000, 2000)
+	var duel := WorldView.pick_duel(w)
+	_check("camera: duel picks the closest hostile pair",
+		duel.size() == 2 and a.id in duel and c.id in duel, str(duel))
+	a.alive = false
+	b.alive = false
+	d.alive = false
+	duel = WorldView.pick_duel(w)
+	_check("camera: lone survivor is followed solo", duel == [c.id], str(duel))
+
+func _test_match_stats() -> void:
+	var s := GameSession.new()
+	s.score_limit = 1
+	s.start_skirmish(2, GameSession.Mode.FFA, BotController.Difficulty.ROOKIE)
+	s.human_ship().score = 1
+	s.update(1.0 / 60.0)
+	var entry := MatchStats.entry_from_session(s, "2026-06-11 19:55")
+	_check("stats: finished match snapshots correctly",
+		entry["mode"] == "FFA" and bool(entry["won"])
+		and (entry["players"] as Array).size() == 2
+		and String(entry["winner"]).ends_with("(you)"))
+
+	var path := "user://test_stats.jsonl"
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(path)
+	MatchStats.append_entry(entry, path)
+	MatchStats.append_entry(entry, path)
+	var recent := MatchStats.load_recent(10, path)
+	var career := MatchStats.career(path)
+	_check("stats: append + load round-trips",
+		recent.size() == 2 and String(recent[0]["mode"]) == "FFA")
+	_check("stats: career aggregates",
+		career["matches"] == 2 and career["wins"] == 2)
+	DirAccess.remove_absolute(path)
+
+func _test_corrupt_replay_rejected() -> void:
+	var bogus := var_to_bytes({"h": {"v": 1, "ros": []}, "f": [1, 2, 3], "end": 100})
+	_check("replay: corrupt frame shapes are refused at load",
+		Replay.from_bytes(bogus) == null)
+
+func _test_replay() -> void:
+	# Record a real match (ACE bots + scripted human), then play the tape into
+	# a fresh world and demand a bit-exact final state.
+	var s := GameSession.new()
+	s.score_limit = 0
+	s.start_skirmish(4, GameSession.Mode.FFA, BotController.Difficulty.ACE)
+	s.recorder = Replay.begin(s)
+	for i in range(900):  # 15 simulated seconds
+		var human := s.human_ship()
+		if human != null and human.alive:
+			human.in_turn = 1.0 if (i / 40) % 2 == 0 else -1.0
+			human.in_thrust = i % 3 == 0
+			human.in_fire = i % 23 == 0
+			human.in_mine = i == 400
+		s.update(1.0 / 60.0)
+	var rec := s.recorder
+	s.recorder = null
+
+	var loaded := Replay.from_bytes(rec.to_bytes())
+	_check("replay: round-trips through bytes",
+		loaded != null and loaded.frames.size() == rec.frames.size()
+		and loaded.final_tick == rec.final_tick)
+	_check("replay: change-encoding stays compact",
+		rec.to_bytes().size() < 200_000, "%d bytes" % rec.to_bytes().size())
+
+	var rp := ReplayPlayer.new()
+	_check("replay: loads and rebuilds the arena", rp.load_replay(loaded))
+	var guard := 0
+	while not rp.finished and guard < 2000:
+		rp.update(1.0 / 60.0)
+		guard += 1
+	_check("replay: playback reaches the end", rp.finished, "guard=%d" % guard)
+
+	var exact := rp.session.world.ships.size() == s.world.ships.size()
+	if exact:
+		for i in range(s.world.ships.size()):
+			var a := s.world.ships[i]
+			var b := rp.session.world.ships[i]
+			if a.pos != b.pos or a.score != b.score or a.kills != b.kills or a.alive != b.alive:
+				exact = false
+				break
+	_check("replay: playback is bit-exact (positions, scores, kills, alive)", exact)
+
+	# Scrubbing: rewind to an exact tick, then back to the end — still exact.
+	rp.seek(60)
+	_check("replay: backward seek lands on the exact tick",
+		rp.session.world.tick == 60 and not rp.finished)
+	rp.seek(loaded.final_tick)
+	rp.update(1.0 / 60.0)  # the final step
+	var exact2 := true
+	for i in range(s.world.ships.size()):
+		var a2 := s.world.ships[i]
+		var b2 := rp.session.world.ships[i]
+		if a2.pos != b2.pos or a2.score != b2.score:
+			exact2 = false
+			break
+	_check("replay: state after scrubbing is still bit-exact", exact2)
