@@ -53,12 +53,8 @@ var _credits: CanvasLayer
 var _credits_box: VBoxContainer
 var _credits_y := 0.0
 var _credits_from_boot := false
-var _replays_panel: CanvasLayer
-var _replays_list: ItemList
-var _players_panel: CanvasLayer
-var _players_list: ItemList
-var _players_note: Label
-var _players_detail: Label
+var _replays: ReplaysPanel         ## REPLAYS browser (extracted sub-controller)
+var _players: PlayersPanel         ## MANAGE PLAYERS moderation panel (sub-controller)
 var _players_btn: Button
 var _spec_check: CheckButton
 var _music_check: CheckButton
@@ -67,10 +63,7 @@ var _keys_panel: CanvasLayer
 var _keybind_value_labels := {}    ## action -> Label showing the bound key
 var _keys_status: Label
 var _awaiting_rebind := ""
-var _stats_panel: CanvasLayer
-var _stats_list: ItemList
-var _stats_detail: Label
-var _stats_career: Label
+var _history: MatchHistoryPanel    ## MATCH HISTORY panel (extracted sub-controller)
 var _stats_key := []               ## [session id, generation] last written to history
 var _debug_dump_accum := 0.0
 var _race_active := false
@@ -193,10 +186,10 @@ func _ready() -> void:
 	_build_menu()
 	_build_splash()
 	_build_credits()
-	_build_replays_panel()
-	_build_stats_panel()
+	_replays = ReplaysPanel.new(self)
+	_history = MatchHistoryPanel.new(self)
 	_build_keys_panel()
-	_build_players_panel()
+	_players = PlayersPanel.new(self)
 	_load_settings()
 	if _player_name == "PILOT" or _player_name == "":
 		var user := OS.get_environment("USER")
@@ -866,9 +859,9 @@ func _on_credits_pressed() -> void:
 ## True while ANY modal UI sits over the game: the menu, a panel, the
 ## credits roll, or the splash. Ship input must never flow then.
 func _modal_open() -> bool:
-	return _menu.visible or _keys_panel.visible or _replays_panel.visible \
-		or _stats_panel.visible or _credits.visible or _splash.visible \
-		or _players_panel.visible
+	return _menu.visible or _keys_panel.visible or _replays.is_open() \
+		or _history.is_open() or _credits.visible or _splash.visible \
+		or _players.is_open()
 
 ## Re-derive the input/pause gates from modal state. Call after ANY
 ## menu/panel visibility change — keystrokes in a rebind panel must not
@@ -1037,14 +1030,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			_dismiss_splash()
 		return
 	# Replay browser / match history / player management: ESC backs to the menu.
-	if _replays_panel.visible or _stats_panel.visible or _players_panel.visible:
+	if _replays.is_open() or _history.is_open() or _players.is_open():
 		if (key_pressed and event.physical_keycode == KEY_ESCAPE) \
 				or (pad_pressed and event.button_index == JOY_BUTTON_START):
-			_replays_panel.visible = false
-			_refresh_input_gate()
-			_stats_panel.visible = false
-			_players_panel.visible = false
-			_refresh_input_gate()
+			_replays.dismiss()
+			_history.dismiss()
+			_players.dismiss()
 			set_menu_visible(true)
 		return
 	if key_pressed and event.physical_keycode == KEY_F3:
@@ -1526,129 +1517,9 @@ func _finalize_recording() -> void:
 # drives the same NetHost API from its console instead.
 # --------------------------------------------------------------------------
 
-func _build_players_panel() -> void:
-	_players_panel = CanvasLayer.new()
-	_players_panel.layer = 26
-	_players_panel.visible = false
-	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_players_panel.add_child(center)
-	var panel := PanelContainer.new()
-	center.add_child(panel)
-	var margin := MarginContainer.new()
-	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
-		margin.add_theme_constant_override(side, 24)
-	panel.add_child(margin)
-	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 10)
-	v.custom_minimum_size = Vector2(460, 0)
-	margin.add_child(v)
-	var title := Label.new()
-	title.text = "MANAGE PLAYERS"
-	title.add_theme_font_size_override("font_size", 24)
-	title.add_theme_color_override("font_color", Color(0.6, 0.9, 1.0))
-	v.add_child(title)
-	_players_note = Label.new()
-	_players_note.add_theme_font_size_override("font_size", 14)
-	_players_note.add_theme_color_override("font_color", Color(0.6, 0.7, 0.85, 0.85))
-	v.add_child(_players_note)
-	_players_list = ItemList.new()
-	_players_list.custom_minimum_size = Vector2(0, 180)
-	# Callsigns are user content — never run a player's name through tr().
-	_players_list.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
-	_players_list.item_selected.connect(_on_player_selected)
-	v.add_child(_players_list)
-	# Aim-anomaly detail for the selected pilot (host-side warning, never a ban).
-	_players_detail = Label.new()
-	_players_detail.add_theme_font_size_override("font_size", 13)
-	_players_detail.add_theme_color_override("font_color", Color(1.0, 0.7, 0.35))
-	_players_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_players_detail.custom_minimum_size = Vector2(0, 56)
-	v.add_child(_players_detail)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
-	var back := Button.new()
-	back.text = "BACK"
-	back.pressed.connect(func(): _players_panel.visible = false; _refresh_input_gate(); set_menu_visible(true))
-	row.add_child(back)
-	var spacer := Control.new()
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(spacer)
-	var kick := Button.new()
-	kick.text = "KICK"
-	kick.pressed.connect(func(): _moderate_selected(false))
-	row.add_child(kick)
-	var ban := Button.new()
-	ban.text = "BAN"
-	ban.tooltip_text = "Kick and block this callsign (and address, on LAN) from rejoining"
-	ban.pressed.connect(func(): _moderate_selected(true))
-	row.add_child(ban)
-	v.add_child(row)
-	add_child(_players_panel)
-
+## NET → MANAGE PLAYERS (delegates to the extracted PlayersPanel).
 func _on_players_pressed() -> void:
-	if net_host == null:
-		return
-	_refresh_players_list()
-	set_menu_visible(false)
-	_players_panel.visible = true
-	_refresh_input_gate()
-
-func _refresh_players_list() -> void:
-	_players_list.clear()
-	if net_host == null:
-		return
-	var players := net_host.connected_players()
-	var flagged := 0
-	for p in players:
-		var sid := int(p["sid"])
-		var warn := net_host.is_aim_flagged(sid)
-		if warn:
-			flagged += 1
-		var idx := _players_list.add_item(("⚠ " if warn else "") + String(p["name"]))
-		_players_list.set_item_metadata(idx, sid)
-	if players.is_empty():
-		_players_list.add_item(tr("(no players connected — bots hold every slot)"), null, false)
-		_players_detail.text = ""
-	else:
-		_players_list.select(0)
-		_on_player_selected(0)
-	_players_note.text = tr("%d connected · %d banned · %d flagged") \
-		% [players.size(), net_host.ban_list().size(), flagged]
-
-## Show the selected pilot's aim-anomaly verdict (a warning to review, not a
-## ban — see AimAnalyzer). Clean pilots get a reassuring line.
-func _on_player_selected(idx: int) -> void:
-	if net_host == null:
-		return
-	var meta: Variant = _players_list.get_item_metadata(idx)
-	if typeof(meta) != TYPE_INT:
-		_players_detail.text = ""
-		return
-	var reasons := net_host.aim_reasons(int(meta))
-	if reasons.is_empty():
-		_players_detail.text = tr("Aim looks human — nothing flagged.")
-	else:
-		_players_detail.text = "⚠ " + "\n⚠ ".join(reasons)
-
-func _moderate_selected(ban: bool) -> void:
-	if net_host == null:
-		return
-	var sel := _players_list.get_selected_items()
-	if sel.is_empty():
-		return
-	var meta: Variant = _players_list.get_item_metadata(sel[0])
-	if typeof(meta) != TYPE_INT:
-		return
-	var sid := int(meta)
-	var pname := ""
-	for p in net_host.connected_players():
-		if int(p["sid"]) == sid:
-			pname = String(p["name"])
-			break
-	if net_host.kick_ship(sid, "Banned by the host." if ban else "Kicked by the host.", ban):
-		_net_status.text = (tr("Banned %s.") if ban else tr("Kicked %s.")) % pname
-	_refresh_players_list()
+	_players.open()
 
 func _build_keys_panel() -> void:
 	_keys_panel = CanvasLayer.new()
@@ -1738,190 +1609,20 @@ func _rebuild_splash() -> void:
 	_build_splash()
 	_splash.visible = was_visible
 
-func _build_stats_panel() -> void:
-	_stats_panel = CanvasLayer.new()
-	_stats_panel.layer = 25
-	_stats_panel.visible = false
-	_refresh_input_gate()
-	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_stats_panel.add_child(center)
-	var panel := PanelContainer.new()
-	center.add_child(panel)
-	var margin := MarginContainer.new()
-	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
-		margin.add_theme_constant_override(side, 24)
-	panel.add_child(margin)
-	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 10)
-	v.custom_minimum_size = Vector2(560, 0)
-	margin.add_child(v)
-	var title := Label.new()
-	title.text = "MATCH HISTORY"
-	title.add_theme_font_size_override("font_size", 24)
-	title.add_theme_color_override("font_color", Color(0.6, 0.9, 1.0))
-	v.add_child(title)
-	_stats_career = Label.new()
-	_stats_career.add_theme_font_size_override("font_size", 15)
-	_stats_career.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
-	v.add_child(_stats_career)
-	_stats_list = ItemList.new()
-	_stats_list.custom_minimum_size = Vector2(0, 180)
-	_stats_list.item_selected.connect(_on_stats_selected)
-	v.add_child(_stats_list)
-	_stats_detail = Label.new()
-	_stats_detail.add_theme_font_size_override("font_size", 14)
-	_stats_detail.add_theme_color_override("font_color", Color(0.85, 0.92, 1.0, 0.9))
-	_stats_detail.custom_minimum_size = Vector2(0, 120)
-	v.add_child(_stats_detail)
-	var back := Button.new()
-	back.text = "BACK"
-	back.pressed.connect(func(): _stats_panel.visible = false; set_menu_visible(true))
-	v.add_child(back)
-	add_child(_stats_panel)
-
+## OPTIONS → MATCH HISTORY (delegates to the extracted MatchHistoryPanel).
 func _on_stats_pressed() -> void:
-	var career := MatchStats.career()
-	_stats_career.text = tr("Career:  %d matches  ·  %d wins  ·  %d kills / %d deaths") \
-		% [career["matches"], career["wins"], career["kills"], career["deaths"]]
-	_stats_list.clear()
-	_stats_detail.text = ""
-	var recent := MatchStats.load_recent(50)
-	if recent.is_empty():
-		_stats_list.add_item("(no finished matches yet — set a score or time limit and play)", null, false)
-	for e in recent:
-		var idx := _stats_list.add_item("%s   %s   %d:%02d   winner: %s%s" % [
-			String(e.get("when", "?")), String(e.get("mode", "?")),
-			int(e.get("dur", 0)) / 60, int(e.get("dur", 0)) % 60,
-			String(e.get("winner", "?")),
-			"   ★" if bool(e.get("won", false)) else ""])
-		_stats_list.set_item_metadata(idx, e)
-	set_menu_visible(false)
-	_stats_panel.visible = true
-	_refresh_input_gate()
+	_history.open()
 
-func _on_stats_selected(idx: int) -> void:
-	var e: Variant = _stats_list.get_item_metadata(idx)
-	if typeof(e) != TYPE_DICTIONARY:
-		return
-	var lines: Array[String] = []
-	var rank := 1
-	for p in e.get("players", []):
-		lines.append("%d.  %s%s   %d   (%d/%d)%s" % [rank, String(p.get("n", "?")),
-			"" if int(p.get("t", -1)) < 0 else " [T%d]" % (int(p["t"]) + 1),
-			int(p.get("s", 0)), int(p.get("k", 0)), int(p.get("d", 0)),
-			"   ← you" if bool(p.get("you", false)) else ""])
-		rank += 1
-	_stats_detail.text = "\n".join(lines)
-
-func _build_replays_panel() -> void:
-	_replays_panel = CanvasLayer.new()
-	_replays_panel.layer = 25
-	_replays_panel.visible = false
-	_refresh_input_gate()
-	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_replays_panel.add_child(center)
-	var panel := PanelContainer.new()
-	center.add_child(panel)
-	var margin := MarginContainer.new()
-	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
-		margin.add_theme_constant_override(side, 24)
-	panel.add_child(margin)
-	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 10)
-	v.custom_minimum_size = Vector2(460, 0)
-	margin.add_child(v)
-	var title := Label.new()
-	title.text = "REPLAYS"
-	title.add_theme_font_size_override("font_size", 24)
-	title.add_theme_color_override("font_color", Color(0.6, 0.9, 1.0))
-	v.add_child(title)
-	_replays_list = ItemList.new()
-	_replays_list.custom_minimum_size = Vector2(0, 220)
-	_replays_list.item_activated.connect(func(idx: int): _watch_replay(String(_replays_list.get_item_metadata(idx))))
-	v.add_child(_replays_list)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
-	var back := Button.new()
-	back.text = "BACK"
-	back.pressed.connect(func(): _replays_panel.visible = false; set_menu_visible(true))
-	row.add_child(back)
-	var del := Button.new()
-	del.text = "DELETE"
-	del.pressed.connect(_on_replay_delete_pressed)
-	row.add_child(del)
-	var spacer := Control.new()
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(spacer)
-	var watch := Button.new()
-	watch.text = "WATCH"
-	watch.pressed.connect(_on_replay_watch_pressed)
-	row.add_child(watch)
-	v.add_child(row)
-	add_child(_replays_panel)
-
-func _replay_files() -> Array[String]:
-	var out: Array[String] = []
-	var dir := DirAccess.open(REPLAY_DIR)
-	if dir == null:
-		return out
-	for fname in dir.get_files():
-		if fname.ends_with(".xsr"):
-			out.append(fname)
-	out.sort()
-	out.reverse()  # newest first (timestamps sort lexically)
-	return out
-
-func _refresh_replays_list() -> void:
-	_replays_list.clear()
-	for fname in _replay_files():
-		var path := "%s/%s" % [REPLAY_DIR, fname]
-		var rec := Replay.from_bytes(FileAccess.get_file_as_bytes(path))
-		var label := fname.trim_suffix(".xsr")
-		if rec != null:
-			var secs := int(rec.duration_sec(1.0 / 60.0))
-			label += "   —   %s · %d pilots · %d:%02d" % [
-				"TEAM" if int(rec.header.get("mode", 0)) == GameSession.Mode.TEAM else "FFA",
-				(rec.header.get("ros", []) as Array).size(), secs / 60, secs % 60]
-		else:
-			label += "   —   (unreadable)"
-		var idx := _replays_list.add_item(label)
-		_replays_list.set_item_metadata(idx, path)
-	if _replays_list.item_count == 0:
-		_replays_list.add_item("(no replays yet — enable 'Record matches' and play)", null, false)
-	else:
-		_replays_list.select(0)
-
+## OPTIONS → REPLAYS (delegates to the extracted ReplaysPanel).
 func _on_replays_browse_pressed() -> void:
-	_refresh_replays_list()
-	set_menu_visible(false)
-	_replays_panel.visible = true
-	_refresh_input_gate()
+	_replays.open()
 
-func _selected_replay_path() -> String:
-	var sel := _replays_list.get_selected_items()
-	if sel.is_empty():
-		return ""
-	var meta: Variant = _replays_list.get_item_metadata(sel[0])
-	return String(meta) if meta != null else ""
-
-func _on_replay_watch_pressed() -> void:
-	var path := _selected_replay_path()
-	if path != "":
-		_watch_replay(path)
-
-func _on_replay_delete_pressed() -> void:
-	var path := _selected_replay_path()
-	if path == "":
-		return
-	DirAccess.remove_absolute(path)
-	_refresh_replays_list()
-
+## Start playing a recorded tape. Stays on the root: it rewires the shared
+## session/view/hud the renderer draws, which the ReplaysPanel can't own.
 func _watch_replay(path: String) -> void:
 	_finalize_recording()
 	_teardown_net()
-	_replays_panel.visible = false
+	_replays.dismiss()
 	_refresh_input_gate()
 	var rec := Replay.from_bytes(FileAccess.get_file_as_bytes(path))
 	if rec == null:
