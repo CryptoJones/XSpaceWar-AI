@@ -23,6 +23,7 @@ func _initialize() -> void:
 	_test_solo_practice()
 	_test_hull_generation()
 	_test_pick_duel()
+	_test_radar_zoom()
 	_test_match_stats()
 	_test_corrupt_replay_rejected()
 	_test_replay()
@@ -292,6 +293,27 @@ func _test_pick_duel() -> void:
 	d.alive = false
 	duel = WorldView.pick_duel(w)
 	_check("camera: lone survivor is followed solo", duel == [c.id], str(duel))
+
+func _test_radar_zoom() -> void:
+	# The minimap auto-zoom span must scale with the (user-configurable) map
+	# size so it behaves identically on every map: most zoomed-in at the star
+	# (arena/8), the whole arena at any edge, monotonic between.
+	for arena: float in [4000.0, 40000.0, 80000.0, 160000.0]:
+		var half := arena * 0.5
+		var at_star := Hud.radar_target_span(Vector2.ZERO, arena)
+		_check("radar: at the star shows arena/8 (map %d)" % int(arena),
+			is_equal_approx(at_star, arena / 8.0), "span=%.1f" % at_star)
+		var edge_x := Hud.radar_target_span(Vector2(half, 0.0), arena)
+		var edge_y := Hud.radar_target_span(Vector2(0.0, half), arena)
+		_check("radar: any edge shows the whole map (map %d)" % int(arena),
+			is_equal_approx(edge_x, arena) and is_equal_approx(edge_y, arena),
+			"x=%.1f y=%.1f" % [edge_x, edge_y])
+		var mid := Hud.radar_target_span(Vector2(half * 0.5, 0.0), arena)
+		_check("radar: span grows monotonically star->edge (map %d)" % int(arena),
+			at_star < mid and mid < edge_x, "%.1f < %.1f < %.1f" % [at_star, mid, edge_x])
+		# Chebyshev distance: a corner well past the edge still clamps to whole-map.
+		_check("radar: span clamps to the whole map past the edge (map %d)" % int(arena),
+			is_equal_approx(Hud.radar_target_span(Vector2(arena, arena), arena), arena))
 
 func _test_match_stats() -> void:
 	var s := GameSession.new()

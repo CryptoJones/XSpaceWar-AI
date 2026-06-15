@@ -41,5 +41,8 @@ static func integrate_ships(world: SimWorld, dt: float) -> void:
 	for s in world.ships:
 		if not s.alive:
 			continue
+		if s.frozen:
+			s.vel = Vector2.ZERO   # DEBUG freeze: park in place, ignore gravity
+			continue
 		s.vel += accel(world, s.pos) * dt
 		s.pos += s.vel * dt

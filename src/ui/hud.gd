@@ -21,6 +21,7 @@ var _feed: Array[Dictionary] = []   ## {"t": text, "ttl": seconds}
 var _seen_tick := -1
 var _seen_gen := -1
 var _rtl := false                   ## true under a right-to-left locale (Arabic)
+var _radar_span := 0.0              ## smoothed minimap world-units-across (0 = uninitialised)
 
 const FEED_TTL := 12.0
 const FEED_MAX := 6
@@ -263,6 +264,18 @@ func _process(dt: float) -> void:
 	_radar.queue_redraw()
 	_arrows.queue_redraw()
 	var human := session.human_ship()
+	# Auto-zoom the minimap: ease its world-span toward the target for the
+	# player's distance from the star — whole-map when there's no player
+	# (movie mode / spectator / replay). Star is the minimap centre.
+	var star := session.world.primary_body()
+	var star_pos := star.pos if star != null else Vector2.ZERO
+	var span_target := session.world.config.arena_size
+	if human != null:
+		span_target = radar_target_span(human.pos - star_pos, session.world.config.arena_size)
+	if _radar_span < 1.0:
+		_radar_span = span_target  # snap on the first frame
+	else:
+		_radar_span = lerpf(_radar_span, span_target, 1.0 - exp(-RADAR_ZOOM_SMOOTH * dt))
 	_update_edge_warning(human)
 	_bars.visible = human != null
 	if human != null:
@@ -360,9 +373,28 @@ func _push_feed(text: String, big: bool = false) -> void:
 	while _feed.size() > FEED_MAX:
 		_feed.pop_front()
 
-## World units shown across the radar — the combat zone around the star, not
-## the whole (mostly empty) arena.
-const RADAR_WORLD_SPAN := 5200.0
+## The minimap auto-zooms with your distance from the star: most zoomed-in at
+## the star (you see 1/RADAR_MIN_ZOOM_DIV of the map width), widening smoothly
+## to the WHOLE arena at the map edge — and it scales with the (user-set) map
+## size, so it feels identical on every map. Span is eased per frame.
+const RADAR_MIN_ZOOM_DIV := 8.0      ## at the star: window = arena_size / this
+const RADAR_ZOOM_SMOOTH := 3.0       ## span easing rate (cf. camera_controller.gd)
+const RADAR_DETAIL_SPAN_FRAC := 0.4  ## reveal asteroids/moons/torpedoes while span <= arena*this
+const RADAR_STAR_EXAGGERATION := 4.0 ## draw the star this much bigger than its true scale
+# MINIMAP-ONLY colours (the main view keeps each ship's random/team colour):
+# a flat friend/enemy scheme is far easier to read at a glance than 16 hues.
+const RADAR_ENEMY_COLOR := Color(1.0, 0.28, 0.28)   ## bright red — hostile ships
+const RADAR_FRIEND_COLOR := Color(0.45, 0.75, 1.0)  ## light blue — your teammates
+const RADAR_PLANET_COLOR := Color(0.35, 0.9, 0.45)  ## green — planets
+
+## The minimap world-span we WANT for a ship at `rel` (its offset from the star)
+## on an arena of edge `arena_size`. Star-centred and square, so we scale on the
+## max-axis (Chebyshev) distance: 0 at the star -> arena/MIN_ZOOM_DIV (zoomed in),
+## reaching the full arena the moment the ship touches any edge. Pure + testable.
+static func radar_target_span(rel: Vector2, arena_size: float) -> float:
+	var half := maxf(arena_size * 0.5, 1.0)
+	var t := clampf(maxf(absf(rel.x), absf(rel.y)) / half, 0.0, 1.0)
+	return lerpf(arena_size / RADAR_MIN_ZOOM_DIV, arena_size, t)
 
 func _draw_radar() -> void:
 	var world := session.world if session != null else null
@@ -371,32 +403,53 @@ func _draw_radar() -> void:
 	var size := _radar.size
 	_radar.draw_rect(Rect2(Vector2.ZERO, size), Color(0.04, 0.07, 0.12, 0.55))
 	_radar.draw_rect(Rect2(Vector2.ZERO, size), Color(0.4, 0.6, 1.0, 0.35), false, 1.0)
-	# The classic fixed overview: centered on the star (the combat zone).
-	# Anything outside the window — including YOUR ship — pins to the rim,
-	# so the map is a stable picture of home and everyone's bearing from it.
+	# Star-centred and auto-zoomed (see _process): the window spans the combat
+	# zone near the star and widens to the whole arena as you fly out. Ships
+	# outside the window pin to the rim. When zoomed in we also draw the fine
+	# detail that's normally hidden as clutter.
 	var primary := world.primary_body()
 	var center := primary.pos if primary != null else Vector2.ZERO
+	var detail := _radar_span <= world.config.arena_size * RADAR_DETAIL_SPAN_FRAC
 	for b in world.bodies:
 		var mp := _radar_map(b.pos, center, size)
 		var off_map := not _radar_in_view(mp, size)
 		mp = mp.clamp(Vector2(4, 4), size - Vector2(4, 4))
 		match b.kind:
 			SimBody.Kind.STAR:
-				# The star ALWAYS shows — pinned to the edge when far, so you
-				# can never lose the way home in the big arena.
-				_radar.draw_circle(mp, 4.0, Color(1.0, 0.85, 0.4, 0.6 if off_map else 1.0))
-				if off_map:
-					_radar.draw_arc(mp, 6.5, 0.0, TAU, 10, Color(1.0, 0.85, 0.4, 0.5), 1.0)
+				# The star is the minimap centre — drawn relative to its real
+				# size in the current window (one world unit = size.x/_radar_span
+				# px), then EXAGGERATED so it reads clearly: big when zoomed in
+				# close, a dot at full zoom-out. Floored so it never vanishes,
+				# capped so it can't overrun the map.
+				var star_px := clampf(
+					b.radius / maxf(_radar_span, 1.0) * size.x * RADAR_STAR_EXAGGERATION,
+					2.0, size.x * 0.5)
+				_radar.draw_circle(mp, star_px, Color(1.0, 0.85, 0.4))
 			SimBody.Kind.PLANET:
-				if not off_map:
-					_radar.draw_circle(mp, 2.5, Color(0.6, 0.7, 0.9))
-				else:
-					_radar.draw_circle(mp, 1.8, Color(0.6, 0.7, 0.9, 0.4))
+				# Drawn at ~a third of the star's apparent size (½ then −33%) and
+				# scaling the same way — bigger as you zoom in close (the planets
+				# now ring the star), a dot at full zoom-out. Floored so it never
+				# vanishes.
+				var star_r := primary.radius if primary != null else b.radius
+				var planet_px := clampf(
+					star_r / maxf(_radar_span, 1.0) * size.x * (RADAR_STAR_EXAGGERATION * 0.335),
+					1.5, size.x * 0.5)
+				_radar.draw_circle(mp, planet_px,
+					Color(RADAR_PLANET_COLOR, 0.5 if off_map else 1.0))
 			SimBody.Kind.SATELLITE:
 				if not off_map:
 					_radar.draw_circle(mp, 1.5, Color(1.0, 0.4, 0.4, 0.8))
 			_:
-				pass  # moons/asteroids are clutter at this scale
+				# Moons/asteroids: clutter at far-out zoom, faint dots once you
+				# are zoomed in close ("all the info" for the area around you).
+				if detail and not off_map:
+					_radar.draw_circle(mp, 1.2, Color(0.55, 0.55, 0.6, 0.7))
+	# Torpedoes in flight — tracers, only when zoomed in (a swarm of dots far out).
+	if detail:
+		for t in world.torpedoes:
+			var tmp := _radar_map(t.pos, center, size)
+			if _radar_in_view(tmp, size):
+				_radar.draw_circle(tmp, 1.0, Color(1.0, 0.9, 0.5, 0.8))
 	# Armed mines blink red; supply drops show in their kind's color.
 	for m in world.mines:
 		if m.age < world.config.mine_arm_time:
@@ -409,6 +462,7 @@ func _draw_radar() -> void:
 		var pmp := _radar_map(p.pos, center, size)
 		if _radar_in_view(pmp, size):
 			_radar.draw_circle(pmp, 1.6, WorldView.PICKUP_COLORS[p.kind % WorldView.PICKUP_COLORS.size()])
+	var me := session.human_ship()
 	for s in world.ships:
 		if not s.alive:
 			continue
@@ -422,8 +476,11 @@ func _draw_radar() -> void:
 			_radar.draw_circle(mp, 3.2, Color(0.62, 0.07, 0.07))
 			_radar.draw_arc(mp, 5.5, 0.0, TAU, 12, Color(0.62, 0.07, 0.07, 0.75), 1.2)
 		else:
-			var c := WorldView.ship_color(s)
-			_radar.draw_circle(mp, 2.2, Color(c.r, c.g, c.b, 0.5 if off_view else 1.0))
+			# Flat friend/enemy scheme (minimap only): teammates light blue,
+			# everyone else bright red. The main view keeps each ship's colour.
+			var friend := me != null and s.team != -1 and s.team == me.team
+			var c := RADAR_FRIEND_COLOR if friend else RADAR_ENEMY_COLOR
+			_radar.draw_circle(mp, 2.2, Color(c, 0.5 if off_view else 1.0))
 
 ## Edge arrows pointing at off-screen ships (skirmish only): the 10x arena
 ## means fights can be anywhere — these keep them findable without staring
@@ -461,7 +518,7 @@ func _draw_arrows() -> void:
 				Color(c.r, c.g, c.b, 0.8))
 
 func _radar_map(p: Vector2, center: Vector2, size: Vector2) -> Vector2:
-	return ((p - center) / RADAR_WORLD_SPAN + Vector2(0.5, 0.5)) * size
+	return ((p - center) / maxf(_radar_span, 1.0) + Vector2(0.5, 0.5)) * size
 
 func _radar_in_view(mp: Vector2, size: Vector2) -> bool:
 	return mp.x >= 0.0 and mp.y >= 0.0 and mp.x <= size.x and mp.y <= size.y

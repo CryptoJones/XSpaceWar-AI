@@ -59,6 +59,9 @@ var _players_btn: Button
 var _spec_check: CheckButton
 var _music_check: CheckButton
 var _debug_overlay := false
+var _dev_mode := false              ## launch-only (--debug): enables dev test tools (e.g. freeze)
+var _dev_frozen := false            ## dev: park the human ship in place (re-applied each frame)
+var _dev_immortal := false          ## dev: human ship can't die (re-applied each frame)
 var _keys_panel: CanvasLayer
 var _keybind_value_labels := {}    ## action -> Label showing the bound key
 var _keys_status: Label
@@ -198,6 +201,7 @@ func _ready() -> void:
 	_lan = LanDiscovery.listener()
 	if "--debug" in OS.get_cmdline_args() or "--debug" in OS.get_cmdline_user_args():
 		_debug_overlay = true
+		_dev_mode = true
 		hud.debug_echo = true
 		print("[debug] XSpaceWar-AI v%s — debug mode (F3 overlay on, logs verbose)"
 			% str(ProjectSettings.get_setting("application/config/version", "?")))
@@ -271,6 +275,16 @@ func _process(dt: float) -> void:
 			if _debug_dump_accum >= 5.0:
 				_debug_dump_accum = 0.0
 				print("[debug] ", _debug_text().replace("\n", " | "))
+	# Re-apply the dev test flags (freeze / immortal) to the CURRENT human ship
+	# every frame so they survive respawns and the world rebuild on a match
+	# restart — setting them once on a ship that gets replaced silently lapses.
+	if _dev_mode:
+		var dh := view.session.human_ship()
+		if dh != null:
+			dh.invulnerable = _dev_immortal
+			dh.frozen = _dev_frozen
+			if _dev_frozen:
+				dh.vel = Vector2.ZERO
 
 # --------------------------------------------------------------------------
 # Menu
@@ -471,9 +485,9 @@ func _build_match_tab() -> Control:
 		func(x: float) -> String: return tr("none") if int(x) == 0 else tr("%d%%") % int(x))
 	_star_slider = _slider_row(grid, "Star size", 5, 100, 1, 25,
 		func(x: float) -> String: return tr("%d (classic)") % int(x) if int(x) == 25 else str(int(x)))
-	_planets_slider = _slider_row(grid, "Planets", 0, 6, 1, 2,
+	_planets_slider = _slider_row(grid, "Planets", 0, 12, 1, 2,
 		func(x: float) -> String: return tr("none") if int(x) == 0 else str(int(x)))
-	_map_slider = _slider_row(grid, "Map size", 2601, 40000, 1000, 40000,
+	_map_slider = _slider_row(grid, "Map size", 4000, 160000, 1000, 40000,
 		func(x: float) -> String: return tr("%d u") % int(x))
 
 	_edge_check = CheckButton.new()
@@ -1042,6 +1056,16 @@ func _unhandled_input(event: InputEvent) -> void:
 		_debug_overlay = not _debug_overlay
 		if not _debug_overlay:
 			hud.set_debug("")
+	elif _dev_mode and key_pressed and event.physical_keycode == KEY_F4:
+		# DEV TEST TOOL (--debug only): freeze your ship in place — immune to
+		# gravity and collision. The intent is re-applied to the live ship each
+		# frame (see _process), so it survives respawns and match restarts.
+		_dev_frozen = not _dev_frozen
+		_refresh_dev_banner()
+	elif _dev_mode and key_pressed and event.physical_keycode == KEY_F5:
+		# DEV TEST TOOL (--debug only): toggle immortality — your ship can't die.
+		_dev_immortal = not _dev_immortal
+		_refresh_dev_banner()
 	elif event.is_action_pressed("xsw_toggle_map"):
 		hud.set_radar_visible(not hud.radar_visible())
 		_save_settings()
@@ -1076,6 +1100,16 @@ func _unhandled_input(event: InputEvent) -> void:
 			replay_player.seek_relative(-600)  # 10s back
 		elif event.physical_keycode == KEY_RIGHT:
 			replay_player.seek_relative(600)   # 10s ahead
+
+## Surface active dev test-tool states (freeze / immortal) in the HUD banner;
+## empty banner (normal mode resumes) when none are on.
+func _refresh_dev_banner() -> void:
+	var tags: Array[String] = []
+	if _dev_frozen:
+		tags.append("⏸ FROZEN")
+	if _dev_immortal:
+		tags.append("♾ IMMORTAL")
+	hud.banner_override = "  ·  ".join(tags)
 
 # --------------------------------------------------------------------------
 # Networking (M3: LAN host / join / discovery)

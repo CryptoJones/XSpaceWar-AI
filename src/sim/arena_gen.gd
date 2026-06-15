@@ -22,6 +22,18 @@ const DEFAULTS := {
 	"mirror": false,          # mirror layout for fair team play
 }
 
+# Planet orbital LINEAR speed = min(PLANET_MAX_LINEAR, PLANET_LINEAR_SCALE/orbit_r).
+# Capped at 1/8 the max ship (the fastest case — small maps / inner orbits) and
+# otherwise falling off proportional to 1/orbit_r; because orbit radii scale with
+# MAP SIZE, planets on the biggest map barely crawl. Angular = linear/orbit_r.
+const SHIP_MAX_SPEED := 3300.0                    ## measured top in-play ship speed (u/s)
+const PLANET_MAX_LINEAR := SHIP_MAX_SPEED / 8.0   ## speed cap: 1/8 the max ship
+const PLANET_LINEAR_SCALE := 880000.0             ## tuned so the outer planet on a 160k map drifts ~12 u/s
+
+# No planet ever orbits inside this central square (edge length, world units)
+# around the star — a fixed clear zone regardless of map size.
+const PLANET_EXCLUSION_BOX := 10000.0
+
 ## Build an arena into `world` from `world.config.seed`. Returns a small
 ## metadata dictionary (e.g. the chosen parameters) for UI/debug.
 static func populate(world: SimWorld, params: Dictionary = {}) -> Dictionary:
@@ -54,15 +66,48 @@ static func populate(world: SimWorld, params: Dictionary = {}) -> Dictionary:
 			primary = _make_star(world, center, float(p["star_mass"]) * float(p["star_scale"]), rng)
 
 	# --- Planets (+ moons) ---
+	# Generate FARTHEST FIRST (i=0 = outermost): the outermost planet rides the
+	# very EDGE of the map at ~1.9x the star's radius, and each planet inward is
+	# 12% smaller than the one outside it (geometric). Orbit radii are driven by
+	# MAP SIZE — the innermost still sits well out (30% of the half-map), so
+	# planets never share the sun's central square.
 	if primary != null:
-		var base_r := world.config.spawn_orbit_radius * 1.6
-		for i in range(int(p["planets"])):
-			var orbit_r := base_r + i * (arena * 0.10) + rng.randf_range(-60.0, 60.0)
+		var n_planets := int(p["planets"])
+		var spread := wrapf(float(world.config.seed) * 0.6180339887, 0.0, TAU)
+		var half := arena * 0.5
+		# Outermost = 1.9x the star (doubled), capped so it can't swallow a tiny map.
+		var max_planet_r := minf(primary.radius * 1.9, half * 0.3)
+		# Inner orbit: outside the central PLANET_EXCLUSION_BOX (orbit = the box's
+		# half-diagonal so a circular orbit fully clears the square) AND at least
+		# 30% of the half-map out, so planets don't bunch near the star on a huge
+		# arena. If the box is bigger than the map (small maps), enforcing it would
+		# shove planets off-screen, so there we ring just outside the edge instead.
+		var box_clear := PLANET_EXCLUSION_BOX * 0.5 * sqrt(2.0)   # ~7071 for a 10000 box
+		var inner: float
+		if box_clear < half:
+			inner = maxf(box_clear, half * 0.30)
+		else:
+			inner = half + max_planet_r + 120.0
+		var outer := maxf(inner + 200.0, minf(half * 0.92, half - max_planet_r - 80.0))
+		for i in range(n_planets):
+			var frac := 1.0 if n_planets <= 1 else 1.0 - float(i) / float(n_planets - 1)
+			var orbit_r := lerpf(inner, outer, frac) + rng.randf_range(-60.0, 60.0)
+			var planet_r := max_planet_r * pow(0.88, float(i))   # 12% smaller per step inward
 			var pl := _make_orbiting(world, primary, orbit_r, rng,
-				SimBody.Kind.PLANET, rng.randf_range(40.0, 140.0), rng.randf_range(34.0, 64.0))
+				SimBody.Kind.PLANET, rng.randf_range(40.0, 140.0), planet_r)
+			# Even angular slot; snap pos so any moons orbit from the corrected
+			# spot. It still moves — _make_orbiting set a slow orbit_speed.
+			pl.orbit_angle = wrapf(spread + float(i) * TAU / float(maxi(n_planets, 1)), 0.0, TAU)
+			# Clockwise (positive = angle increases). Linear speed capped at 1/8 the
+			# max ship and otherwise ∝ 1/orbit_r — and since orbit_r scales with the
+			# map, planets on a huge map barely move. Angular = linear / orbit_r.
+			var v := minf(PLANET_MAX_LINEAR, PLANET_LINEAR_SCALE / orbit_r)
+			pl.orbit_speed = v / orbit_r
+			pl.pos = primary.pos + Vector2(cos(pl.orbit_angle), sin(pl.orbit_angle)) * pl.orbit_radius
 			var n_moons := rng.randi_range(0, int(p["moons_max"]))
 			for _m in range(n_moons):
-				_make_orbiting(world, pl, rng.randf_range(90.0, 180.0), rng,
+				# Moon orbit clears the (now size-varying) planet surface.
+				_make_orbiting(world, pl, pl.radius + rng.randf_range(80.0, 200.0), rng,
 					SimBody.Kind.MOON, rng.randf_range(6.0, 18.0), rng.randf_range(10.0, 20.0))
 
 	# --- Satellites (small fast orbiting hazards) ---
@@ -80,8 +125,13 @@ static func populate(world: SimWorld, params: Dictionary = {}) -> Dictionary:
 		# zone — at hazard 1.0 roughly every THIRD cell holds a randomized
 		# rock; at 0.0 space is clean. A clear disk around the star stays
 		# rock-free so spawning isn't a death sentence.
-		var cell := 240.0
-		var reach := world.config.spawn_orbit_radius * 2.0
+		# Spread the field across the WHOLE map (scales with map size) instead of
+		# bunching it near the star. The grid CELL scales with the map too, so the
+		# rock count stays bounded — a fixed 240u cell on a 160k arena would spawn
+		# hundreds of thousands of rocks.
+		var reach := arena * 0.45                 # ~90% of the half-arena
+		var cell := reach * 2.0 / 24.0            # ~24 cells across at any map size
+		var jitter := cell * 0.4                  # scatter within the cell, not grid-locked
 		var star_clear := (primary.radius + 280.0) if primary != null else 0.0
 		var yi := -reach
 		while yi <= reach:
@@ -89,7 +139,7 @@ static func populate(world: SimWorld, params: Dictionary = {}) -> Dictionary:
 			while xi <= reach:
 				if rng.randf() < hazard / 3.0:
 					var pos := center + Vector2(xi, yi) \
-						+ Vector2(rng.randf_range(-90.0, 90.0), rng.randf_range(-90.0, 90.0))
+						+ Vector2(rng.randf_range(-jitter, jitter), rng.randf_range(-jitter, jitter))
 					if pos.distance_to(center) > star_clear:
 						var rock := SimBody.new()
 						rock.kind = SimBody.Kind.ASTEROID
