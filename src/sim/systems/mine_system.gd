@@ -10,9 +10,12 @@ static func step_mines(world: SimWorld, dt: float) -> void:
 	var survivors: Array[SimMine] = []
 	for m in world.mines:
 		m.age += dt
-		m.life -= dt
-		if m.life <= 0.0:
-			continue
+		# A configured lifetime fizzles the mine; the default 25s still applies,
+		# but mine_life == 0 means it lingers forever (matches torpedo_life).
+		if config.mine_life > 0.0:
+			m.life -= dt
+			if m.life <= 0.0:
+				continue
 		m.vel += GravitySystem.accel(world, m.pos) * dt
 		m.pos += m.vel * dt
 		if config.wrap_edges:

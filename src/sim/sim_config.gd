@@ -44,6 +44,10 @@ func to_wire() -> Dictionary:
 		"as": arena_size,
 		"so": spawn_orbit_radius,
 		"lv": lives,
+		"tl": torpedo_life,
+		"ml": mine_life,
+		"ma": mine_arm_time,
+		"mr": manual_respawn,
 	}
 
 static func from_wire(d: Dictionary) -> SimConfig:
@@ -54,6 +58,11 @@ static func from_wire(d: Dictionary) -> SimConfig:
 	cfg.arena_size = float(d.get("as", cfg.arena_size))
 	cfg.spawn_orbit_radius = float(d.get("so", cfg.spawn_orbit_radius))
 	cfg.lives = int(d.get("lv", 0))
+	cfg.torpedo_life = float(d.get("tl", cfg.torpedo_life))
+	cfg.mine_life = float(d.get("ml", cfg.mine_life))
+	cfg.mine_arm_time = float(d.get("ma", cfg.mine_arm_time))
+	# Absent in pre-feature tapes/peers -> false = the old auto-respawn rule.
+	cfg.manual_respawn = bool(d.get("mr", false))
 	return cfg
 
 # --- Torpedoes ---
@@ -89,6 +98,10 @@ var hyperspace_risk_per_use: float = 0.05
 # --- Modes / scoring ---
 var friendly_fire: bool = false
 var ship_collision_lethal: bool = true  ## ships ramming = both destroyed (else bounce)
+## When true, a ship whose respawn timer has elapsed stays dead until its fire
+## input is held — players must press to respawn; bots hold fire automatically.
+## Default false preserves the old auto-respawn rule for pre-feature replays.
+var manual_respawn: bool = false
 
 static func from_seed(s: int) -> SimConfig:
 	var c := SimConfig.new()

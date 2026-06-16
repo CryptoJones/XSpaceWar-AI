@@ -18,6 +18,8 @@ func _initialize() -> void:
 	_test_ship_colors()
 	_test_lives()
 	_test_lethal_edges()
+	_test_mine_lifetime_clamp()
+	_test_manual_respawn()
 	_test_team_spawns()
 	_test_review_gameplay_fixes()
 	_test_solo_practice()
@@ -155,6 +157,60 @@ func _test_lethal_edges() -> void:
 	_check("edges: toroidal wrap preserves velocity (no free-energy boost)",
 		h2.alive and absf(h2.vel.length() - v_before) < 5.0 and h2.pos.x < 0.0,
 		"v %.0f -> %.0f x=%.0f" % [v_before, h2.vel.length(), h2.pos.x])
+
+func _test_mine_lifetime_clamp() -> void:
+	# Arm time clamps to its 3..30s slider range, and a finite mine lifetime is
+	# never allowed to undercut the arm time (else the mine fizzles before it
+	# ever goes hot). Unlimited (0) lifetime is left untouched.
+	var s := GameSession.new()
+	s.mine_arm_seconds = 50.0   # over-range -> clamps to 30
+	s.mine_lifetime = 10.0      # shorter than arm -> bumped up to the arm time
+	s.start_skirmish(2, GameSession.Mode.FFA, BotController.Difficulty.ROOKIE)
+	_check("mine: arm time clamps to the 3..30s range",
+		is_equal_approx(s.world.config.mine_arm_time, 30.0),
+		"arm=%.1f" % s.world.config.mine_arm_time)
+	_check("mine: finite lifetime is raised to at least the arm time",
+		is_equal_approx(s.world.config.mine_life, 30.0),
+		"life=%.1f arm=%.1f" % [s.world.config.mine_life, s.world.config.mine_arm_time])
+
+	var u := GameSession.new()
+	u.mine_arm_seconds = 12.0
+	u.mine_lifetime = 0.0       # unlimited -> stays unlimited regardless of arm
+	u.start_skirmish(2, GameSession.Mode.FFA, BotController.Difficulty.ROOKIE)
+	_check("mine: unlimited lifetime is preserved under the clamp",
+		u.world.config.mine_life == 0.0 and is_equal_approx(u.world.config.mine_arm_time, 12.0),
+		"life=%.1f arm=%.1f" % [u.world.config.mine_life, u.world.config.mine_arm_time])
+
+func _test_manual_respawn() -> void:
+	# New rule: once the timer elapses, a human ship stays dead until its fire
+	# input arrives, while bots come back on their own.
+	var s := GameSession.new()
+	s.score_limit = 0
+	s.start_skirmish(4, GameSession.Mode.FFA, BotController.Difficulty.ROOKIE)
+	_check("respawn: new matches enable manual respawn", s.world.config.manual_respawn)
+
+	var human := s.human_ship()
+	CollisionSystem.destroy_ship(s.world, human, -1, "test")
+	human.respawn_timer = 0.01            # fast-forward to "ready to respawn"
+	for _i in range(10):                  # no fire pressed -> must stay dead
+		s.update(1.0 / 60.0)
+	_check("respawn: human waits for a fire press (no auto-respawn)", not human.alive)
+
+	human.in_fire = true                  # press fire -> back next step
+	s.update(1.0 / 60.0)
+	_check("respawn: human respawns once fire is pressed", human.alive)
+
+	# A bot holds fire while dead, so it auto-respawns with no external input.
+	var bot_ship: SimShip = null
+	for sh in s.world.ships:
+		if sh.id != s.human_ship_id:
+			bot_ship = sh
+			break
+	CollisionSystem.destroy_ship(s.world, bot_ship, -1, "test")
+	bot_ship.respawn_timer = 0.01
+	for _i in range(10):
+		s.update(1.0 / 60.0)
+	_check("respawn: bots still auto-respawn", bot_ship.alive)
 
 func _test_team_spawns() -> void:
 	var s := GameSession.new()

@@ -14,6 +14,21 @@ msgstr ""
 msgid "MATCH"
 msgstr "对战"
 
+msgid "ARENA"
+msgstr "竞技场"
+
+msgid "WEAPONS"
+msgstr "武器"
+
+msgid "Torpedo lifetime"
+msgstr "鱼雷寿命"
+
+msgid "Mine arm time"
+msgstr "水雷激活时间"
+
+msgid "Mine lifetime"
+msgstr "水雷寿命"
+
 msgid "MULTIPLAYER"
 msgstr "多人"
 
@@ -322,6 +337,9 @@ msgstr "⚠ 边界  %d"
 
 msgid "RESPAWNING IN %d"
 msgstr "%d 秒后重生"
+
+msgid "PRESS FIRE TO RESPAWN"
+msgstr "按发射键重生"
 
 msgid "ELIMINATED  ·  TAB follows the next pilot"
 msgstr "已淘汰  ·  TAB 跟随下一位飞行员"

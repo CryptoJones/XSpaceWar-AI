@@ -17,6 +17,9 @@ var _ships_slider: HSlider
 var _limit_slider: HSlider
 var _time_slider: HSlider
 var _respawn_slider: HSlider
+var _torpedo_life_slider: HSlider
+var _mine_arm_slider: HSlider
+var _mine_life_slider: HSlider
 var _lives_slider: HSlider
 var _hazard_slider: HSlider
 var _star_slider: HSlider
@@ -337,11 +340,13 @@ func _build_menu() -> void:
 	secret.set_anchors_preset(Control.PRESET_CENTER_RIGHT)
 	secret.position += Vector2(-92, -9)
 
-	# Three calm tabs instead of one crowded column.
+	# Five calm tabs instead of one crowded column.
 	var tabs := TabContainer.new()
 	tabs.custom_minimum_size = Vector2(580, 420)
 	outer.add_child(tabs)
 	tabs.add_child(_build_match_tab())
+	tabs.add_child(_build_arena_tab())
+	tabs.add_child(_build_weapons_tab())
 	tabs.add_child(_build_net_tab())
 	tabs.add_child(_build_options_tab())
 
@@ -430,6 +435,31 @@ func _slider_row(grid: GridContainer, text: String, lo: float, hi: float,
 	_grid_row(grid, text, box)
 	return s
 
+## Compact seconds label: "45 s" under a minute, "m:ss" above (150 -> "2:30").
+func _secs_label(n: int) -> String:
+	if n < 60:
+		return tr("%d s") % n
+	return "%d:%02d" % [n / 60, n % 60]
+
+## Readout for a lifetime slider: 0 = unlimited, otherwise a compact seconds
+## label. Used by the torpedo slider (the mine slider uses _mine_life_fmt).
+func _life_fmt(x: float) -> String:
+	var n := int(x)
+	return tr("unlimited") if n == 0 else _secs_label(n)
+
+## Mine-lifetime readout: like _life_fmt, but when the set lifetime is shorter
+## than the arm time the mine would fizzle before going hot, so _build() clamps
+## it up. We surface that here as "10 s → 30 s" so the effective value is visible
+## before the match starts (no popup; see the lifetime>=arm clamp in _build).
+func _mine_life_fmt(x: float) -> String:
+	var n := int(x)
+	if n == 0:
+		return tr("unlimited")
+	var arm := int(_mine_arm_slider.value)
+	if n < arm:
+		return "%s → %s" % [_secs_label(n), _secs_label(arm)]
+	return _secs_label(n)
+
 func _refresh_slider_readouts() -> void:
 	for s in _slider_readouts:
 		var pair: Array = _slider_readouts[s]
@@ -454,13 +484,19 @@ func _tab_page(tab_name: String) -> Array:
 	page.add_child(v)
 	return [page, v]
 
-func _build_match_tab() -> Control:
-	var parts := _tab_page("MATCH")
-	var v: VBoxContainer = parts[1]
+## Two-column option grid shared by the MATCH / ARENA / WEAPONS setup tabs.
+func _option_grid() -> GridContainer:
 	var grid := GridContainer.new()
 	grid.columns = 2
 	grid.add_theme_constant_override("h_separation", 18)
 	grid.add_theme_constant_override("v_separation", 12)
+	return grid
+
+func _build_match_tab() -> Control:
+	# The contest itself: who plays, how you win, how respawn/lives/FF work.
+	var parts := _tab_page("MATCH")
+	var v: VBoxContainer = parts[1]
+	var grid := _option_grid()
 	v.add_child(grid)
 
 	_mode_btn = OptionButton.new()
@@ -481,24 +517,6 @@ func _build_match_tab() -> Control:
 		func(x: float) -> String: return tr("%d s") % int(x))
 	_lives_slider = _slider_row(grid, "Lives", 0, 64, 1, 0,
 		func(x: float) -> String: return tr("unlimited") if int(x) == 0 else str(int(x)))
-	_hazard_slider = _slider_row(grid, "Asteroids", 0, 100, 1, 30,
-		func(x: float) -> String: return tr("none") if int(x) == 0 else tr("%d%%") % int(x))
-	_star_slider = _slider_row(grid, "Star size", 5, 100, 1, 25,
-		func(x: float) -> String: return tr("%d (classic)") % int(x) if int(x) == 25 else str(int(x)))
-	_planets_slider = _slider_row(grid, "Planets", 0, 12, 1, 2,
-		func(x: float) -> String: return tr("none") if int(x) == 0 else str(int(x)))
-	_map_slider = _slider_row(grid, "Map size", 4000, 160000, 1000, 40000,
-		func(x: float) -> String: return tr("%d u") % int(x))
-
-	_edge_check = CheckButton.new()
-	_edge_check.text = "Lethal map edge"
-	_edge_check.tooltip_text = "Off: the map wraps around · On: the border destroys ships"
-	_grid_row(grid, "Boundary", _edge_check)
-
-	_ff_check = CheckButton.new()
-	_ff_check.text = "Friendly fire"
-	_ff_check.tooltip_text = "Off: teammates cannot harm each other · On: all damage applies"
-	_grid_row(grid, "Friendly fire", _ff_check)
 
 	var stretch := Control.new()
 	stretch.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -508,6 +526,55 @@ func _build_match_tab() -> Control:
 	movie.text = "WATCH — Movie Mode"
 	movie.pressed.connect(_on_movie_pressed)
 	v.add_child(movie)
+	return parts[0]
+
+func _build_arena_tab() -> Control:
+	# The battlefield: arena size, the gravity well, planets, hazards, boundary.
+	var parts := _tab_page("ARENA")
+	var v: VBoxContainer = parts[1]
+	var grid := _option_grid()
+	v.add_child(grid)
+
+	_map_slider = _slider_row(grid, "Map size", 4000, 160000, 1000, 40000,
+		func(x: float) -> String: return tr("%d u") % int(x))
+	_star_slider = _slider_row(grid, "Star size", 5, 100, 1, 25,
+		func(x: float) -> String: return tr("%d (classic)") % int(x) if int(x) == 25 else str(int(x)))
+	_planets_slider = _slider_row(grid, "Planets", 0, 12, 1, 2,
+		func(x: float) -> String: return tr("none") if int(x) == 0 else str(int(x)))
+	_hazard_slider = _slider_row(grid, "Asteroids", 0, 100, 1, 30,
+		func(x: float) -> String: return tr("none") if int(x) == 0 else tr("%d%%") % int(x))
+
+	_edge_check = CheckButton.new()
+	_edge_check.text = "Lethal map edge"
+	_edge_check.tooltip_text = "Off: the map wraps around · On: the border destroys ships"
+	_grid_row(grid, "Boundary", _edge_check)
+	return parts[0]
+
+func _build_weapons_tab() -> Control:
+	# Ordnance tuning — its own tab so new weapons have room to grow.
+	var parts := _tab_page("WEAPONS")
+	var v: VBoxContainer = parts[1]
+	var grid := _option_grid()
+	v.add_child(grid)
+
+	# Projectile lifetimes: 0 = unlimited, max 12 min. Readout shows m:ss past a
+	# minute (the click-to-edit input is always raw seconds; see _slider_row).
+	_torpedo_life_slider = _slider_row(grid, "Torpedo lifetime", 0, 720, 1, 0, _life_fmt)
+	# Arm time gates the proximity fuse. Below it the mine is inert; once armed,
+	# enemies always trip it, and teammates/owner only when friendly fire is on.
+	# Sits above the lifetime row, which is clamped to never undercut the arm time.
+	_mine_arm_slider = _slider_row(grid, "Mine arm time", 3, 30, 1, 3,
+		func(x: float) -> String: return tr("%d s") % int(x))
+	_mine_life_slider = _slider_row(grid, "Mine lifetime", 0, 720, 1, 25, _mine_life_fmt)
+	# Raising the arm time can lift the effective mine lifetime, so refresh the
+	# readouts (the lifetime row shows "set → effective") when arm time moves.
+	_mine_arm_slider.value_changed.connect(func(_v: float): _refresh_slider_readouts())
+
+	# Friendly fire lives here: it decides whether your ordnance harms teammates.
+	_ff_check = CheckButton.new()
+	_ff_check.text = "Friendly fire"
+	_ff_check.tooltip_text = "Off: teammates cannot harm each other · On: all damage applies"
+	_grid_row(grid, "Friendly fire", _ff_check)
 	return parts[0]
 
 func _build_net_tab() -> Control:
@@ -768,6 +835,7 @@ func _build_controls_panel() -> HBoxContainer:
 		["X / RB", "fire torpedo"],
 		["B / LT", "drop mine"],
 		["Y / LB", "hyperspace"],
+		["BACK / VIEW", "toggle minimap"],
 		["START", "menu"],
 	]))
 	return row
@@ -970,6 +1038,9 @@ func _start_configured_match() -> void:
 	session.time_limit = _time_slider.value * 60.0
 	session.hazard = _hazard_slider.value / 100.0
 	session.respawn_seconds = _respawn_slider.value
+	session.torpedo_lifetime = _torpedo_life_slider.value
+	session.mine_arm_seconds = _mine_arm_slider.value
+	session.mine_lifetime = _mine_life_slider.value
 	session.lethal_edges = _edge_check.button_pressed
 	session.friendly_fire = _ff_check.button_pressed
 	session.star_scale = _star_slider.value / 25.0
@@ -1381,6 +1452,9 @@ func _load_settings() -> void:
 		_limit_slider.set_value_no_signal(float(cfg.get_value("match", "score_limit", 10.0)))
 		_time_slider.set_value_no_signal(float(cfg.get_value("match", "time_limit", 0.0)))
 		_respawn_slider.set_value_no_signal(float(cfg.get_value("match", "respawn", 6.0)))
+		_torpedo_life_slider.set_value_no_signal(float(cfg.get_value("match", "torpedo_life", 0.0)))
+		_mine_arm_slider.set_value_no_signal(float(cfg.get_value("match", "mine_arm", 3.0)))
+		_mine_life_slider.set_value_no_signal(float(cfg.get_value("match", "mine_life", 25.0)))
 		_hazard_slider.set_value_no_signal(float(cfg.get_value("match", "hazard", 30.0)))
 		_star_slider.set_value_no_signal(float(cfg.get_value("match", "star_size", 25.0)))
 		_planets_slider.set_value_no_signal(float(cfg.get_value("match", "planets", 2.0)))
@@ -1434,6 +1508,9 @@ func _save_settings() -> void:
 	cfg.set_value("match", "score_limit", _limit_slider.value)
 	cfg.set_value("match", "time_limit", _time_slider.value)
 	cfg.set_value("match", "respawn", _respawn_slider.value)
+	cfg.set_value("match", "torpedo_life", _torpedo_life_slider.value)
+	cfg.set_value("match", "mine_arm", _mine_arm_slider.value)
+	cfg.set_value("match", "mine_life", _mine_life_slider.value)
 	cfg.set_value("match", "hazard", _hazard_slider.value)
 	cfg.set_value("match", "star_size", _star_slider.value)
 	cfg.set_value("match", "planets", _planets_slider.value)

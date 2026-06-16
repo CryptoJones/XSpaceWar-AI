@@ -284,7 +284,12 @@ func _process(dt: float) -> void:
 	if human != null and not human.alive and not session.match_over \
 			and not session.is_eliminated(human):
 		_respawn_label.visible = true
-		_respawn_label.text = tr("RESPAWNING IN %d") % maxi(1, ceili(human.respawn_timer))
+		# Once the timer is up under manual respawn, prompt for the fire press
+		# instead of a countdown; otherwise show the seconds remaining.
+		if session.world.config.manual_respawn and human.respawn_timer <= 0.0:
+			_respawn_label.text = tr("PRESS FIRE TO RESPAWN")
+		else:
+			_respawn_label.text = tr("RESPAWNING IN %d") % maxi(1, ceili(human.respawn_timer))
 		_respawn_label.modulate.a = 0.65 + 0.35 * sin(Time.get_ticks_msec() / 1000.0 * 6.0)
 	else:
 		_respawn_label.visible = false

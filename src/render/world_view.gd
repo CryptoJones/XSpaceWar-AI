@@ -331,6 +331,13 @@ const _ALT_KEYS := {
 	"mine": KEY_DOWN,
 }
 
+## Fixed gamepad buttons for UI actions that flow through the InputMap (gameplay
+## actions are polled directly in gather_local_input). The Xbox "View" button
+## (BACK) shows a screen/map glyph — a natural fit for toggling the minimap.
+const _GAMEPAD_BINDS := {
+	"toggle_map": JOY_BUTTON_BACK,
+}
+
 ## Mirror key_binds into the Godot InputMap so gameplay/UI input flows through
 ## actions (issue #25): gains joypad remapping, touch, and Steam Input. Rebinding
 ## and persistence still live on key_binds (main.gd); call after any bind change.
@@ -354,13 +361,19 @@ func sync_input_actions() -> void:
 			var alt := InputEventKey.new()
 			alt.physical_keycode = int(_ALT_KEYS[action])
 			InputMap.action_add_event(act, alt)
+		if _GAMEPAD_BINDS.has(action):
+			var pad := InputEventJoypadButton.new()
+			pad.button_index = _GAMEPAD_BINDS[action]
+			InputMap.action_add_event(act, pad)
 
 func _read_human_input() -> void:
 	if not input_enabled:
 		return
 	var ship := session.human_ship()
-	if ship == null or not ship.alive:
+	if ship == null:
 		return
+	# Applied even while dead: a dead ship ignores all inputs except the fire
+	# press that requests a respawn (see SpawnSystem under manual_respawn).
 	NetProtocol.apply_input(ship, gather_local_input())
 
 # --------------------------------------------------------------------------

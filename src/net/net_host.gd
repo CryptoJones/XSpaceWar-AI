@@ -131,12 +131,15 @@ func update(dt: float, local_input: Dictionary) -> void:
 		for peer in _peers.keys():
 			_drop_peer(peer)
 
+	# Inputs apply even to dead ships: a dead ship ignores everything but the
+	# fire press that requests a respawn (manual_respawn). Stale inputs from a
+	# dropped peer are cleared by _drop_peer, so this can't auto-revive ghosts.
 	var human := session.human_ship()
-	if human != null and human.alive and not local_input.is_empty():
+	if human != null and not local_input.is_empty():
 		NetProtocol.apply_input(human, local_input)
 	for sid in _inputs:
 		var ship := session.world.ship_by_id(sid)
-		if ship != null and ship.alive:
+		if ship != null:
 			NetProtocol.apply_input(ship, _inputs[sid])
 
 	session.update(dt)

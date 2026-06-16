@@ -72,7 +72,9 @@ static func step_ship(world: SimWorld, s: SimShip, dt: float) -> void:
 			s.clear_inputs()
 			return
 		s.respawn_timer -= dt
-		if s.respawn_timer <= 0.0:
+		# Once the timer elapses, auto-respawn unless manual_respawn is on — then
+		# the ship waits for its fire input (players press; dead bots hold fire).
+		if s.respawn_timer <= 0.0 and (not config.manual_respawn or s.in_fire):
 			place_in_orbit(world, s)
 		s.clear_inputs()
 		return

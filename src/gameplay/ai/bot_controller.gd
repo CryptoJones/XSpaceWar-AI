@@ -114,7 +114,12 @@ static func callsign(seed_value: int) -> String:
 ## Set this bot's control inputs for the upcoming world.step().
 func update(dt: float) -> void:
 	var ship := world.ship_by_id(ship_id)
-	if ship == null or not ship.alive:
+	if ship == null:
+		return
+	if not ship.alive:
+		# Hold fire while dead so the sim auto-respawns us under manual_respawn
+		# (a no-op under the old auto rule). A bot never makes a player wait.
+		ship.in_fire = true
 		return
 
 	_retarget_timer -= dt

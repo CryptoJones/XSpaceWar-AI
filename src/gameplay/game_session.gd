@@ -43,6 +43,9 @@ var score_limit := 10              ## 0 = endless
 var time_limit := 0.0              ## seconds; 0 = no clock
 var hazard := 0.3                  ## asteroid slider 0..1 (1 = every 3rd cell)
 var respawn_seconds := 6.0         ## death cooldown (player-configurable)
+var torpedo_lifetime := 0.0        ## seconds before a torpedo fizzles (0 = unlimited)
+var mine_lifetime := 25.0          ## seconds before a mine fizzles (0 = unlimited)
+var mine_arm_seconds := 3.0        ## proximity fuse inert until this age (3..30)
 var lethal_edges := false          ## border kills instead of wrapping
 var friendly_fire := false         ## teammates can damage/kill each other
 var star_scale := 1.0              ## star size+gravity multiplier (slider 25 = 1.0)
@@ -112,10 +115,18 @@ func _build(seed: int) -> void:
 	# Spawn ring scales down with small maps (and never sits outside them).
 	cfg.spawn_orbit_radius = clampf(cfg.arena_size * 0.035, 550.0, 1400.0)
 	cfg.respawn_time = clampf(respawn_seconds, 1.0, 15.0)
+	cfg.mine_arm_time = clampf(mine_arm_seconds, 3.0, 30.0)
+	cfg.torpedo_life = clampf(torpedo_lifetime, 0.0, 720.0)
+	cfg.mine_life = clampf(mine_lifetime, 0.0, 720.0)
+	# A mine must outlive its arming delay or it would fizzle before going hot.
+	# 0 (unlimited) already covers any arm time, so only the finite case clamps.
+	if cfg.mine_life > 0.0:
+		cfg.mine_life = maxf(cfg.mine_life, cfg.mine_arm_time)
 	cfg.lives = maxi(0, lives) if not movie_mode else 0
 	cfg.lethal_edges = lethal_edges
 	cfg.wrap_edges = not lethal_edges
 	cfg.friendly_fire = friendly_fire
+	cfg.manual_respawn = true  # players press fire to respawn; bots auto-respawn
 	world = SimWorld.new(cfg)
 	bots.clear()
 	ship_names.clear()
