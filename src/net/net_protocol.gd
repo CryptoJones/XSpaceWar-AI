@@ -15,7 +15,7 @@ extends RefCounted
 # BUMP THIS on ANY wire-schema change (welcome/snapshot/input fields) —
 # the strict equality check is the only thing standing between mixed
 # builds and silent desync.
-const VERSION := 6
+const VERSION := 7
 
 ## Callsign whitelist: A-Z 0-9 space dash underscore, max 16, never empty.
 ## Applied authoritatively on the HOST (clients can send anything) — this is

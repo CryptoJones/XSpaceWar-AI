@@ -25,6 +25,12 @@ msgstr ""
 msgid "MATCH"
 msgstr ""
 
+msgid "ARENA"
+msgstr ""
+
+msgid "WEAPONS"
+msgstr ""
+
 msgid "MULTIPLAYER"
 msgstr ""
 
@@ -123,6 +129,16 @@ msgid "Off: the map wraps around · On: the border destroys ships"
 msgstr ""
 
 msgid "WATCH — Movie Mode"
+msgstr ""
+
+# ---- Weapons tab ----
+msgid "Torpedo lifetime"
+msgstr ""
+
+msgid "Mine arm time"
+msgstr ""
+
+msgid "Mine lifetime"
 msgstr ""
 
 # ---- Multiplayer tab ----
@@ -341,6 +357,9 @@ msgid "⚠ BOUNDARY  %d"
 msgstr ""
 
 msgid "RESPAWNING IN %d"
+msgstr ""
+
+msgid "PRESS FIRE TO RESPAWN"
 msgstr ""
 
 msgid "ELIMINATED  ·  TAB follows the next pilot"

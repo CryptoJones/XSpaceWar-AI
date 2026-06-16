@@ -14,6 +14,21 @@ msgstr ""
 msgid "MATCH"
 msgstr "مباراة"
 
+msgid "ARENA"
+msgstr "الساحة"
+
+msgid "WEAPONS"
+msgstr "الأسلحة"
+
+msgid "Torpedo lifetime"
+msgstr "عمر الطوربيد"
+
+msgid "Mine arm time"
+msgstr "زمن تسليح اللغم"
+
+msgid "Mine lifetime"
+msgstr "عمر اللغم"
+
 msgid "MULTIPLAYER"
 msgstr "متعدد اللاعبين"
 
@@ -322,6 +337,9 @@ msgstr "⚠ الحدود  %d"
 
 msgid "RESPAWNING IN %d"
 msgstr "إعادة الظهور خلال %d"
+
+msgid "PRESS FIRE TO RESPAWN"
+msgstr "اضغط إطلاق لإعادة الظهور"
 
 msgid "ELIMINATED  ·  TAB follows the next pilot"
 msgstr "أُقصيت  ·  TAB يتابع الطيار التالي"

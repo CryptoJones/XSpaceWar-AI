@@ -2,6 +2,40 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [3.1.41] — 2026-06-16
+
+A weapons-and-respawn release: ordnance is now tunable, dying asks something of
+you, and the match-setup screen is split into focused tabs.
+
+### Added
+- **Press to respawn.** When your respawn timer elapses you now stay dead until
+  you press fire — the HUD prompts `PRESS FIRE TO RESPAWN` instead of counting
+  you straight back in. Bots respawn on their own (they hold fire while dead), so
+  AI never waits on a keypress. Gated by a new `manual_respawn` flag that defaults
+  off for older replays, so pre-feature tapes still play back under the old
+  auto-respawn rule.
+- **Torpedo & mine lifetime sliders.** Both keep their classic feel by default
+  (0 = fly/linger forever for torpedoes; 25 s for mines) and range up to 12
+  minutes; the readout shows `m:ss` past a minute.
+- **Mine arm-time slider (3–30 s).** Controls when the proximity fuse goes live;
+  once armed, enemies always trip it, and teammates/owner only with friendly fire
+  on. A mine's lifetime is clamped to never undercut its arm time, surfaced live
+  in the lifetime readout as `set → effective`.
+- **Gamepad minimap toggle.** Bound to the controller BACK / View button (the
+  keyboard `M` toggle was already there).
+
+### Changed
+- **Match setup split into MATCH · ARENA · WEAPONS tabs** so the options column
+  fits on screen. Friendly fire now lives under WEAPONS, since it governs whether
+  your ordnance harms teammates.
+- New UI strings (the two new tabs, the weapon labels, and the respawn prompt)
+  are translated across all five shipping catalogs (es, fr, zh_CN, ar, hi).
+
+### Internal
+- **Net protocol bumped to 7.** The new config fields ride the join handshake's
+  welcome payload, so the strict-equality version gate is bumped to keep mixed
+  builds from connecting and silently desyncing.
+
 ## [3.0.8] — 2026-06-15
 
 A gameplay release — arenas, planets, and the minimap all change substantially,

@@ -374,6 +374,9 @@ func _test_sim_config_roundtrip() -> void:
 		cfg.arena_size = 2048.0 + float(sd % 7) * 100.0
 		cfg.spawn_orbit_radius = 480.0 + float(sd % 5) * 25.0
 		cfg.lives = 5 + (sd % 4)
+		cfg.torpedo_life = float(sd % 6) * 30.0  # 0 (unlimited) .. 150s
+		cfg.mine_life = 25.0 + float(sd % 4) * 60.0
+		cfg.mine_arm_time = 3.0 + float(sd % 5) * 5.0  # 3 .. 23s
 
 		var w1 := cfg.to_wire()
 		var rebuilt := SimConfig.from_wire(w1)
@@ -398,7 +401,10 @@ func _test_sim_config_roundtrip() -> void:
 				or rebuilt.lethal_edges != cfg.lethal_edges \
 				or not is_equal_approx(rebuilt.arena_size, cfg.arena_size) \
 				or not is_equal_approx(rebuilt.spawn_orbit_radius, cfg.spawn_orbit_radius) \
-				or rebuilt.lives != cfg.lives:
+				or rebuilt.lives != cfg.lives \
+				or not is_equal_approx(rebuilt.torpedo_life, cfg.torpedo_life) \
+				or not is_equal_approx(rebuilt.mine_life, cfg.mine_life) \
+				or not is_equal_approx(rebuilt.mine_arm_time, cfg.mine_arm_time):
 			ok = false
 			detail = "option lost @seed %d" % sd
 			break

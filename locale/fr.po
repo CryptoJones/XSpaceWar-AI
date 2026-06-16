@@ -12,6 +12,21 @@ msgstr ""
 msgid "MATCH"
 msgstr "PARTIE"
 
+msgid "ARENA"
+msgstr "ARÈNE"
+
+msgid "WEAPONS"
+msgstr "ARMES"
+
+msgid "Torpedo lifetime"
+msgstr "Durée des torpilles"
+
+msgid "Mine arm time"
+msgstr "Armement des mines"
+
+msgid "Mine lifetime"
+msgstr "Durée des mines"
+
 msgid "MULTIPLAYER"
 msgstr "MULTIJOUEUR"
 
@@ -320,6 +335,9 @@ msgstr "⚠ LIMITE  %d"
 
 msgid "RESPAWNING IN %d"
 msgstr "RÉAPPARITION DANS %d"
+
+msgid "PRESS FIRE TO RESPAWN"
+msgstr "TIREZ POUR RÉAPPARAÎTRE"
 
 msgid "ELIMINATED  ·  TAB follows the next pilot"
 msgstr "ÉLIMINÉ  ·  TAB suit le pilote suivant"

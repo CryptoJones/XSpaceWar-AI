@@ -79,8 +79,10 @@ func _step_once(world: SimWorld) -> void:
 	_advance_frames(world)
 	for sid in _inputs:
 		var s := world.ship_by_id(int(sid))
-		if s == null or not s.alive:
+		if s == null:
 			continue
+		# Apply to dead ships too: the recorded fire press is what drives a
+		# manual respawn, so skipping it would desync the tape (see SpawnSystem).
 		var rec: Array = _inputs[sid]
 		s.in_turn = float(rec[0])
 		var flags := int(rec[1])
