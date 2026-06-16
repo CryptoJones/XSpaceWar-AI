@@ -37,7 +37,7 @@ jobs:
       - name: Install butler
         run: |
           # Official itch.io distribution channel (broth) — no third-party action.
-          curl -fsSL -o butler.zip https://broth.itch.ovh/butler/linux-amd64/LATEST/archive/default
+          curl -fsSL -o butler.zip https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default
           unzip -o butler.zip -d butler-bin
           chmod +x butler-bin/butler
           butler-bin/butler -V
