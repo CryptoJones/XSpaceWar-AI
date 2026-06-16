@@ -1,0 +1,54 @@
+name: itch.io deploy
+
+# Ships a published release to itch.io via butler, reusing the exact per-tag
+# artifacts ci.yml already builds. INERT until armed: the job is skipped unless
+# the repo variable ITCH_DEPLOY == 'true'. Arm it by setting that variable, the
+# BUTLER_API_KEY secret, and (optionally) the ITCH_TARGET var — see itch/README.md.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to (re)deploy (e.g. v3.1.41)"
+        required: true
+
+jobs:
+  butler:
+    name: butler push
+    # Gate: nothing runs until you flip ITCH_DEPLOY on in repo variables.
+    if: ${{ vars.ITCH_DEPLOY == 'true' }}
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      # itch game page as <user>/<game>; override per fork via the ITCH_TARGET var.
+      TARGET: ${{ vars.ITCH_TARGET || 'cryptojones/xspacewar-ai' }}
+    steps:
+      - name: Fetch the released artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p dist/windows dist/linux dist/macos /tmp/rel
+          gh release download "$TAG" -R "${{ github.repository }}" -p '*.zip' -D /tmp/rel
+          unzip -o /tmp/rel/xspacewar-ai-windows-x86_64.zip -d dist/windows
+          unzip -o /tmp/rel/xspacewar-ai-linux-x86_64.zip   -d dist/linux
+          unzip -o /tmp/rel/xspacewar-ai-macos-universal.zip -d dist/macos
+
+      - name: Install butler
+        run: |
+          # Official itch.io distribution channel (broth) — no third-party action.
+          curl -fsSL -o butler.zip https://broth.itch.ovh/butler/linux-amd64/LATEST/archive/default
+          unzip -o butler.zip -d butler-bin
+          chmod +x butler-bin/butler
+          butler-bin/butler -V
+
+      - name: Push each platform to itch.io
+        env:
+          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+        run: |
+          # itch derives the platform from the channel name (windows / linux / osx).
+          VER="${TAG#v}"   # itch userversion: "3.1.41", not "v3.1.41"
+          B=butler-bin/butler
+          "$B" push dist/windows "$TARGET:windows" --userversion "$VER"
+          "$B" push dist/linux   "$TARGET:linux"   --userversion "$VER"
+          "$B" push dist/macos   "$TARGET:osx"     --userversion "$VER"
