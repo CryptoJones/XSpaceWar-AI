@@ -2,6 +2,12 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [3.1.42] — 2026-06-24
+
+### Added
+- **Play tester credit: Mark Schantz.** Added to the in-game rolled credits and
+  the README play-testers list, in alphabetical-by-last-name order.
+
 ## [3.1.41] — 2026-06-16
 
 A weapons-and-respawn release: ordnance is now tunable, dying asks something of

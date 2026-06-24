@@ -246,7 +246,7 @@ To our play testers, who flew the rough builds and filed the truth (alphabetical
 last name): **Roger Bergling**, **Al Bredthauer**, **Samuel Bredthauer**, **Kevin Christiansen (PE)**, **Brad Cramer**,
 **Claude Fable 5**, **Trevor Flurry**, **Henry Hannah**, **Patrick Hannah**,
 **Shannon (Learn) Koski**, **Beaux Onofrio**, **Nick Onofrio**, **Rob Orr**,
-**Adam Testagrossa**, **Nate Tiller**, **John Van Lowe**, and **Jeremy Zhao**.
+**Mark Schantz**, **Adam Testagrossa**, **Nate Tiller**, **John Van Lowe**, and **Jeremy Zhao**.
 
 ## Dedication
 
