@@ -46,9 +46,12 @@ jobs:
         env:
           BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
         run: |
-          # itch derives the platform from the channel name (windows / linux / osx).
+          # itch derives the platform from the channel name (windows / linux / osx / macos).
+          # The macOS universal build ships to BOTH macos and osx; osx is kept alive for
+          # legacy Intel-Mac download-link continuity (never retire it).
           VER="${TAG#v}"   # itch userversion: "3.1.41", not "v3.1.41"
           B=butler-bin/butler
           "$B" push dist/windows "$TARGET:windows" --userversion "$VER"
           "$B" push dist/linux   "$TARGET:linux"   --userversion "$VER"
+          "$B" push dist/macos   "$TARGET:macos"   --userversion "$VER"
           "$B" push dist/macos   "$TARGET:osx"     --userversion "$VER"
