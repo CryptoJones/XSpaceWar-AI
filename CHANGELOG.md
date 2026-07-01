@@ -2,6 +2,12 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [3.1.43] — 2026-07-01
+
+### Added
+- **Play tester credit: Noureddine Najah Khalifa.** Added to the in-game rolled
+  credits and the README play-testers list, in alphabetical-by-last-name order.
+
 ## [3.1.42] — 2026-06-24
 
 ### Added
