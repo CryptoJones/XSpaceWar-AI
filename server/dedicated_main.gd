@@ -229,6 +229,10 @@ func _run_command(line: String) -> void:
 	if line.begins_with("/"):
 		line = line.substr(1)
 	var parts := line.split(" ", false, 1)
+	if parts.is_empty():
+		return  # blank / whitespace-only line — nothing to run. The console loop
+		# already skips these; guard the entry point so any direct/empty call is
+		# crash-safe ("".split(" ", false) yields an empty array).
 	var cmd := String(parts[0]).to_lower()
 	var arg: String = String(parts[1]).strip_edges() if parts.size() > 1 else ""
 	match cmd:

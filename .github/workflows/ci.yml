@@ -82,6 +82,11 @@ jobs:
           set -o pipefail
           godot --headless --path . --script res://tests/aim_tests.gd 2>&1 | tee /tmp/t.log
           ! grep -q "SCRIPT ERROR" /tmp/t.log
+      - name: Dedicated moderation tests
+        run: |
+          set -o pipefail
+          godot --headless --path . --script res://tests/dedicated_tests.gd 2>&1 | tee /tmp/t.log
+          ! grep -q "SCRIPT ERROR" /tmp/t.log
 
   build:
     name: Export ${{ matrix.preset }}

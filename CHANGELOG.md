@@ -2,6 +2,18 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [3.2.1] — 2026-07-02
+
+### Fixed
+- Dedicated server: the moderation console `_run_command` no longer crashes on an
+  empty / whitespace-only line (latent out-of-bounds — the console loop already
+  filters these, so it was unreachable in normal play). (#4)
+
+### Added
+- `tests/dedicated_tests.gd` — headless coverage for the dedicated-server
+  moderation console: kick/ban/unban parsing, `--ban`/comma-list seeding, and the
+  `--banfile` persistence round-trip. Wired into CI. (#4)
+
 ## [3.2.0] — 2026-07-02
 
 ### Changed
