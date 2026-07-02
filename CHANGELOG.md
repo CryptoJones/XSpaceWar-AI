@@ -2,6 +2,11 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [3.2.0] — 2026-07-02
+
+### Changed
+- Minor version bump (3.1.43 → 3.2.0).
+
 ## [3.1.43] — 2026-07-01
 
 ### Added
