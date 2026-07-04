@@ -261,6 +261,9 @@ msgstr "hiperespacio"
 msgid "toggle minimap"
 msgstr "alternar minimapa"
 
+msgid "POV zoom"
+msgstr "zoom de vista"
+
 msgid "menu"
 msgstr "menú"
 
@@ -294,6 +297,12 @@ msgstr "Alternar registro de bajas"
 msgid "Toggle scoreboard"
 msgstr "Alternar marcador"
 
+msgid "POV zoom in"
+msgstr "Acercar vista"
+
+msgid "POV zoom out"
+msgstr "Alejar vista"
+
 msgid "KEY"
 msgstr "TECLA"
 
@@ -326,6 +335,12 @@ msgstr "Ya está asignada a '%s' — elige otra (ESC cancela)."
 
 msgid "BUTTON %d"
 msgstr "BOTÓN %d"
+
+msgid "UNBOUND"
+msgstr "SIN ASIGNAR"
+
+msgid "POV zoom: %d%%"
+msgstr "Zoom de vista: %d%%"
 
 msgid "Career:  %d matches  ·  %d wins  ·  %d kills / %d deaths"
 msgstr "Trayectoria:  %d partidas  ·  %d victorias  ·  %d bajas / %d muertes"

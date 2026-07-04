@@ -263,6 +263,9 @@ msgstr "超空间"
 msgid "toggle minimap"
 msgstr "切换小地图"
 
+msgid "POV zoom"
+msgstr "视角缩放"
+
 msgid "menu"
 msgstr "菜单"
 
@@ -296,6 +299,12 @@ msgstr "切换击杀信息"
 msgid "Toggle scoreboard"
 msgstr "切换记分板"
 
+msgid "POV zoom in"
+msgstr "放大视角"
+
+msgid "POV zoom out"
+msgstr "缩小视角"
+
 msgid "KEY"
 msgstr "按键"
 
@@ -328,6 +337,12 @@ msgstr "已绑定到 '%s' — 请另选一个（ESC 取消）。"
 
 msgid "BUTTON %d"
 msgstr "按钮 %d"
+
+msgid "UNBOUND"
+msgstr "未绑定"
+
+msgid "POV zoom: %d%%"
+msgstr "视角缩放：%d%%"
 
 msgid "Career:  %d matches  ·  %d wins  ·  %d kills / %d deaths"
 msgstr "生涯：  %d 场对战  ·  %d 胜  ·  %d 击杀 / %d 死亡"

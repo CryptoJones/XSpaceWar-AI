@@ -88,6 +88,8 @@ const BINDABLE := [
 	["toggle_map", "Toggle minimap"],
 	["toggle_feed", "Toggle kill feed"],
 	["toggle_score", "Toggle scoreboard"],
+	["zoom_in", "POV zoom in"],
+	["zoom_out", "POV zoom out"],
 ]
 
 ## OPENING credits — the lineage this game stands on, rolled flat (no Star
@@ -828,6 +830,7 @@ func _build_controls_panel() -> HBoxContainer:
 		["%s  or  ▼" % _key_name("mine"), "drop mine"],
 		["%s or ENTER" % _key_name("hyper"), "hyperspace"],
 		[_key_name("toggle_map"), "toggle minimap"],
+		["%s / %s" % [_key_name("zoom_out"), _key_name("zoom_in")], "POV zoom"],
 		["ESC", "menu"],
 	]))
 	row.add_child(VSeparator.new())
@@ -849,6 +852,8 @@ func _pad_name(action: String) -> String:
 	return _joy_button_name(int(view.pad_binds[action]))
 
 func _joy_button_name(button: int) -> String:
+	if button < 0:
+		return tr("UNBOUND")
 	match button:
 		JOY_BUTTON_A:
 			return "A"
@@ -1206,6 +1211,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("xsw_toggle_score"):
 		hud.set_score_visible(not hud.score_visible())
 		_save_settings()
+	elif event.is_action_pressed("xsw_zoom_in") and not (event is InputEventKey and event.echo):
+		_adjust_pov_zoom(1)
+	elif event.is_action_pressed("xsw_zoom_out") and not (event is InputEventKey and event.echo):
+		_adjust_pov_zoom(-1)
 	elif key_pressed and event.physical_keycode == KEY_ESCAPE:
 		set_menu_visible(not _menu.visible)
 	elif pad_pressed and event.button_index == JOY_BUTTON_START:
@@ -1241,6 +1250,16 @@ func _refresh_dev_banner() -> void:
 	if _dev_immortal:
 		tags.append("♾ IMMORTAL")
 	hud.banner_override = "  ·  ".join(tags)
+
+func _adjust_pov_zoom(dir: int) -> void:
+	if dir > 0:
+		view.pov_zoom = minf(WorldView.POV_ZOOM_MAX, view.pov_zoom * WorldView.POV_ZOOM_STEP)
+	elif dir < 0:
+		view.pov_zoom = maxf(WorldView.POV_ZOOM_MIN, view.pov_zoom / WorldView.POV_ZOOM_STEP)
+	else:
+		view.pov_zoom = 1.0
+	_net_status.text = tr("POV zoom: %d%%") % int(round(view.pov_zoom * 100.0))
+	_save_settings()
 
 # --------------------------------------------------------------------------
 # Networking (M3: LAN host / join / discovery)
@@ -1502,6 +1521,8 @@ func _load_settings() -> void:
 		_far_check.set_pressed_no_signal(bool(cfg.get_value("display", "far_stars", false)))
 		_record_check.set_pressed_no_signal(bool(cfg.get_value("replay", "record", false)))
 		_music_check.set_pressed_no_signal(bool(cfg.get_value("audio", "music", true)))
+		view.pov_zoom = clampf(float(cfg.get_value("display", "pov_zoom", 1.0)),
+			WorldView.POV_ZOOM_MIN, WorldView.POV_ZOOM_MAX)
 		hud.set_radar_visible(bool(cfg.get_value("display", "minimap", true)))
 		hud.set_feed_visible(bool(cfg.get_value("display", "kill_feed", true)))
 		hud.set_score_visible(bool(cfg.get_value("display", "scoreboard", true)))
@@ -1559,6 +1580,7 @@ func _save_settings() -> void:
 	cfg.set_value("display", "nebula", _nebula_slider.value)
 	cfg.set_value("display", "stars", _stars_slider.value)
 	cfg.set_value("display", "far_stars", _far_check.button_pressed)
+	cfg.set_value("display", "pov_zoom", view.pov_zoom)
 	cfg.set_value("replay", "record", _record_check.button_pressed)
 	cfg.set_value("audio", "music", _music_check.button_pressed)
 	cfg.set_value("display", "minimap", hud.radar_visible())

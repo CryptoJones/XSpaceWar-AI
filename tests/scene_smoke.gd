@@ -56,7 +56,11 @@ func _on_frame() -> void:
 				break
 		var input_ok: bool = InputMap.has_action("xsw_fire") \
 			and InputMap.has_action("xsw_toggle_map") \
+			and InputMap.has_action("xsw_zoom_in") \
+			and InputMap.has_action("xsw_zoom_out") \
 			and not fire_events.is_empty() \
+			and not InputMap.action_get_events("xsw_zoom_in").is_empty() \
+			and not InputMap.action_get_events("xsw_zoom_out").is_empty() \
 			and has_fire_pad
 		if not input_ok:
 			print("  [FAIL] InputMap actions not registered from key/pad binds (#25/#37)")

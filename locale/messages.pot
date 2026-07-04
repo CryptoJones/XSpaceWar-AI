@@ -280,6 +280,9 @@ msgstr ""
 msgid "toggle minimap"
 msgstr ""
 
+msgid "POV zoom"
+msgstr ""
+
 msgid "menu"
 msgstr ""
 
@@ -314,6 +317,12 @@ msgstr ""
 msgid "Toggle scoreboard"
 msgstr ""
 
+msgid "POV zoom in"
+msgstr ""
+
+msgid "POV zoom out"
+msgstr ""
+
 msgid "KEY"
 msgstr ""
 
@@ -345,6 +354,12 @@ msgid "Already bound to '%s' — pick another (ESC cancels)."
 msgstr ""
 
 msgid "BUTTON %d"
+msgstr ""
+
+msgid "UNBOUND"
+msgstr ""
+
+msgid "POV zoom: %d%%"
 msgstr ""
 
 # ---- Match history panel ----

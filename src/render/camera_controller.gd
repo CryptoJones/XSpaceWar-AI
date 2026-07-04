@@ -86,8 +86,9 @@ static func update(view: WorldView, dt: float) -> void:
 
 	var t := resolve_target(view, dt)
 	var k := 1.0 - exp(-2.5 * dt)
+	var target_zoom := apply_pov_zoom(float(t["zoom"]), view.pov_zoom)
 	view._cam_pos = view._cam_pos.lerp(t["pos"], k)
-	view._cam_zoom = lerpf(view._cam_zoom, float(t["zoom"]), k)
+	view._cam_zoom = lerpf(view._cam_zoom, target_zoom, k)
 
 	# The bleed-zone rule (Aaron's): the FOLLOWED ship may NEVER leave the
 	# screen. The lerp lags proportionally to speed; when the followed ship
@@ -112,6 +113,9 @@ static func update(view: WorldView, dt: float) -> void:
 	# Keep ships readable when the camera pulls back: hulls draw bigger than
 	# their (unchanged) physical radius, more so the further out we are.
 	view._ship_vis_scale = clampf(1.6 * maxf(1.0, 0.55 / view._cam_zoom), 1.6, 3.2)
+
+static func apply_pov_zoom(base_zoom: float, multiplier: float) -> float:
+	return clampf(base_zoom * multiplier, 0.32, 1.85)
 
 ## More shake the closer the blast is to the camera's center of attention.
 static func add_shake(view: WorldView, pos: Vector2, base: float) -> void:

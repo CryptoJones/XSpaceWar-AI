@@ -261,6 +261,9 @@ msgstr "hyperespace"
 msgid "toggle minimap"
 msgstr "afficher minicarte"
 
+msgid "POV zoom"
+msgstr "zoom de vue"
+
 msgid "menu"
 msgstr "menu"
 
@@ -294,6 +297,12 @@ msgstr "Afficher le journal des éliminations"
 msgid "Toggle scoreboard"
 msgstr "Afficher le tableau des scores"
 
+msgid "POV zoom in"
+msgstr "Zoomer la vue"
+
+msgid "POV zoom out"
+msgstr "Dézoomer la vue"
+
 msgid "KEY"
 msgstr "TOUCHE"
 
@@ -326,6 +335,12 @@ msgstr "Déjà assignée à '%s' — choisissez-en une autre (ÉCHAP annule)."
 
 msgid "BUTTON %d"
 msgstr "BOUTON %d"
+
+msgid "UNBOUND"
+msgstr "NON ASSIGNÉ"
+
+msgid "POV zoom: %d%%"
+msgstr "Zoom de vue : %d%%"
 
 msgid "Career:  %d matches  ·  %d wins  ·  %d kills / %d deaths"
 msgstr "Carrière :  %d parties  ·  %d victoires  ·  %d éliminations / %d morts"
