@@ -10,6 +10,8 @@ All notable changes to **XSpaceWar-AI**.
   (#37)
 - Added rebindable main-camera POV zoom hotkeys, persisted separately from the
   minimap's automatic zoom. (#35)
+- Enemy AI ships now visually scale with difficulty: easier bots read larger,
+  harder bots draw tighter, without changing physics hitboxes. (#36)
 
 ## [3.2.1] — 2026-07-02
 

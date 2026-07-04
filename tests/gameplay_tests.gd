@@ -26,6 +26,7 @@ func _initialize() -> void:
 	_test_hull_generation()
 	_test_pick_duel()
 	_test_pov_zoom_multiplier()
+	_test_enemy_ship_visual_scale()
 	_test_radar_zoom()
 	_test_match_stats()
 	_test_corrupt_replay_rejected()
@@ -359,6 +360,28 @@ func _test_pov_zoom_multiplier() -> void:
 		"normal=%.3f zoomed=%.3f" % [normal, zoomed])
 	_check("camera: POV zoom multiplier is clamped", is_equal_approx(clamped, 1.85),
 		"clamped=%.3f" % clamped)
+
+func _test_enemy_ship_visual_scale() -> void:
+	var rookie := WorldView.enemy_ship_visual_scale(BotController.Difficulty.ROOKIE)
+	var veteran := WorldView.enemy_ship_visual_scale(BotController.Difficulty.VETERAN)
+	var ace := WorldView.enemy_ship_visual_scale(BotController.Difficulty.ACE)
+	var insane := WorldView.enemy_ship_visual_scale(BotController.Difficulty.INSANE)
+	_check("enemy scale: easier bots draw larger than hard bots",
+		rookie > veteran and veteran > ace and ace > insane,
+		"%.2f %.2f %.2f %.2f" % [rookie, veteran, ace, insane])
+	var s := GameSession.new()
+	s.start_skirmish(4, GameSession.Mode.TEAM, BotController.Difficulty.ROOKIE)
+	var view := WorldView.new()
+	view.session = s
+	var teammate := s.world.ships[2]  # same team as human ship 0
+	var enemy := s.world.ships[1]
+	_check("enemy scale: teammate remains baseline",
+		is_equal_approx(view._ship_difficulty_visual_scale(teammate), 1.0),
+		"scale=%.2f" % view._ship_difficulty_visual_scale(teammate))
+	_check("enemy scale: opposing bot uses difficulty scale",
+		view._ship_difficulty_visual_scale(enemy) > 1.0,
+		"scale=%.2f" % view._ship_difficulty_visual_scale(enemy))
+	view.free()
 
 func _test_radar_zoom() -> void:
 	# The minimap auto-zoom span must scale with the (user-configurable) map
