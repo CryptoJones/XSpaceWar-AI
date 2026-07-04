@@ -64,6 +64,29 @@ func _on_frame() -> void:
 	m._players.dismiss()
 	_check("players: dismiss is safe", not m._players.is_open())
 
+	# INPUT BINDINGS: panel exposes both keyboard and controller labels, and a
+	# synthetic joypad-button rebind updates settings/InputMap without crashing.
+	m._on_keys_pressed()
+	_check("bindings: panel opens", m._keys_panel.visible)
+	_check("bindings: key labels present", m._keybind_value_labels.has("fire"))
+	_check("bindings: pad labels present", m._padbind_value_labels.has("fire"))
+	m._awaiting_rebind = "fire"
+	m._awaiting_rebind_kind = "pad"
+	var ev := InputEventJoypadButton.new()
+	ev.button_index = JOY_BUTTON_RIGHT_SHOULDER
+	ev.pressed = true
+	m._unhandled_input(ev)
+	_check("bindings: pad rebind applies", int(m.view.pad_binds["fire"]) == JOY_BUTTON_RIGHT_SHOULDER)
+	var fire_has_pad := false
+	for input_ev in InputMap.action_get_events("xsw_fire"):
+		if input_ev is InputEventJoypadButton \
+				and input_ev.button_index == JOY_BUTTON_RIGHT_SHOULDER:
+			fire_has_pad = true
+			break
+	_check("bindings: pad rebind syncs InputMap", fire_has_pad)
+	m._close_keys_panel()
+	_check("bindings: close restores menu", not m._keys_panel.visible and m._menu.visible)
+
 	# The input gate still resolves with all panels closed (no stale refs).
 	_check("modal gate resolves after panel use", typeof(m._modal_open()) == TYPE_BOOL)
 

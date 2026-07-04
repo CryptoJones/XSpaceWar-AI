@@ -67,8 +67,10 @@ var _dev_frozen := false            ## dev: park the human ship in place (re-app
 var _dev_immortal := false          ## dev: human ship can't die (re-applied each frame)
 var _keys_panel: CanvasLayer
 var _keybind_value_labels := {}    ## action -> Label showing the bound key
+var _padbind_value_labels := {}    ## action -> Label showing the bound pad button
 var _keys_status: Label
 var _awaiting_rebind := ""
+var _awaiting_rebind_kind := ""
 var _history: MatchHistoryPanel    ## MATCH HISTORY panel (extracted sub-controller)
 var _stats_key := []               ## [session id, generation] last written to history
 var _debug_dump_accum := 0.0
@@ -831,17 +833,55 @@ func _build_controls_panel() -> HBoxContainer:
 	row.add_child(VSeparator.new())
 	row.add_child(_controls_column("GAMEPAD", [
 		["LEFT STICK", "turn"],
-		["A / RT", "thrust"],
-		["X / RB", "fire torpedo"],
-		["B / LT", "drop mine"],
-		["Y / LB", "hyperspace"],
-		["BACK / VIEW", "toggle minimap"],
+		["%s / RT" % _pad_name("thrust"), "thrust"],
+		[_pad_name("fire"), "fire torpedo"],
+		["%s / LT" % _pad_name("mine"), "drop mine"],
+		[_pad_name("hyper"), "hyperspace"],
+		[_pad_name("toggle_map"), "toggle minimap"],
 		["START", "menu"],
 	]))
 	return row
 
 func _key_name(action: String) -> String:
 	return OS.get_keycode_string(int(view.key_binds[action]))
+
+func _pad_name(action: String) -> String:
+	return _joy_button_name(int(view.pad_binds[action]))
+
+func _joy_button_name(button: int) -> String:
+	match button:
+		JOY_BUTTON_A:
+			return "A"
+		JOY_BUTTON_B:
+			return "B"
+		JOY_BUTTON_X:
+			return "X"
+		JOY_BUTTON_Y:
+			return "Y"
+		JOY_BUTTON_BACK:
+			return "BACK / VIEW"
+		JOY_BUTTON_GUIDE:
+			return "GUIDE"
+		JOY_BUTTON_START:
+			return "START"
+		JOY_BUTTON_LEFT_STICK:
+			return "L3"
+		JOY_BUTTON_RIGHT_STICK:
+			return "R3"
+		JOY_BUTTON_LEFT_SHOULDER:
+			return "LB"
+		JOY_BUTTON_RIGHT_SHOULDER:
+			return "RB"
+		JOY_BUTTON_DPAD_UP:
+			return "DPAD UP"
+		JOY_BUTTON_DPAD_DOWN:
+			return "DPAD DOWN"
+		JOY_BUTTON_DPAD_LEFT:
+			return "DPAD LEFT"
+		JOY_BUTTON_DPAD_RIGHT:
+			return "DPAD RIGHT"
+		_:
+			return tr("BUTTON %d") % button
 
 func _controls_column(header: String, rows: Array) -> VBoxContainer:
 	var v := VBoxContainer.new()
@@ -1074,33 +1114,53 @@ func _unhandled_input(event: InputEvent) -> void:
 	var pad_pressed: bool = event is InputEventJoypadButton and event.pressed
 	# Key-rebind panel: capture the next keypress for the awaited action.
 	if _keys_panel != null and _keys_panel.visible:
-		if key_pressed:
+		if key_pressed and event.physical_keycode == KEY_ESCAPE:
 			if _awaiting_rebind != "":
-				var k: int = event.physical_keycode
-				if k == KEY_ESCAPE:
-					_awaiting_rebind = ""
-					_keys_status.text = ""
-				elif k in [KEY_F3, KEY_TAB, KEY_N]:
-					_keys_status.text = tr("That key is reserved (camera/debug) — pick another.")
-				else:
-					# Refuse a key already bound to a different action: silent
-					# double-binding permanently coupled weapons before.
-					var clash := ""
-					for action in view.key_binds:
-						if action != _awaiting_rebind and int(view.key_binds[action]) == k:
-							clash = String(action)
-							break
-					if clash != "":
-						_keys_status.text = tr("Already bound to '%s' — pick another (ESC cancels).") % clash
-					else:
-						view.key_binds[_awaiting_rebind] = k
-						_awaiting_rebind = ""
-						_keys_status.text = ""
-						_refresh_keybind_labels()
-						view.sync_input_actions()  # mirror the new bind into the InputMap (#25)
-						_save_settings()
-			elif event.physical_keycode == KEY_ESCAPE:
+				_awaiting_rebind = ""
+				_awaiting_rebind_kind = ""
+				_keys_status.text = ""
+			else:
 				_close_keys_panel()
+			return
+		if _awaiting_rebind != "" and _awaiting_rebind_kind == "key" and key_pressed:
+			var k: int = event.physical_keycode
+			if k in [KEY_F3, KEY_TAB, KEY_N]:
+				_keys_status.text = tr("That key is reserved (camera/debug) — pick another.")
+			else:
+				# Refuse a key already bound to a different action: silent
+				# double-binding permanently coupled weapons before.
+				var clash := ""
+				for action in view.key_binds:
+					if action != _awaiting_rebind and int(view.key_binds[action]) == k:
+						clash = String(action)
+						break
+				if clash != "":
+					_keys_status.text = tr("Already bound to '%s' — pick another (ESC cancels).") % clash
+				else:
+					view.key_binds[_awaiting_rebind] = k
+					_awaiting_rebind = ""
+					_awaiting_rebind_kind = ""
+					_keys_status.text = ""
+					_refresh_keybind_labels()
+					view.sync_input_actions()  # mirror the new bind into the InputMap (#25)
+					_save_settings()
+		elif _awaiting_rebind != "" and _awaiting_rebind_kind == "pad" and pad_pressed:
+			var b: int = event.button_index
+			var clash := ""
+			for action in view.pad_binds:
+				if action != _awaiting_rebind and int(view.pad_binds[action]) == b:
+					clash = String(action)
+					break
+			if clash != "":
+				_keys_status.text = tr("Already bound to '%s' — pick another (ESC cancels).") % clash
+			else:
+				view.pad_binds[_awaiting_rebind] = b
+				_awaiting_rebind = ""
+				_awaiting_rebind_kind = ""
+				_keys_status.text = ""
+				_refresh_keybind_labels()
+				view.sync_input_actions()  # mirror the new bind into the InputMap (#37)
+				_save_settings()
 		return
 	# Credits roll: SPACE (or ESC/ENTER/pad A/START) skips.
 	if _credits.visible:
@@ -1469,6 +1529,10 @@ func _load_settings() -> void:
 			if saved != int(view.key_binds[action]):
 				view.key_binds[action] = saved
 				binds_changed = true
+			var saved_pad := int(cfg.get_value("pads", action, int(view.pad_binds[action])))
+			if saved_pad != int(view.pad_binds[action]):
+				view.pad_binds[action] = saved_pad
+				binds_changed = true
 		if binds_changed:
 			view.sync_input_actions()  # mirror loaded binds into the InputMap (#25)
 			_rebuild_splash()
@@ -1502,6 +1566,7 @@ func _save_settings() -> void:
 	cfg.set_value("display", "scoreboard", hud.score_visible())
 	for pair in BINDABLE:
 		cfg.set_value("keys", String(pair[0]), int(view.key_binds[String(pair[0])]))
+		cfg.set_value("pads", String(pair[0]), int(view.pad_binds[String(pair[0])]))
 	cfg.set_value("match", "mode", _mode_btn.selected)
 	cfg.set_value("match", "difficulty", int(_diff_slider.value))
 	cfg.set_value("match", "ships", _ships_slider.value)
@@ -1650,12 +1715,12 @@ func _build_keys_panel() -> void:
 	v.add_theme_constant_override("separation", 8)
 	margin.add_child(v)
 	var title := Label.new()
-	title.text = "KEY BINDINGS"
+	title.text = "INPUT BINDINGS"
 	title.add_theme_font_size_override("font_size", 24)
 	title.add_theme_color_override("font_color", Color(0.6, 0.9, 1.0))
 	v.add_child(title)
 	var grid := GridContainer.new()
-	grid.columns = 3
+	grid.columns = 5
 	grid.add_theme_constant_override("h_separation", 20)
 	grid.add_theme_constant_override("v_separation", 6)
 	for pair in BINDABLE:
@@ -1668,20 +1733,33 @@ func _build_keys_panel() -> void:
 		key_l.add_theme_color_override("font_color", Color(0.85, 0.95, 1.0))
 		grid.add_child(key_l)
 		_keybind_value_labels[action] = key_l
-		var btn := Button.new()
-		btn.text = "REBIND"
-		btn.pressed.connect(func():
+		var key_btn := Button.new()
+		key_btn.text = "KEY"
+		key_btn.pressed.connect(func():
 			_awaiting_rebind = action
+			_awaiting_rebind_kind = "key"
 			_keys_status.text = tr("Press a key for %s… (ESC cancels)") % tr(String(pair[1]))
-			btn.release_focus())
-		grid.add_child(btn)
+			key_btn.release_focus())
+		grid.add_child(key_btn)
+		var pad_l := Label.new()
+		pad_l.add_theme_color_override("font_color", Color(0.85, 0.95, 1.0))
+		grid.add_child(pad_l)
+		_padbind_value_labels[action] = pad_l
+		var pad_btn := Button.new()
+		pad_btn.text = "PAD"
+		pad_btn.pressed.connect(func():
+			_awaiting_rebind = action
+			_awaiting_rebind_kind = "pad"
+			_keys_status.text = tr("Press a controller button for %s… (ESC cancels)") % tr(String(pair[1]))
+			pad_btn.release_focus())
+		grid.add_child(pad_btn)
 	v.add_child(grid)
 	_keys_status = Label.new()
 	_keys_status.add_theme_font_size_override("font_size", 14)
 	_keys_status.add_theme_color_override("font_color", Color(1.0, 0.85, 0.4))
 	v.add_child(_keys_status)
 	var note := Label.new()
-	note.text = "Arrows / Enter always work as alternates."
+	note.text = "Arrows / Enter, left stick, and triggers always work as alternates."
 	note.add_theme_font_size_override("font_size", 13)
 	note.add_theme_color_override("font_color", Color(0.6, 0.7, 0.85, 0.7))
 	v.add_child(note)
@@ -1696,11 +1774,15 @@ func _refresh_keybind_labels() -> void:
 	for action in _keybind_value_labels:
 		(_keybind_value_labels[action] as Label).text = \
 			OS.get_keycode_string(int(view.key_binds[action]))
+	for action in _padbind_value_labels:
+		(_padbind_value_labels[action] as Label).text = \
+			_joy_button_name(int(view.pad_binds[action]))
 
 func _on_keys_pressed() -> void:
 	_refresh_keybind_labels()
 	_keys_status.text = ""
 	_awaiting_rebind = ""
+	_awaiting_rebind_kind = ""
 	set_menu_visible(false)
 	_keys_panel.visible = true
 	_refresh_input_gate()
@@ -1709,6 +1791,7 @@ func _close_keys_panel() -> void:
 	_keys_panel.visible = false
 	_refresh_input_gate()
 	_awaiting_rebind = ""
+	_awaiting_rebind_kind = ""
 	_save_settings()
 	_rebuild_splash()
 	set_menu_visible(true)
