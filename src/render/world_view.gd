@@ -570,7 +570,7 @@ func _draw_torpedo(t: SimTorpedo, ghost: Vector2 = Vector2.ZERO) -> void:
 
 func _draw_ship(s: SimShip, t: float, ghost: Vector2 = Vector2.ZERO) -> void:
 	var col := ship_color(s)
-	var k := s.radius / 12.0 * _ship_vis_scale
+	var k := s.radius / 12.0 * _ship_vis_scale * _ship_difficulty_visual_scale(s)
 	draw_set_transform(_ipos("s%d" % s.id, s.pos) + s.render_pos_offset + ghost,
 		_iangle(s.id, s.angle), Vector2(k, k))
 
@@ -600,6 +600,28 @@ func _draw_ship(s: SimShip, t: float, ghost: Vector2 = Vector2.ZERO) -> void:
 		draw_arc(Vector2.ZERO, 22.0, 0.0, TAU, 24, Color(0.6, 1.4, 2.0, a), 2.0)
 
 	draw_set_transform(Vector2.ZERO)
+
+func _ship_difficulty_visual_scale(s: SimShip) -> float:
+	if session == null or not session.bots.has(s.id):
+		return 1.0
+	var human := session.human_ship()
+	if human != null and s.team != -1 and s.team == human.team:
+		return 1.0
+	var bot: BotController = session.bots[s.id]
+	return enemy_ship_visual_scale(bot.difficulty)
+
+static func enemy_ship_visual_scale(difficulty: int) -> float:
+	match difficulty:
+		BotController.Difficulty.ROOKIE:
+			return 1.35
+		BotController.Difficulty.VETERAN:
+			return 1.18
+		BotController.Difficulty.ACE:
+			return 1.0
+		BotController.Difficulty.INSANE:
+			return 0.88
+		_:
+			return 1.0
 
 ## The most watchable fight right now: the closest pair of mutually hostile
 ## alive ships ([id_a, id_b]), a lone survivor ([id]), or [] when empty.
