@@ -224,6 +224,9 @@ msgstr "श्रेय"
 msgid "KEY BINDINGS"
 msgstr "कुंजी सेटिंग"
 
+msgid "INPUT BINDINGS"
+msgstr "इनपुट बाइंडिंग"
+
 msgid "PLAY — Skirmish vs AI"
 msgstr "खेलें — AI के विरुद्ध झड़प"
 
@@ -293,6 +296,12 @@ msgstr "किल फ़ीड टॉगल करें"
 msgid "Toggle scoreboard"
 msgstr "स्कोरबोर्ड टॉगल करें"
 
+msgid "KEY"
+msgstr "कुंजी"
+
+msgid "PAD"
+msgstr "पैड"
+
 msgid "REBIND"
 msgstr "पुनः सेट करें"
 
@@ -302,14 +311,23 @@ msgstr "हो गया"
 msgid "Arrows / Enter always work as alternates."
 msgstr "तीर / Enter हमेशा विकल्प के रूप में काम करते हैं।"
 
+msgid "Arrows / Enter, left stick, and triggers always work as alternates."
+msgstr "तीर / Enter, बायाँ स्टिक, और ट्रिगर हमेशा विकल्प के रूप में काम करते हैं।"
+
 msgid "Press a key for %s… (ESC cancels)"
 msgstr "%s के लिए एक कुंजी दबाएँ… (ESC रद्द करता है)"
+
+msgid "Press a controller button for %s… (ESC cancels)"
+msgstr "%s के लिए कंट्रोलर बटन दबाएँ… (ESC रद्द करता है)"
 
 msgid "That key is reserved (camera/debug) — pick another."
 msgstr "वह कुंजी आरक्षित है (कैमरा/डिबग) — दूसरी चुनें।"
 
 msgid "Already bound to '%s' — pick another (ESC cancels)."
 msgstr "पहले से '%s' से बँधी है — दूसरी चुनें (ESC रद्द करता है)।"
+
+msgid "BUTTON %d"
+msgstr "बटन %d"
 
 msgid "Career:  %d matches  ·  %d wins  ·  %d kills / %d deaths"
 msgstr "करियर:  %d मैच  ·  %d जीत  ·  %d किल / %d मौतें"

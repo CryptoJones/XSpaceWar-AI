@@ -224,6 +224,9 @@ msgstr "صنّاع اللعبة"
 msgid "KEY BINDINGS"
 msgstr "إعداد المفاتيح"
 
+msgid "INPUT BINDINGS"
+msgstr "إعدادات الإدخال"
+
 msgid "PLAY — Skirmish vs AI"
 msgstr "ابدأ — مناوشة ضد الذكاء الاصطناعي"
 
@@ -293,6 +296,12 @@ msgstr "تبديل سجل القتل"
 msgid "Toggle scoreboard"
 msgstr "تبديل لوحة النتائج"
 
+msgid "KEY"
+msgstr "مفتاح"
+
+msgid "PAD"
+msgstr "ذراع"
+
 msgid "REBIND"
 msgstr "إعادة التعيين"
 
@@ -302,14 +311,23 @@ msgstr "تم"
 msgid "Arrows / Enter always work as alternates."
 msgstr "الأسهم / Enter تعمل دائمًا كبدائل."
 
+msgid "Arrows / Enter, left stick, and triggers always work as alternates."
+msgstr "الأسهم / Enter والعصا اليسرى والزنادات تعمل دائمًا كبدائل."
+
 msgid "Press a key for %s… (ESC cancels)"
 msgstr "اضغط مفتاحًا لـ %s… (ESC للإلغاء)"
+
+msgid "Press a controller button for %s… (ESC cancels)"
+msgstr "اضغط زر تحكم لـ %s… (ESC للإلغاء)"
 
 msgid "That key is reserved (camera/debug) — pick another."
 msgstr "هذا المفتاح محجوز (الكاميرا/التصحيح) — اختر غيره."
 
 msgid "Already bound to '%s' — pick another (ESC cancels)."
 msgstr "معيّن بالفعل لـ '%s' — اختر غيره (ESC للإلغاء)."
+
+msgid "BUTTON %d"
+msgstr "زر %d"
 
 msgid "Career:  %d matches  ·  %d wins  ·  %d kills / %d deaths"
 msgstr "المسيرة:  %d مباراة  ·  %d فوز  ·  %d قتل / %d موت"

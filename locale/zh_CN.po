@@ -224,6 +224,9 @@ msgstr "制作人员"
 msgid "KEY BINDINGS"
 msgstr "按键设置"
 
+msgid "INPUT BINDINGS"
+msgstr "输入绑定"
+
 msgid "PLAY — Skirmish vs AI"
 msgstr "开始 — 对战 AI"
 
@@ -293,6 +296,12 @@ msgstr "切换击杀信息"
 msgid "Toggle scoreboard"
 msgstr "切换记分板"
 
+msgid "KEY"
+msgstr "按键"
+
+msgid "PAD"
+msgstr "手柄"
+
 msgid "REBIND"
 msgstr "重新绑定"
 
@@ -302,14 +311,23 @@ msgstr "完成"
 msgid "Arrows / Enter always work as alternates."
 msgstr "方向键 / 回车始终可用作备用键。"
 
+msgid "Arrows / Enter, left stick, and triggers always work as alternates."
+msgstr "方向键 / 回车、左摇杆和扳机始终可用作备用输入。"
+
 msgid "Press a key for %s… (ESC cancels)"
 msgstr "为 %s 按一个键…（ESC 取消）"
+
+msgid "Press a controller button for %s… (ESC cancels)"
+msgstr "为 %s 按一个手柄按钮…（ESC 取消）"
 
 msgid "That key is reserved (camera/debug) — pick another."
 msgstr "该键已保留（镜头/调试）— 请另选一个。"
 
 msgid "Already bound to '%s' — pick another (ESC cancels)."
 msgstr "已绑定到 '%s' — 请另选一个（ESC 取消）。"
+
+msgid "BUTTON %d"
+msgstr "按钮 %d"
 
 msgid "Career:  %d matches  ·  %d wins  ·  %d kills / %d deaths"
 msgstr "生涯：  %d 场对战  ·  %d 胜  ·  %d 击杀 / %d 死亡"

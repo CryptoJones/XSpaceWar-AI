@@ -222,6 +222,9 @@ msgstr "CRÉDITOS"
 msgid "KEY BINDINGS"
 msgstr "CONTROLES"
 
+msgid "INPUT BINDINGS"
+msgstr "CONTROLES DE ENTRADA"
+
 msgid "PLAY — Skirmish vs AI"
 msgstr "JUGAR — Escaramuza contra la IA"
 
@@ -291,6 +294,12 @@ msgstr "Alternar registro de bajas"
 msgid "Toggle scoreboard"
 msgstr "Alternar marcador"
 
+msgid "KEY"
+msgstr "TECLA"
+
+msgid "PAD"
+msgstr "MANDO"
+
 msgid "REBIND"
 msgstr "REASIGNAR"
 
@@ -300,14 +309,23 @@ msgstr "LISTO"
 msgid "Arrows / Enter always work as alternates."
 msgstr "Las flechas / Intro siempre funcionan como alternativas."
 
+msgid "Arrows / Enter, left stick, and triggers always work as alternates."
+msgstr "Las flechas / Intro, el stick izquierdo y los gatillos siempre funcionan como alternativas."
+
 msgid "Press a key for %s… (ESC cancels)"
 msgstr "Pulsa una tecla para %s… (ESC cancela)"
+
+msgid "Press a controller button for %s… (ESC cancels)"
+msgstr "Pulsa un botón del mando para %s… (ESC cancela)"
 
 msgid "That key is reserved (camera/debug) — pick another."
 msgstr "Esa tecla está reservada (cámara/depuración) — elige otra."
 
 msgid "Already bound to '%s' — pick another (ESC cancels)."
 msgstr "Ya está asignada a '%s' — elige otra (ESC cancela)."
+
+msgid "BUTTON %d"
+msgstr "BOTÓN %d"
 
 msgid "Career:  %d matches  ·  %d wins  ·  %d kills / %d deaths"
 msgstr "Trayectoria:  %d partidas  ·  %d victorias  ·  %d bajas / %d muertes"

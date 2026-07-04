@@ -240,6 +240,9 @@ msgstr ""
 msgid "KEY BINDINGS"
 msgstr ""
 
+msgid "INPUT BINDINGS"
+msgstr ""
+
 msgid "PLAY — Skirmish vs AI"
 msgstr ""
 
@@ -311,6 +314,12 @@ msgstr ""
 msgid "Toggle scoreboard"
 msgstr ""
 
+msgid "KEY"
+msgstr ""
+
+msgid "PAD"
+msgstr ""
+
 msgid "REBIND"
 msgstr ""
 
@@ -320,13 +329,22 @@ msgstr ""
 msgid "Arrows / Enter always work as alternates."
 msgstr ""
 
+msgid "Arrows / Enter, left stick, and triggers always work as alternates."
+msgstr ""
+
 msgid "Press a key for %s… (ESC cancels)"
+msgstr ""
+
+msgid "Press a controller button for %s… (ESC cancels)"
 msgstr ""
 
 msgid "That key is reserved (camera/debug) — pick another."
 msgstr ""
 
 msgid "Already bound to '%s' — pick another (ESC cancels)."
+msgstr ""
+
+msgid "BUTTON %d"
 msgstr ""
 
 # ---- Match history panel ----

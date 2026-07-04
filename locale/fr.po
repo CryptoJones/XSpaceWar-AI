@@ -222,6 +222,9 @@ msgstr "CRÉDITS"
 msgid "KEY BINDINGS"
 msgstr "COMMANDES"
 
+msgid "INPUT BINDINGS"
+msgstr "COMMANDES D'ENTRÉE"
+
 msgid "PLAY — Skirmish vs AI"
 msgstr "JOUER — Escarmouche contre l'IA"
 
@@ -291,6 +294,12 @@ msgstr "Afficher le journal des éliminations"
 msgid "Toggle scoreboard"
 msgstr "Afficher le tableau des scores"
 
+msgid "KEY"
+msgstr "TOUCHE"
+
+msgid "PAD"
+msgstr "MANETTE"
+
 msgid "REBIND"
 msgstr "RÉASSIGNER"
 
@@ -300,14 +309,23 @@ msgstr "TERMINÉ"
 msgid "Arrows / Enter always work as alternates."
 msgstr "Les flèches / Entrée fonctionnent toujours en remplacement."
 
+msgid "Arrows / Enter, left stick, and triggers always work as alternates."
+msgstr "Les flèches / Entrée, le stick gauche et les gâchettes fonctionnent toujours en remplacement."
+
 msgid "Press a key for %s… (ESC cancels)"
 msgstr "Appuyez sur une touche pour %s… (ÉCHAP annule)"
+
+msgid "Press a controller button for %s… (ESC cancels)"
+msgstr "Appuyez sur un bouton de manette pour %s… (ÉCHAP annule)"
 
 msgid "That key is reserved (camera/debug) — pick another."
 msgstr "Cette touche est réservée (caméra/débogage) — choisissez-en une autre."
 
 msgid "Already bound to '%s' — pick another (ESC cancels)."
 msgstr "Déjà assignée à '%s' — choisissez-en une autre (ÉCHAP annule)."
+
+msgid "BUTTON %d"
+msgstr "BOUTON %d"
 
 msgid "Career:  %d matches  ·  %d wins  ·  %d kills / %d deaths"
 msgstr "Carrière :  %d parties  ·  %d victoires  ·  %d éliminations / %d morts"

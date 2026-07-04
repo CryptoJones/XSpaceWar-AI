@@ -60,6 +60,20 @@ var key_binds := {
 	"toggle_score": KEY_B,
 }
 
+## Rebindable controller buttons. Left stick steering and trigger thrust/mine
+## remain fixed analog alternates; button presses flow through InputMap.
+var pad_binds := {
+	"turn_left": JOY_BUTTON_DPAD_LEFT,
+	"turn_right": JOY_BUTTON_DPAD_RIGHT,
+	"thrust": JOY_BUTTON_A,
+	"fire": JOY_BUTTON_X,
+	"mine": JOY_BUTTON_B,
+	"hyper": JOY_BUTTON_Y,
+	"toggle_map": JOY_BUTTON_BACK,
+	"toggle_feed": JOY_BUTTON_LEFT_STICK,
+	"toggle_score": JOY_BUTTON_RIGHT_STICK,
+}
+
 ## When valid, replaces the built-in input+update drive each physics step —
 ## set by main.gd to a net host/client pump. Signature: f(dt: float).
 var external_driver: Callable = Callable()
@@ -292,8 +306,8 @@ func set_background_prefs(nebula: float, stars: float, far: bool) -> void:
 
 ## Read the local keyboard + first gamepad into a NetProtocol input payload
 ## ({u, t, f, h}). Used directly for solo play and forwarded for net play.
-## Pad mapping: left stick = turn (analog), A or right trigger = thrust,
-## X or RB = fire, Y or LB = hyperspace.
+## Left stick turn and trigger thrust/mine stay as analog alternates; all
+## button bindings are rebindable through the InputMap.
 func gather_local_input() -> Dictionary:
 	var turn := 0.0
 	if Input.is_action_pressed("xsw_turn_left"):
@@ -311,14 +325,8 @@ func gather_local_input() -> Dictionary:
 		var ax := Input.get_joy_axis(pad, JOY_AXIS_LEFT_X)
 		if absf(ax) > 0.25:
 			turn = clampf(turn + ax, -1.0, 1.0)
-		thrust = thrust or Input.is_joy_button_pressed(pad, JOY_BUTTON_A) \
-			or Input.get_joy_axis(pad, JOY_AXIS_TRIGGER_RIGHT) > 0.4
-		fire = fire or Input.is_joy_button_pressed(pad, JOY_BUTTON_X) \
-			or Input.is_joy_button_pressed(pad, JOY_BUTTON_RIGHT_SHOULDER)
-		hyper = hyper or Input.is_joy_button_pressed(pad, JOY_BUTTON_Y) \
-			or Input.is_joy_button_pressed(pad, JOY_BUTTON_LEFT_SHOULDER)
-		mine = mine or Input.is_joy_button_pressed(pad, JOY_BUTTON_B) \
-			or Input.get_joy_axis(pad, JOY_AXIS_TRIGGER_LEFT) > 0.4
+		thrust = thrust or Input.get_joy_axis(pad, JOY_AXIS_TRIGGER_RIGHT) > 0.4
+		mine = mine or Input.get_joy_axis(pad, JOY_AXIS_TRIGGER_LEFT) > 0.4
 
 	return {"u": turn, "t": thrust, "f": fire, "h": hyper, "m": mine}
 
@@ -331,23 +339,17 @@ const _ALT_KEYS := {
 	"mine": KEY_DOWN,
 }
 
-## Fixed gamepad buttons for UI actions that flow through the InputMap (gameplay
-## actions are polled directly in gather_local_input). The Xbox "View" button
-## (BACK) shows a screen/map glyph — a natural fit for toggling the minimap.
-const _GAMEPAD_BINDS := {
-	"toggle_map": JOY_BUTTON_BACK,
-}
-
 ## Mirror key_binds into the Godot InputMap so gameplay/UI input flows through
-## actions (issue #25): gains joypad remapping, touch, and Steam Input. Rebinding
-## and persistence still live on key_binds (main.gd); call after any bind change.
+## actions (issue #25/#37): gains joypad remapping, touch, and Steam Input.
+## Rebinding and persistence live on key_binds/pad_binds (main.gd); call after
+## any bind change.
 ##
 ## NOTE: the `xsw_*` actions are declared in project.godot with EMPTY event
 ## arrays on purpose — the real bindings come from settings.cfg / the rebind
 ## panel and are injected here at runtime. So reading project.godot alone makes
 ## the controls look unbound; this function (called at startup and after every
 ## rebind) is what actually populates them. Don't "fix" project.godot by baking
-## keys in — key_binds is the single source of truth.
+## bindings in — these dictionaries are the single source of truth.
 func sync_input_actions() -> void:
 	for action in key_binds:
 		var act := "xsw_" + str(action)
@@ -361,9 +363,9 @@ func sync_input_actions() -> void:
 			var alt := InputEventKey.new()
 			alt.physical_keycode = int(_ALT_KEYS[action])
 			InputMap.action_add_event(act, alt)
-		if _GAMEPAD_BINDS.has(action):
+		if pad_binds.has(action):
 			var pad := InputEventJoypadButton.new()
-			pad.button_index = _GAMEPAD_BINDS[action]
+			pad.button_index = int(pad_binds[action])
 			InputMap.action_add_event(act, pad)
 
 func _read_human_input() -> void:
@@ -651,4 +653,3 @@ static func hull_polygon(hull_seed: int) -> Dictionary:
 	for i in range(top.size() - 1, 0, -1):  # mirror, skipping the nose
 		pts.append(Vector2(top[i].x, -top[i].y))
 	return {"poly": pts, "tail": tail}
-

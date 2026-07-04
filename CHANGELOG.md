@@ -2,6 +2,13 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [Unreleased]
+
+### Fixed
+- Controller button bindings now appear in the bindings panel, persist to
+  `settings.cfg`, and sync into Godot's `InputMap` alongside keyboard binds.
+  (#37)
+
 ## [3.2.1] — 2026-07-02
 
 ### Fixed
