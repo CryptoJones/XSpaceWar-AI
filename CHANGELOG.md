@@ -8,6 +8,8 @@ All notable changes to **XSpaceWar-AI**.
 - Controller button bindings now appear in the bindings panel, persist to
   `settings.cfg`, and sync into Godot's `InputMap` alongside keyboard binds.
   (#37)
+- Added rebindable main-camera POV zoom hotkeys, persisted separately from the
+  minimap's automatic zoom. (#35)
 
 ## [3.2.1] — 2026-07-02
 

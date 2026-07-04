@@ -58,6 +58,8 @@ var key_binds := {
 	"toggle_map": KEY_M,   # UI actions live here so binds have one home
 	"toggle_feed": KEY_K,
 	"toggle_score": KEY_B,
+	"zoom_in": KEY_EQUAL,
+	"zoom_out": KEY_MINUS,
 }
 
 ## Rebindable controller buttons. Left stick steering and trigger thrust/mine
@@ -72,7 +74,16 @@ var pad_binds := {
 	"toggle_map": JOY_BUTTON_BACK,
 	"toggle_feed": JOY_BUTTON_LEFT_STICK,
 	"toggle_score": JOY_BUTTON_RIGHT_STICK,
+	"zoom_in": -1,
+	"zoom_out": -1,
 }
+
+## User-controlled main-camera zoom multiplier (#35). This affects only the
+## POV Camera2D; the HUD minimap keeps its own distance-driven zoom.
+const POV_ZOOM_MIN := 0.65
+const POV_ZOOM_MAX := 1.60
+const POV_ZOOM_STEP := 1.125
+var pov_zoom := 1.0
 
 ## When valid, replaces the built-in input+update drive each physics step —
 ## set by main.gd to a net host/client pump. Signature: f(dt: float).
@@ -363,7 +374,7 @@ func sync_input_actions() -> void:
 			var alt := InputEventKey.new()
 			alt.physical_keycode = int(_ALT_KEYS[action])
 			InputMap.action_add_event(act, alt)
-		if pad_binds.has(action):
+		if pad_binds.has(action) and int(pad_binds[action]) >= 0:
 			var pad := InputEventJoypadButton.new()
 			pad.button_index = int(pad_binds[action])
 			InputMap.action_add_event(act, pad)

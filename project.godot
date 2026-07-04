@@ -70,6 +70,14 @@ xsw_toggle_score={
 "deadzone": 0.5,
 "events": []
 }
+xsw_zoom_in={
+"deadzone": 0.5,
+"events": []
+}
+xsw_zoom_out={
+"deadzone": 0.5,
+"events": []
+}
 
 [internationalization]
 

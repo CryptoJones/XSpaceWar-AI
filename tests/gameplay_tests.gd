@@ -25,6 +25,7 @@ func _initialize() -> void:
 	_test_solo_practice()
 	_test_hull_generation()
 	_test_pick_duel()
+	_test_pov_zoom_multiplier()
 	_test_radar_zoom()
 	_test_match_stats()
 	_test_corrupt_replay_rejected()
@@ -349,6 +350,15 @@ func _test_pick_duel() -> void:
 	d.alive = false
 	duel = WorldView.pick_duel(w)
 	_check("camera: lone survivor is followed solo", duel == [c.id], str(duel))
+
+func _test_pov_zoom_multiplier() -> void:
+	var normal := CameraController.apply_pov_zoom(1.0, 1.0)
+	var zoomed := CameraController.apply_pov_zoom(1.0, 1.35)
+	var clamped := CameraController.apply_pov_zoom(1.5, 10.0)
+	_check("camera: POV zoom multiplier increases main camera zoom", zoomed > normal,
+		"normal=%.3f zoomed=%.3f" % [normal, zoomed])
+	_check("camera: POV zoom multiplier is clamped", is_equal_approx(clamped, 1.85),
+		"clamped=%.3f" % clamped)
 
 func _test_radar_zoom() -> void:
 	# The minimap auto-zoom span must scale with the (user-configurable) map

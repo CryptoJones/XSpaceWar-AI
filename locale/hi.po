@@ -263,6 +263,9 @@ msgstr "हाइपरस्पेस"
 msgid "toggle minimap"
 msgstr "मिनिमैप टॉगल करें"
 
+msgid "POV zoom"
+msgstr "दृश्य ज़ूम"
+
 msgid "menu"
 msgstr "मेन्यू"
 
@@ -296,6 +299,12 @@ msgstr "किल फ़ीड टॉगल करें"
 msgid "Toggle scoreboard"
 msgstr "स्कोरबोर्ड टॉगल करें"
 
+msgid "POV zoom in"
+msgstr "दृश्य ज़ूम इन"
+
+msgid "POV zoom out"
+msgstr "दृश्य ज़ूम आउट"
+
 msgid "KEY"
 msgstr "कुंजी"
 
@@ -328,6 +337,12 @@ msgstr "पहले से '%s' से बँधी है — दूसरी 
 
 msgid "BUTTON %d"
 msgstr "बटन %d"
+
+msgid "UNBOUND"
+msgstr "अनबाउंड"
+
+msgid "POV zoom: %d%%"
+msgstr "दृश्य ज़ूम: %d%%"
 
 msgid "Career:  %d matches  ·  %d wins  ·  %d kills / %d deaths"
 msgstr "करियर:  %d मैच  ·  %d जीत  ·  %d किल / %d मौतें"

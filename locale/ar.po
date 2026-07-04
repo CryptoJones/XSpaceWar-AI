@@ -263,6 +263,9 @@ msgstr "الفضاء الفائق"
 msgid "toggle minimap"
 msgstr "تبديل الخريطة المصغرة"
 
+msgid "POV zoom"
+msgstr "تكبير المنظور"
+
 msgid "menu"
 msgstr "القائمة"
 
@@ -296,6 +299,12 @@ msgstr "تبديل سجل القتل"
 msgid "Toggle scoreboard"
 msgstr "تبديل لوحة النتائج"
 
+msgid "POV zoom in"
+msgstr "تكبير المنظور"
+
+msgid "POV zoom out"
+msgstr "تصغير المنظور"
+
 msgid "KEY"
 msgstr "مفتاح"
 
@@ -328,6 +337,12 @@ msgstr "معيّن بالفعل لـ '%s' — اختر غيره (ESC للإلغ�
 
 msgid "BUTTON %d"
 msgstr "زر %d"
+
+msgid "UNBOUND"
+msgstr "غير معيّن"
+
+msgid "POV zoom: %d%%"
+msgstr "تكبير المنظور: %d%%"
 
 msgid "Career:  %d matches  ·  %d wins  ·  %d kills / %d deaths"
 msgstr "المسيرة:  %d مباراة  ·  %d فوز  ·  %d قتل / %d موت"
