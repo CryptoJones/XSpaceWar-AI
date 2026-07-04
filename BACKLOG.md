@@ -7,7 +7,6 @@ here so neither side drifts.
 
 ## Open
 
-- [ ] **Controller keys not mappable in UI** ([#37](https://github.com/CryptoJones/XSpaceWar-AI/issues/37))
 - [ ] **Enemy ship sizes scale with difficulty** ([#36](https://github.com/CryptoJones/XSpaceWar-AI/issues/36))
 - [ ] **POV zoom hotkeys** ([#35](https://github.com/CryptoJones/XSpaceWar-AI/issues/35))
 - [ ] **Native Translators** ([#14](https://github.com/CryptoJones/XSpaceWar-AI/issues/14))
@@ -17,7 +16,7 @@ here so neither side drifts.
 
 ## Done
 
-<!-- Move shipped items here (or delete) as their issues close. -->
+- [x] **Controller keys not mappable in UI** ([#37](https://github.com/CryptoJones/XSpaceWar-AI/issues/37)) — shipped in [#38](https://github.com/CryptoJones/XSpaceWar-AI/pull/38)
 
 ---
 
