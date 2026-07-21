@@ -24,7 +24,7 @@ Built with **Godot 4** for **Windows, Linux, and macOS**. Licensed under
 [![Steam](https://img.shields.io/badge/steam-coming%20soon-1b2838?logo=steam&logoColor=white)](https://store.steampowered.com)
 [![Website](https://img.shields.io/badge/website-cryptojones.github.io-0a7bbd?logo=github&logoColor=white)](https://cryptojones.github.io/XSpaceWar-AI/)
 
-> **macOS:** the build is ad-hoc signed but not notarized — if Gatekeeper says it's "damaged", see [Running on macOS](#running-on-macos).
+> **macOS:** the build is Developer ID signed but not notarized — if Gatekeeper blocks it, see [Running on macOS](#running-on-macos).
 
 ## Screenshots
 
@@ -255,18 +255,16 @@ HTMFPWGCBNOTDOD!
 
 ## Running on macOS
 
-XSpaceWar-AI doesn't have a paid Apple Developer account yet, so the macOS build is
-**ad-hoc signed and not notarized**. On first launch, macOS Gatekeeper may warn that
-**"XSpaceWar-AI is damaged and can't be opened."** It is **not** damaged — macOS just
-quarantines un-notarized downloads. Clear the quarantine flag in Terminal and it opens
-normally:
+The macOS build is **Developer ID signed as Patrick Hannah but not notarized**.
+The signature protects artifact integrity and identifies its publisher, but on first
+launch Gatekeeper may still block the unnotarized download. If that happens, clear the
+quarantine flag in Terminal:
 
 ```sh
 xattr -dr com.apple.quarantine /path/to/XSpaceWar-AI.app
 ```
 
-> Note: right-click → **Open** (and System Settings → **Open Anyway**) do **not** clear the
-> "damaged" warning — only removing the quarantine attribute with the command above does.
+> The GitHub release also includes a SHA-256 manifest for the signed archive.
 
 ## Mirrors
 

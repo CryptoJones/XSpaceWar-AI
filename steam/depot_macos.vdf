@@ -1,5 +1,5 @@
 // macOS depot — content is the unzipped xspacewar-ai-macos-universal.zip,
-// i.e. the ad-hoc-signed XSpaceWar-AI.app bundle (see CHANGELOG v1.8.1).
+// i.e. the Developer ID-signed XSpaceWar-AI.app bundle (not notarized).
 "DepotBuildConfig"
 {
 	"DepotID"	"__DEPOT_MACOS__"

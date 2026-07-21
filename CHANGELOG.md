@@ -4,6 +4,14 @@ All notable changes to **XSpaceWar-AI**.
 
 ## [Unreleased]
 
+## [3.2.2] — 2026-07-21
+
+### Added
+- macOS release archives are now signed with a verified Developer ID
+  Application identity on a native GitHub Actions runner. The signing identity
+  is imported from protected secrets into a temporary keychain and removed
+  after the job. The archive remains unnotarized.
+
 ### Fixed
 - Controller button bindings now appear in the bindings panel, persist to
   `settings.cfg`, and sync into Godot's `InputMap` alongside keyboard binds.

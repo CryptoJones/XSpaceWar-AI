@@ -1,6 +1,7 @@
 name: CI
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     tags: ["v*"]
@@ -8,6 +9,8 @@ on:
 
 env:
   GODOT_VERSION: "4.6.3"
+  GODOT_LINUX_SHA256: "d0bc2113065e481c9c2c2b2c37daa4e8be3fe9e27f0ab9ab0b6096e9a37907f3"
+  GODOT_TEMPLATES_SHA256: "3fbe2c0e2dec9d537ab9ec97bcf8da91dcf23357fc51f67092dd068d839290a8"
 
 jobs:
   test:
@@ -19,6 +22,7 @@ jobs:
       - name: Install Godot
         run: |
           curl -sSL -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          echo "${GODOT_LINUX_SHA256}  godot.zip" | sha256sum --check --strict
           unzip -q godot.zip
           sudo mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" /usr/local/bin/godot
 
@@ -104,19 +108,21 @@ jobs:
             artifact: xspacewar-ai-windows-x86_64
           - preset: macOS
             out_dir: build/out/macos
-            artifact: xspacewar-ai-macos-universal
+            artifact: xspacewar-ai-macos-universal-raw
     steps:
       - uses: actions/checkout@v6
 
       - name: Install Godot
         run: |
           curl -sSL -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          echo "${GODOT_LINUX_SHA256}  godot.zip" | sha256sum --check --strict
           unzip -q godot.zip
           sudo mv "Godot_v${GODOT_VERSION}-stable_linux.x86_64" /usr/local/bin/godot
 
       - name: Install export templates
         run: |
           curl -sSL -o templates.tpz "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          echo "${GODOT_TEMPLATES_SHA256}  templates.tpz" | sha256sum --check --strict
           mkdir -p "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable"
           unzip -q templates.tpz -d /tmp/templates
           mv /tmp/templates/templates/* "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable/"
@@ -135,47 +141,88 @@ jobs:
           path: ${{ matrix.out_dir }}
           if-no-files-found: error
 
+  sign-macos:
+    name: Sign macOS app
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    needs: build
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v8
+        with:
+          name: xspacewar-ai-macos-universal-raw
+          path: unsigned
+      - name: Import Developer ID identity
+        env:
+          MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        run: ./.github/scripts/import-developer-id.sh
+      - name: Sign and package macOS app
+        run: |
+          mkdir -p payload signed
+          ditto -x -k unsigned/xspacewar-ai-macos.zip payload
+          app="$(find payload -type d -name 'XSpaceWar-AI.app' -print -quit)"
+          test -n "$app"
+          ./.github/scripts/sign-macos-app.sh "$app"
+          ditto -c -k --sequesterRsrc --keepParent "$app" \
+            signed/xspacewar-ai-macos-universal.zip
+          shasum -a 256 signed/xspacewar-ai-macos-universal.zip \
+            > signed/xspacewar-ai-macos-universal.zip.sha256
+      - uses: actions/upload-artifact@v7
+        with:
+          name: xspacewar-ai-macos-universal
+          path: signed
+          if-no-files-found: error
+      - name: Remove temporary signing keychain
+        if: always()
+        run: security delete-keychain "$RUNNER_TEMP/developer-id.keychain-db" 2>/dev/null || true
+
   release:
     name: Tagged release
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: build
+    needs: [build, sign-macos]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/download-artifact@v8
         with:
-          path: dist
+          name: xspacewar-ai-linux-x86_64
+          path: dist/linux
+      - uses: actions/download-artifact@v8
+        with:
+          name: xspacewar-ai-windows-x86_64
+          path: dist/windows
+      - uses: actions/download-artifact@v8
+        with:
+          name: xspacewar-ai-macos-universal
+          path: dist/macos
 
       - name: Zip per platform
         run: |
           cd dist
           # download-artifact strips POSIX modes — restore the executable bit
           chmod +x */xspacewar-ai.x86_64 2>/dev/null || true
-          # macOS: Godot already exports a zip (signed app inside). Ship THAT
-          # directly — re-zipping made downloaders unzip twice.
-          if [ -f xspacewar-ai-macos-universal/xspacewar-ai-macos.zip ]; then
-            mv xspacewar-ai-macos-universal/xspacewar-ai-macos.zip xspacewar-ai-macos-universal.zip
-            rm -rf xspacewar-ai-macos-universal
-          fi
-          for d in */; do (cd "$d" && zip -r "../${d%/}.zip" .); done
+          (cd linux && zip -r ../xspacewar-ai-linux-x86_64.zip .)
+          (cd windows && zip -r ../xspacewar-ai-windows-x86_64.zip .)
+          mv macos/xspacewar-ai-macos-universal.zip* .
           ls -la *.zip
 
       - uses: softprops/action-gh-release@v3
         with:
-          files: dist/*.zip
+          files: |
+            dist/*.zip
+            dist/*.sha256
           generate_release_notes: true
           append_body: true
           body: |
             ### Opening on macOS
-            No paid Apple Developer account yet, so the macOS build is ad-hoc signed but not
-            notarized. On first launch Gatekeeper may say **"XSpaceWar-AI is damaged and can't
-            be opened."** It is **not** damaged — macOS just quarantines un-notarized downloads.
-            Clear the quarantine flag in Terminal and it opens normally:
+            The macOS app is Developer ID signed as Patrick Hannah but is not notarized.
+            The signature protects integrity and identifies the publisher, but Gatekeeper may
+            still block the unnotarized download. If that happens, clear its quarantine flag:
 
             ```sh
             xattr -dr com.apple.quarantine /path/to/XSpaceWar-AI.app
             ```
 
-            Right-click → **Open** (and System Settings → **Open Anyway**) do **not** clear the
-            "damaged" warning — only the command above does.
+            Verify the matching `.sha256` manifest before bypassing quarantine.
