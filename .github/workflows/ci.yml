@@ -166,8 +166,8 @@ jobs:
           ./.github/scripts/sign-macos-app.sh "$app"
           ditto -c -k --sequesterRsrc --keepParent "$app" \
             signed/xspacewar-ai-macos-universal.zip
-          shasum -a 256 signed/xspacewar-ai-macos-universal.zip \
-            > signed/xspacewar-ai-macos-universal.zip.sha256
+          (cd signed && shasum -a 256 xspacewar-ai-macos-universal.zip \
+            > xspacewar-ai-macos-universal.zip.sha256)
       - uses: actions/upload-artifact@v7
         with:
           name: xspacewar-ai-macos-universal
