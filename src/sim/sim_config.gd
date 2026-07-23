@@ -20,16 +20,16 @@ var fixed_dt: float = 1.0 / 60.0        ## simulation step (seconds)
 
 # --- Ship ---
 var ship_radius: float = 12.0
-var turn_rate: float = 3.4              ## radians / second
-var thrust_accel: float = 900.0         ## world units / second^2
-var max_fuel: float = 100.0
-var thrust_fuel_per_sec: float = 12.0
-var fuel_regen_per_sec: float = 6.0
-var max_ammo: int = 24
-var ammo_regen_interval: float = 1.5    ## seconds per +1 torpedo
+var turn_rate: float = 4.2              ## radians / second (snappier dogfighting)
+var thrust_accel: float = 1150.0        ## world units / second^2 (heroic, not hopeless)
+var max_fuel: float = 130.0
+var thrust_fuel_per_sec: float = 11.0
+var fuel_regen_per_sec: float = 8.0
+var max_ammo: int = 32
+var ammo_regen_interval: float = 1.2    ## seconds per +1 torpedo
 var spawn_grace: float = 1.5            ## seconds of invulnerability after (re)spawn
-var spawn_orbit_radius: float = 1100.0
-var respawn_time: float = 6.0
+var spawn_orbit_radius: float = 1250.0
+var respawn_time: float = 4.0
 var lives: int = 0                      ## deaths before elimination (0 = unlimited)
 
 ## ---- Wire serialization -------------------------------------------------
@@ -66,9 +66,9 @@ static func from_wire(d: Dictionary) -> SimConfig:
 	return cfg
 
 # --- Torpedoes ---
-var fire_cooldown: float = 0.5          ## 2 shots / second (matches the original feel)
+var fire_cooldown: float = 0.35         ## ~3 shots / second (busier dogfights)
 var torpedo_radius: float = 4.0
-var torpedo_speed: float = 700.0        ## muzzle speed added to ship velocity
+var torpedo_speed: float = 900.0        ## muzzle speed added to ship velocity
 var torpedo_life: float = 0.0           ## 0 = NEVER expires (Aaron's rule: fly until impact)
 var torpedo_gravity: bool = true        ## modern accuracy: gravity affects torpedoes too
 
@@ -92,8 +92,8 @@ var pickup_mines_amount: int = 2
 
 # --- Hyperspace ---
 var hyperspace_cooldown: float = 4.0
-var hyperspace_base_risk: float = 0.08  ## self-destruct chance, grows per use
-var hyperspace_risk_per_use: float = 0.05
+var hyperspace_base_risk: float = 0.05  ## self-destruct chance, grows per use
+var hyperspace_risk_per_use: float = 0.03
 
 # --- Modes / scoring ---
 var friendly_fire: bool = false

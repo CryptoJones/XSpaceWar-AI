@@ -4,6 +4,22 @@ All notable changes to **XSpaceWar-AI**.
 
 ## [Unreleased]
 
+## [3.3.0] — 2026-07-23
+
+### Changed
+- **Gameplay feel retune — same honest Newtonian physics, more fun to fly.**
+  Snappier, busier, more forgiving dogfighting with every physics law
+  untouched (pure inverse-square gravity, no drag, conserved momentum,
+  toroidal wrap, eternal gravity-coasting torpedoes). Only `SimConfig`
+  constants changed, so host / clients / AI / replays stay bit-for-bit in
+  sync, and star mass still auto-scales off thrust so wells stay balanced.
+  - Turn rate 3.4 → 4.2 rad/s; thrust 900 → 1150 (heroic, not hopeless).
+  - Fuel: max 100 → 130, burn 12 → 11/s, regen 6 → 8/s (longer burns).
+  - Ammo: max 24 → 32, regen 1.5 → 1.2s/torpedo (fewer dry spells).
+  - Fire cooldown 0.5 → 0.35s (~3 shots/s); torpedo speed 700 → 900.
+  - Respawn 6 → 4s; hyperspace risk 8%+5%/use → 5%+3%/use.
+  - Spawn ring 1100 → 1250 (clearer of the well).
+
 ## [3.2.3] — 2026-07-22
 
 ### Added

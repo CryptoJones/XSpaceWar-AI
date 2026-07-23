@@ -517,7 +517,7 @@ func _build_match_tab() -> Control:
 		func(x: float) -> String: return tr("endless") if int(x) == 0 else str(int(x)))
 	_time_slider = _slider_row(grid, "Time limit", 0, 30, 1, 0,
 		func(x: float) -> String: return tr("no clock") if int(x) == 0 else tr("%d min") % int(x))
-	_respawn_slider = _slider_row(grid, "Respawn", 1, 15, 1, 6,
+	_respawn_slider = _slider_row(grid, "Respawn", 1, 15, 1, 4,
 		func(x: float) -> String: return tr("%d s") % int(x))
 	_lives_slider = _slider_row(grid, "Lives", 0, 64, 1, 0,
 		func(x: float) -> String: return tr("unlimited") if int(x) == 0 else str(int(x)))
@@ -1532,7 +1532,7 @@ func _load_settings() -> void:
 		_ships_slider.set_value_no_signal(float(cfg.get_value("match", "ships", 8.0)))
 		_limit_slider.set_value_no_signal(float(cfg.get_value("match", "score_limit", 10.0)))
 		_time_slider.set_value_no_signal(float(cfg.get_value("match", "time_limit", 0.0)))
-		_respawn_slider.set_value_no_signal(float(cfg.get_value("match", "respawn", 6.0)))
+		_respawn_slider.set_value_no_signal(float(cfg.get_value("match", "respawn", 4.0)))
 		_torpedo_life_slider.set_value_no_signal(float(cfg.get_value("match", "torpedo_life", 0.0)))
 		_mine_arm_slider.set_value_no_signal(float(cfg.get_value("match", "mine_arm", 3.0)))
 		_mine_life_slider.set_value_no_signal(float(cfg.get_value("match", "mine_life", 25.0)))

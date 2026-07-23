@@ -42,7 +42,7 @@ const RESTART_DELAY := 8.0
 var score_limit := 10              ## 0 = endless
 var time_limit := 0.0              ## seconds; 0 = no clock
 var hazard := 0.3                  ## asteroid slider 0..1 (1 = every 3rd cell)
-var respawn_seconds := 6.0         ## death cooldown (player-configurable)
+var respawn_seconds := 4.0         ## death cooldown (player-configurable)
 var torpedo_lifetime := 0.0        ## seconds before a torpedo fizzles (0 = unlimited)
 var mine_lifetime := 25.0          ## seconds before a mine fizzles (0 = unlimited)
 var mine_arm_seconds := 3.0        ## proximity fuse inert until this age (3..30)
@@ -97,7 +97,7 @@ func _randomize_match_params() -> void:
 	# boundary or 1s respawn from the last match would contaminate it).
 	lethal_edges = false
 	friendly_fire = false
-	respawn_seconds = 6.0
+	respawn_seconds = 4.0
 	score_limit = 0
 	time_limit = 0.0
 	num_ships = _rng.randi_range(6, 16)
