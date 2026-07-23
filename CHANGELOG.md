@@ -4,6 +4,12 @@ All notable changes to **XSpaceWar-AI**.
 
 ## [Unreleased]
 
+## [3.2.3] — 2026-07-22
+
+### Added
+- **Play tester credit: Jacob Luff.** Added to the in-game rolled credits and
+  the README play-testers list, in alphabetical-by-last-name order.
+
 ## [3.2.2] — 2026-07-21
 
 ### Added
