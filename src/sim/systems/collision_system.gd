@@ -27,12 +27,11 @@ static func resolve(world: SimWorld, dt: float) -> void:
 	for t in world.torpedoes:
 		var hit_body := false
 		var t_prev := t.pos - t.vel * dt
-		if t_prev.distance_to(t.pos) > config.arena_size * 0.4:
-			t_prev = t.pos  # wrapped this step: sweep would span the map
 		for b in world.bodies:
 			if not b.lethal:
 				continue
-			if segment_hits_circle(t_prev, t.pos, b.pos, b.radius + t.radius):
+			if TorusMath.swept_hits_circle(t_prev, t.pos, b.pos,
+					b.radius + t.radius, config.arena_size):
 				hit_body = true
 				if b.kind == SimBody.Kind.ASTEROID and not broken_rocks.has(b):
 					broken_rocks.append(b)
@@ -54,11 +53,10 @@ static func resolve(world: SimWorld, dt: float) -> void:
 				continue
 			if s.id != t.owner_id and s.team == t.team and s.team != -1 and not config.friendly_fire:
 				continue
-			var rel_prev := (t.pos - t.vel * dt) - (s.pos - s.vel * dt)
-			var rel_now := t.pos - s.pos
-			if rel_prev.distance_to(rel_now) > config.arena_size * 0.4:
-				rel_prev = rel_now  # wrap teleport: fall back to a point test
-			if segment_hits_circle(rel_prev, rel_now, Vector2.ZERO, s.radius + t.radius):
+			var t_prev := t.pos - t.vel * dt
+			var s_prev := s.pos - s.vel * dt
+			if TorusMath.swept_hits_moving_circle(t_prev, t.pos, s_prev, s.pos,
+					s.radius + t.radius, config.arena_size):
 				var killer := -1 if s.id == t.owner_id else t.owner_id
 				destroy_ship(world, s, killer, "torpedo")
 				consumed = true
@@ -74,12 +72,11 @@ static func resolve(world: SimWorld, dt: float) -> void:
 		if not s.alive or s.spawn_grace > 0.0:
 			continue
 		var s_prev := s.pos - s.vel * dt
-		if s_prev.distance_to(s.pos) > config.arena_size * 0.4:
-			s_prev = s.pos  # wrapped this step
 		for b in world.bodies:
 			if not b.lethal:
 				continue
-			if segment_hits_circle(s_prev, s.pos, b.pos, b.radius + s.radius):
+			if TorusMath.swept_hits_circle(s_prev, s.pos, b.pos,
+					b.radius + s.radius, config.arena_size):
 				destroy_ship(world, s, -1, "body")
 				break
 
@@ -92,7 +89,8 @@ static func resolve(world: SimWorld, dt: float) -> void:
 			var b := world.ships[j]
 			if not b.alive or b.spawn_grace > 0.0:
 				continue
-			if a.pos.distance_to(b.pos) > a.radius + b.radius:
+			var ship_clearance := a.radius + b.radius
+			if TorusMath.distance_squared(a.pos, b.pos, config.arena_size) > ship_clearance * ship_clearance:
 				continue
 			if a.team == b.team and a.team != -1 and not config.friendly_fire:
 				continue
@@ -100,7 +98,7 @@ static func resolve(world: SimWorld, dt: float) -> void:
 				destroy_ship(world, a, -1, "ram")
 				destroy_ship(world, b, -1, "ram")
 			else:
-				bounce(a, b)
+				bounce(a, b, config.arena_size)
 
 static func break_rock(world: SimWorld, rock: SimBody) -> void:
 	var config := world.config
@@ -119,9 +117,9 @@ static func break_rock(world: SimWorld, rock: SimBody) -> void:
 		p.radius = config.pickup_radius
 		world.pickups.append(p)
 
-static func bounce(a: SimShip, b: SimShip) -> void:
+static func bounce(a: SimShip, b: SimShip, arena_size: float) -> void:
 	# Equal-mass elastic bounce along the contact normal.
-	var n := (b.pos - a.pos)
+	var n := TorusMath.shortest_delta(a.pos, b.pos, arena_size)
 	if n.length() < 0.0001:
 		return
 	n = n.normalized()
@@ -130,7 +128,7 @@ static func bounce(a: SimShip, b: SimShip) -> void:
 	a.vel += n * (vb - va)
 	b.vel += n * (va - vb)
 	# Separate so they don't stick.
-	var overlap := (a.radius + b.radius) - a.pos.distance_to(b.pos)
+	var overlap := (a.radius + b.radius) - TorusMath.distance(a.pos, b.pos, arena_size)
 	if overlap > 0.0:
 		a.pos -= n * overlap * 0.5
 		b.pos += n * overlap * 0.5

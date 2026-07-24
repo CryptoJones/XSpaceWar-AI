@@ -12,6 +12,9 @@ var net_client: NetClient
 
 var _menu: CanvasLayer
 var _mode_btn: OptionButton
+var _preset_btn: OptionButton
+var _preset_summary: Label
+var _applying_preset := false
 var _diff_slider: HSlider
 var _ships_slider: HSlider
 var _limit_slider: HSlider
@@ -25,6 +28,7 @@ var _hazard_slider: HSlider
 var _star_slider: HSlider
 var _planets_slider: HSlider
 var _map_slider: HSlider
+var _pace_slider: HSlider
 var _edge_check: CheckButton
 var _ff_check: CheckButton
 var _slider_readouts := {}         ## HSlider -> [readout LineEdit, fmt Callable]
@@ -84,7 +88,7 @@ const BINDABLE := [
 	["thrust", "Thrust"],
 	["fire", "Fire torpedo"],
 	["mine", "Drop mine"],
-	["hyper", "Hyperspace"],
+	["hyper", "Hyperspace (with Fire)"],
 	["toggle_map", "Toggle minimap"],
 	["toggle_feed", "Toggle kill feed"],
 	["toggle_score", "Toggle scoreboard"],
@@ -500,12 +504,34 @@ func _build_match_tab() -> Control:
 	# The contest itself: who plays, how you win, how respawn/lives/FF work.
 	var parts := _tab_page("MATCH")
 	var v: VBoxContainer = parts[1]
+	var preset_row := HBoxContainer.new()
+	var preset_label := Label.new()
+	preset_label.text = "Match recipe"
+	preset_label.custom_minimum_size.x = 150
+	preset_row.add_child(preset_label)
+	_preset_btn = OptionButton.new()
+	_preset_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for id in MatchPresets.ORDER:
+		_preset_btn.add_item(MatchPresets.label(id))
+	_preset_btn.item_selected.connect(_on_preset_selected)
+	preset_row.add_child(_preset_btn)
+	v.add_child(preset_row)
+	_preset_summary = Label.new()
+	_preset_summary.text = MatchPresets.summary(MatchPresets.CLASSIC_FFA)
+	_preset_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_preset_summary.add_theme_color_override("font_color", Color(0.55, 0.78, 0.95, 0.85))
+	v.add_child(_preset_summary)
+	var advanced := Label.new()
+	advanced.text = "ADVANCED / CUSTOM SETTINGS — editing a value selects Custom"
+	advanced.add_theme_color_override("font_color", Color(0.75, 0.78, 0.85, 0.65))
+	v.add_child(advanced)
 	var grid := _option_grid()
 	v.add_child(grid)
 
 	_mode_btn = OptionButton.new()
 	_mode_btn.add_item("Free-for-all")
 	_mode_btn.add_item("Team battle")
+	_mode_btn.item_selected.connect(func(_i: int): _mark_custom())
 	_grid_row(grid, "Mode", _mode_btn)
 
 	_diff_slider = _slider_row(grid, "AI difficulty", 0, 3, 1,
@@ -521,6 +547,11 @@ func _build_match_tab() -> Control:
 		func(x: float) -> String: return tr("%d s") % int(x))
 	_lives_slider = _slider_row(grid, "Lives", 0, 64, 1, 0,
 		func(x: float) -> String: return tr("unlimited") if int(x) == 0 else str(int(x)))
+	_pace_slider = _slider_row(grid, "Flight pace", 60, 100, 5, 75,
+		func(x: float) -> String: return "%d%%" % int(x))
+	for slider in [_diff_slider, _ships_slider, _limit_slider, _time_slider,
+		_respawn_slider, _lives_slider, _pace_slider]:
+		slider.value_changed.connect(func(_v: float): _mark_custom())
 
 	var stretch := Control.new()
 	stretch.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -531,6 +562,44 @@ func _build_match_tab() -> Control:
 	movie.pressed.connect(_on_movie_pressed)
 	v.add_child(movie)
 	return parts[0]
+
+func _on_preset_selected(index: int) -> void:
+	var id := String(MatchPresets.ORDER[clampi(index, 0, MatchPresets.ORDER.size() - 1)])
+	if id == MatchPresets.CUSTOM:
+		if _preset_summary != null:
+			_preset_summary.text = MatchPresets.summary(id)
+		return
+	_applying_preset = true
+	MatchPresets.apply(session, id)
+	_mode_btn.select(session.mode)
+	_diff_slider.set_value_no_signal(session.difficulty)
+	_ships_slider.set_value_no_signal(session.num_ships)
+	_limit_slider.set_value_no_signal(session.score_limit)
+	_time_slider.set_value_no_signal(session.time_limit / 60.0)
+	_respawn_slider.set_value_no_signal(session.respawn_seconds)
+	_torpedo_life_slider.set_value_no_signal(session.torpedo_lifetime)
+	_mine_arm_slider.set_value_no_signal(session.mine_arm_seconds)
+	_mine_life_slider.set_value_no_signal(session.mine_lifetime)
+	_lives_slider.set_value_no_signal(session.lives)
+	_hazard_slider.set_value_no_signal(session.hazard * 100.0)
+	_star_slider.set_value_no_signal(session.star_scale * 25.0)
+	_planets_slider.set_value_no_signal(session.planet_count)
+	_map_slider.set_value_no_signal(session.map_size)
+	_edge_check.set_pressed_no_signal(session.lethal_edges)
+	_ff_check.set_pressed_no_signal(session.friendly_fire)
+	_pace_slider.set_value_no_signal(session.flight_pace)
+	_refresh_slider_readouts()
+	_applying_preset = false
+	_preset_summary.text = MatchPresets.summary(id)
+
+func _mark_custom() -> void:
+	if _applying_preset or _preset_btn == null:
+		return
+	var custom_index := MatchPresets.ORDER.find(MatchPresets.CUSTOM)
+	if _preset_btn.selected != custom_index:
+		_preset_btn.select(custom_index)
+		_preset_summary.text = MatchPresets.summary(MatchPresets.CUSTOM)
+	session.preset = MatchPresets.CUSTOM
 
 func _build_arena_tab() -> Control:
 	# The battlefield: arena size, the gravity well, planets, hazards, boundary.
@@ -551,7 +620,10 @@ func _build_arena_tab() -> Control:
 	_edge_check = CheckButton.new()
 	_edge_check.text = "Lethal map edge"
 	_edge_check.tooltip_text = "Off: the map wraps around · On: the border destroys ships"
+	_edge_check.toggled.connect(func(_on: bool): _mark_custom())
 	_grid_row(grid, "Boundary", _edge_check)
+	for slider in [_map_slider, _star_slider, _planets_slider, _hazard_slider]:
+		slider.value_changed.connect(func(_v: float): _mark_custom())
 	return parts[0]
 
 func _build_weapons_tab() -> Control:
@@ -573,11 +645,14 @@ func _build_weapons_tab() -> Control:
 	# Raising the arm time can lift the effective mine lifetime, so refresh the
 	# readouts (the lifetime row shows "set → effective") when arm time moves.
 	_mine_arm_slider.value_changed.connect(func(_v: float): _refresh_slider_readouts())
+	for slider in [_torpedo_life_slider, _mine_arm_slider, _mine_life_slider]:
+		slider.value_changed.connect(func(_v: float): _mark_custom())
 
 	# Friendly fire lives here: it decides whether your ordnance harms teammates.
 	_ff_check = CheckButton.new()
 	_ff_check.text = "Friendly fire"
 	_ff_check.tooltip_text = "Off: teammates cannot harm each other · On: all damage applies"
+	_ff_check.toggled.connect(func(_on: bool): _mark_custom())
 	_grid_row(grid, "Friendly fire", _ff_check)
 	return parts[0]
 
@@ -828,7 +903,7 @@ func _build_controls_panel() -> HBoxContainer:
 		["%s  or  ▲" % _key_name("thrust"), "thrust"],
 		[_key_name("fire"), "fire torpedo"],
 		["%s  or  ▼" % _key_name("mine"), "drop mine"],
-		["%s or ENTER" % _key_name("hyper"), "hyperspace"],
+		["%s or ENTER + SPACE" % _key_name("hyper"), "hyperspace"],
 		[_key_name("toggle_map"), "toggle minimap"],
 		["%s / %s" % [_key_name("zoom_out"), _key_name("zoom_in")], "POV zoom"],
 		["ESC", "menu"],
@@ -839,7 +914,7 @@ func _build_controls_panel() -> HBoxContainer:
 		["%s / RT" % _pad_name("thrust"), "thrust"],
 		[_pad_name("fire"), "fire torpedo"],
 		["%s / LT" % _pad_name("mine"), "drop mine"],
-		[_pad_name("hyper"), "hyperspace"],
+		["%s + %s" % [_pad_name("hyper"), _pad_name("fire")], "hyperspace"],
 		[_pad_name("toggle_map"), "toggle minimap"],
 		["START", "menu"],
 	]))
@@ -1092,6 +1167,8 @@ func _start_configured_match() -> void:
 	session.map_size = _map_slider.value
 	session.lives = int(_lives_slider.value)
 	session.planet_count = int(_planets_slider.value)
+	session.flight_pace = _pace_slider.value
+	session.preset = String(MatchPresets.ORDER[_preset_btn.selected])
 	_save_settings()
 	session.host_name = _player_name
 	session.start_skirmish(int(_ships_slider.value), mode, int(_diff_slider.value))
@@ -1203,7 +1280,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		_dev_immortal = not _dev_immortal
 		_refresh_dev_banner()
 	elif event.is_action_pressed("xsw_toggle_map"):
-		hud.set_radar_visible(not hud.radar_visible())
+		hud.cycle_radar_mode()
 		_save_settings()
 	elif event.is_action_pressed("xsw_toggle_feed"):
 		hud.set_feed_visible(not hud.feed_visible())
@@ -1523,7 +1600,11 @@ func _load_settings() -> void:
 		_music_check.set_pressed_no_signal(bool(cfg.get_value("audio", "music", true)))
 		view.pov_zoom = clampf(float(cfg.get_value("display", "pov_zoom", 1.0)),
 			WorldView.POV_ZOOM_MIN, WorldView.POV_ZOOM_MAX)
-		hud.set_radar_visible(bool(cfg.get_value("display", "minimap", true)))
+		var saved_radar_mode = cfg.get_value("display", "minimap_mode", null)
+		if saved_radar_mode != null:
+			hud.set_radar_mode(int(cfg.get_value("display", "minimap_mode", Hud.RadarMode.TACTICAL)))
+		else:
+			hud.set_radar_visible(bool(cfg.get_value("display", "minimap", true)))
 		hud.set_feed_visible(bool(cfg.get_value("display", "kill_feed", true)))
 		hud.set_score_visible(bool(cfg.get_value("display", "scoreboard", true)))
 		# Match setup: restore the player's favorite configuration.
@@ -1542,6 +1623,15 @@ func _load_settings() -> void:
 		_edge_check.set_pressed_no_signal(bool(cfg.get_value("match", "lethal_edges", false)))
 		_map_slider.set_value_no_signal(float(cfg.get_value("match", "map_size", 40000.0)))
 		_lives_slider.set_value_no_signal(float(cfg.get_value("match", "lives", 0.0)))
+		_pace_slider.set_value_no_signal(float(cfg.get_value("match", "flight_pace", 75.0)))
+		var saved_preset_value = cfg.get_value("match", "preset", null)
+		if saved_preset_value != null:
+			var saved_preset := String(saved_preset_value)
+			var preset_index := MatchPresets.ORDER.find(saved_preset)
+			_on_preset_selected(preset_index if preset_index >= 0 else MatchPresets.ORDER.size() - 1)
+		else:
+			_preset_btn.select(MatchPresets.ORDER.find(MatchPresets.CUSTOM))
+			_preset_summary.text = MatchPresets.summary(MatchPresets.CUSTOM)
 		_refresh_slider_readouts()
 		var binds_changed := false
 		for pair in BINDABLE:
@@ -1584,6 +1674,7 @@ func _save_settings() -> void:
 	cfg.set_value("replay", "record", _record_check.button_pressed)
 	cfg.set_value("audio", "music", _music_check.button_pressed)
 	cfg.set_value("display", "minimap", hud.radar_visible())
+	cfg.set_value("display", "minimap_mode", hud.radar_mode())
 	cfg.set_value("display", "kill_feed", hud.feed_visible())
 	cfg.set_value("display", "scoreboard", hud.score_visible())
 	for pair in BINDABLE:
@@ -1604,6 +1695,8 @@ func _save_settings() -> void:
 	cfg.set_value("match", "lethal_edges", _edge_check.button_pressed)
 	cfg.set_value("match", "map_size", _map_slider.value)
 	cfg.set_value("match", "lives", _lives_slider.value)
+	cfg.set_value("match", "preset", String(MatchPresets.ORDER[_preset_btn.selected]))
+	cfg.set_value("match", "flight_pace", _pace_slider.value)
 	cfg.save(SETTINGS_PATH)
 
 ## F3 diagnostics: everything needed to pin down a bug report in one glance.

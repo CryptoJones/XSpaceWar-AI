@@ -17,15 +17,19 @@ var _final_board: Label
 var _debug_label: Label
 var _edge_warn: Label
 var _spec_hint: Label
+var _hyper_label: Label
 var _feed: Array[Dictionary] = []   ## {"t": text, "ttl": seconds}
 var _seen_tick := -1
 var _seen_gen := -1
 var _rtl := false                   ## true under a right-to-left locale (Arabic)
 var _radar_span := 0.0              ## smoothed minimap world-units-across (0 = uninitialised)
+var _last_death_pos := Vector2.ZERO
+var _radar_mode := 0                ## 0 tactical, 1 overview, 2 hidden
 
 const FEED_TTL := 12.0
 const FEED_MAX := 6
-const RADAR_SIZE := 170.0
+const RADAR_SIZE := 220.0
+enum RadarMode { TACTICAL, OVERVIEW, HIDDEN }
 
 func _ready() -> void:
 	layer = 5
@@ -53,6 +57,12 @@ func _ready() -> void:
 	_bars.size = Vector2(310, 74)
 	_bars.draw.connect(_draw_bars)
 	add_child(_bars)
+	_hyper_label = _make_label(12, Color(0.65, 0.85, 1.0, 0.82))
+	_hyper_label.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_hyper_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_hyper_label.position.y = 130
+	_hyper_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	add_child(_hyper_label)
 
 	_feed_label = _make_rich(15)
 	_feed_label.set_anchors_preset(Control.PRESET_TOP_LEFT)
@@ -196,10 +206,24 @@ func score_visible() -> bool:
 	return _score.visible
 
 func set_radar_visible(v: bool) -> void:
+	_radar_mode = RadarMode.TACTICAL if v else RadarMode.HIDDEN
 	_radar.visible = v
 
 func radar_visible() -> bool:
-	return _radar.visible
+	return _radar_mode != RadarMode.HIDDEN
+
+func set_radar_mode(mode: int) -> void:
+	_radar_mode = clampi(mode, RadarMode.TACTICAL, RadarMode.HIDDEN)
+	_radar.visible = _radar_mode != RadarMode.HIDDEN
+	_radar_span = 0.0
+	_radar.queue_redraw()
+
+func radar_mode() -> int:
+	return _radar_mode
+
+func cycle_radar_mode() -> int:
+	set_radar_mode((_radar_mode + 1) % 3)
+	return _radar_mode
 
 ## BBCode label for color-coded HUD text (scoreboard, kill feed).
 ## Lethal-edge mode: shout when the wall of death is close (and closing).
@@ -258,25 +282,31 @@ func _process(dt: float) -> void:
 		_seen_gen = session.generation
 		_feed.clear()
 		_seen_tick = -1
+		_last_death_pos = Vector2.ZERO
 	_update_banner()
 	_update_scoreboard()
 	_update_feed(dt)
 	_radar.queue_redraw()
 	_arrows.queue_redraw()
 	var human := session.human_ship()
-	# Auto-zoom the minimap: ease its world-span toward the target for the
-	# player's distance from the star — whole-map when there's no player
-	# (movie mode / spectator / replay). Star is the minimap centre.
-	var star := session.world.primary_body()
-	var star_pos := star.pos if star != null else Vector2.ZERO
+	# Tactical mode is bounded and local; overview remains a fixed full-map
+	# projection.  The camera center is selected in _draw_radar.
 	var span_target := session.world.config.arena_size
-	if human != null:
-		span_target = radar_target_span(human.pos - star_pos, session.world.config.arena_size)
+	if _radar_mode == RadarMode.TACTICAL:
+		span_target = clampf(session.world.config.arena_size * 0.22, 3500.0, 12000.0)
 	if _radar_span < 1.0:
 		_radar_span = span_target  # snap on the first frame
 	else:
 		_radar_span = lerpf(_radar_span, span_target, 1.0 - exp(-RADAR_ZOOM_SMOOTH * dt))
 	_update_edge_warning(human)
+	if human != null:
+		var risk := session.world.config.hyperspace_base_risk \
+			+ session.world.config.hyperspace_risk_per_use * float(human.hyperspace_uses)
+		_hyper_label.text = tr("HYPER+FIRE  ·  %s  ·  MISJUMP %d%%") % [
+			tr("READY") if human.hyperspace_cooldown <= 0.0 else tr("%0.1fs") % human.hyperspace_cooldown,
+			int(risk * 100.0)]
+	else:
+		_hyper_label.text = ""
 	_bars.visible = human != null
 	if human != null:
 		_bars.queue_redraw()
@@ -344,6 +374,8 @@ func _update_feed(dt: float) -> void:
 				"explosion":
 					var ship := int(ev["ship"])
 					var is_mine := ship == session.human_ship_id
+					if is_mine:
+						_last_death_pos = ev.get("pos", _last_death_pos)
 					var self_kill := int(ev.get("killer", -1)) < 0
 					match String(ev.get("cause", "")):
 						"body":
@@ -360,6 +392,10 @@ func _update_feed(dt: float) -> void:
 						"torpedo":
 							if self_kill:
 								_push_feed("%s  ✕  own torpedo" % _ship_bb(ship), is_mine)
+				"respawn":
+					var respawn_ship := int(ev["ship"])
+					_push_feed("%s  ↯  warp-in" % _ship_bb(respawn_ship),
+						respawn_ship == session.human_ship_id)
 	for e in _feed:
 		e["ttl"] = float(e["ttl"]) - dt
 	while not _feed.is_empty() and float(_feed[0]["ttl"]) <= 0.0:
@@ -405,18 +441,20 @@ func _draw_radar() -> void:
 	var world := session.world if session != null else null
 	if world == null:
 		return
+	if _radar_mode == RadarMode.HIDDEN:
+		return
 	var size := _radar.size
 	_radar.draw_rect(Rect2(Vector2.ZERO, size), Color(0.04, 0.07, 0.12, 0.55))
 	_radar.draw_rect(Rect2(Vector2.ZERO, size), Color(0.4, 0.6, 1.0, 0.35), false, 1.0)
-	# Star-centred and auto-zoomed (see _process): the window spans the combat
-	# zone near the star and widens to the whole arena as you fly out. Ships
-	# outside the window pin to the rim. When zoomed in we also draw the fine
-	# detail that's normally hidden as clutter.
+	# Tactical centers on the pilot/last death; overview centers on the star.
 	var primary := world.primary_body()
+	var human := session.human_ship()
 	var center := primary.pos if primary != null else Vector2.ZERO
+	if _radar_mode == RadarMode.TACTICAL:
+		center = human.pos if human != null and human.alive else _last_death_pos
 	var detail := _radar_span <= world.config.arena_size * RADAR_DETAIL_SPAN_FRAC
 	for b in world.bodies:
-		var mp := _radar_map(b.pos, center, size)
+		var mp := _radar_map(b.pos, center, size, world.config.arena_size)
 		var off_map := not _radar_in_view(mp, size)
 		mp = mp.clamp(Vector2(4, 4), size - Vector2(4, 4))
 		match b.kind:
@@ -452,40 +490,49 @@ func _draw_radar() -> void:
 	# Torpedoes in flight — tracers, only when zoomed in (a swarm of dots far out).
 	if detail:
 		for t in world.torpedoes:
-			var tmp := _radar_map(t.pos, center, size)
+			var tmp := _radar_map(t.pos, center, size, world.config.arena_size)
 			if _radar_in_view(tmp, size):
 				_radar.draw_circle(tmp, 1.0, Color(1.0, 0.9, 0.5, 0.8))
 	# Armed mines blink red; supply drops show in their kind's color.
 	for m in world.mines:
 		if m.age < world.config.mine_arm_time:
 			continue
-		var mmp := _radar_map(m.pos, center, size)
+		var mmp := _radar_map(m.pos, center, size, world.config.arena_size)
 		if _radar_in_view(mmp, size):
 			var blink := 0.4 + 0.6 * maxf(0.0, sin(Time.get_ticks_msec() / 1000.0 * 6.0 + float(m.id)))
 			_radar.draw_circle(mmp, 1.6, Color(1.0, 0.2, 0.15, blink))
 	for p in world.pickups:
-		var pmp := _radar_map(p.pos, center, size)
+		var pmp := _radar_map(p.pos, center, size, world.config.arena_size)
 		if _radar_in_view(pmp, size):
 			_radar.draw_circle(pmp, 1.6, WorldView.PICKUP_COLORS[p.kind % WorldView.PICKUP_COLORS.size()])
 	var me := session.human_ship()
 	for s in world.ships:
 		if not s.alive:
 			continue
-		var mp := _radar_map(s.pos, center, size)
+		var mp := _radar_map(s.pos, center, size, world.config.arena_size)
 		# Ships beyond the window pin to the radar edge so you can still
 		# tell where everyone went in the big empty.
 		var off_view := not _radar_in_view(mp, size)
 		mp = mp.clamp(Vector2(3, 3), size - Vector2(3, 3))
 		if s.id == session.human_ship_id:
-			# YOUR ship is always DARK RED on the map — instantly findable.
-			_radar.draw_circle(mp, 3.2, Color(0.62, 0.07, 0.07))
-			_radar.draw_arc(mp, 5.5, 0.0, TAU, 12, Color(0.62, 0.07, 0.07, 0.75), 1.2)
+			# YOU is a facing triangle, not an anonymous dot.
+			var face := Vector2.from_angle(s.angle)
+			var side := Vector2(-face.y, face.x)
+			_radar.draw_colored_polygon(PackedVector2Array([
+				mp + face * 8.0, mp - face * 5.0 + side * 4.0,
+				mp - face * 5.0 - side * 4.0]), Color(1.0, 0.35, 0.3))
+			_radar.draw_string(ThemeDB.fallback_font, mp + Vector2(7, -7), "YOU",
+				HORIZONTAL_ALIGNMENT_LEFT, 30, 10, Color(1.0, 0.65, 0.6))
 		else:
 			# Flat friend/enemy scheme (minimap only): teammates light blue,
 			# everyone else bright red. The main view keeps each ship's colour.
 			var friend := me != null and s.team != -1 and s.team == me.team
 			var c := RADAR_FRIEND_COLOR if friend else RADAR_ENEMY_COLOR
 			_radar.draw_circle(mp, 2.2, Color(c, 0.5 if off_view else 1.0))
+	_radar.draw_string(ThemeDB.fallback_font, Vector2(8, size.y - 8),
+		"TACTICAL" if _radar_mode == RadarMode.TACTICAL else "OVERVIEW"
+			+ "  ·  YOU  ENEMY  TEAM  ★  HAZARD", HORIZONTAL_ALIGNMENT_LEFT,
+			size.x - 12, 10, Color(0.7, 0.82, 1.0, 0.85))
 
 ## Edge arrows pointing at off-screen ships (skirmish only): the 10x arena
 ## means fights can be anywhere — these keep them findable without staring
@@ -503,7 +550,9 @@ func _draw_arrows() -> void:
 	for s in world.ships:
 		if not s.alive or s.id == session.human_ship_id:
 			continue
-		var sp := xform * s.pos
+		var near_pos := human.pos + TorusMath.shortest_delta(human.pos, s.pos,
+			world.config.arena_size)
+		var sp := xform * near_pos
 		if sp.x >= 0.0 and sp.y >= 0.0 and sp.x <= size.x and sp.y <= size.y:
 			continue  # on screen already
 		var clamped := sp.clamp(Vector2(margin, margin), size - Vector2(margin, margin))
@@ -517,13 +566,14 @@ func _draw_arrows() -> void:
 		_arrows.draw_colored_polygon(
 			PackedVector2Array([tip, clamped - dir * 4.0 + perp, clamped - dir * 4.0 - perp]), c)
 		if not teammate:
-			var dist := human.pos.distance_to(s.pos)
+			var dist := TorusMath.distance(human.pos, s.pos, world.config.arena_size)
 			_arrows.draw_string(ThemeDB.fallback_font, clamped - dir * 16.0 + Vector2(-18, 5),
 				"%.1fk" % (dist / 1000.0), HORIZONTAL_ALIGNMENT_CENTER, 38, 12,
 				Color(c.r, c.g, c.b, 0.8))
 
-func _radar_map(p: Vector2, center: Vector2, size: Vector2) -> Vector2:
-	return ((p - center) / maxf(_radar_span, 1.0) + Vector2(0.5, 0.5)) * size
+func _radar_map(p: Vector2, center: Vector2, size: Vector2, arena_size: float) -> Vector2:
+	var rel := TorusMath.shortest_delta(center, p, arena_size)
+	return (rel / maxf(_radar_span, 1.0) + Vector2(0.5, 0.5)) * size
 
 func _radar_in_view(mp: Vector2, size: Vector2) -> bool:
 	return mp.x >= 0.0 and mp.y >= 0.0 and mp.x <= size.x and mp.y <= size.y

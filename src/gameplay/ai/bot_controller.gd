@@ -150,12 +150,12 @@ func _acquire_target(ship: SimShip) -> void:
 		match personality:
 			Personality.OPPORTUNIST:
 				# Hunt whoever is weakest, distance as the tiebreaker.
-				metric = float(other.score) * 1.0e9 + ship.pos.distance_squared_to(other.pos)
+				metric = float(other.score) * 1.0e9 + TorusMath.distance_squared(ship.pos, other.pos, world.config.arena_size)
 			Personality.SLINGSHOT:
 				# Spite: hunt the leader, distance as the tiebreaker.
-				metric = -float(other.score) * 1.0e9 + ship.pos.distance_squared_to(other.pos)
+				metric = -float(other.score) * 1.0e9 + TorusMath.distance_squared(ship.pos, other.pos, world.config.arena_size)
 			_:
-				metric = ship.pos.distance_squared_to(other.pos)
+				metric = TorusMath.distance_squared(ship.pos, other.pos, world.config.arena_size)
 		if metric < best_metric:
 			best_metric = metric
 			best = other.id
@@ -172,7 +172,7 @@ func _imminent_hazard(ship: SimShip) -> SimBody:
 		var margin := b.radius + ship.radius + (60.0 if b.gravity else 26.0)
 		for k in range(1, 5):
 			var t := t_max * float(k) * 0.25
-			if (ship.pos + ship.vel * t).distance_to(b.pos + b.vel * t) < margin:
+			if TorusMath.distance_squared(ship.pos + ship.vel * t, b.pos + b.vel * t, world.config.arena_size) < margin * margin:
 				return b
 	return null
 
@@ -187,7 +187,7 @@ func _imminent_mine(ship: SimShip) -> SimMine:
 		var margin := world.config.mine_trigger_radius + ship.radius + 30.0
 		for k in range(1, 5):
 			var t := t_max * float(k) * 0.25
-			if (ship.pos + ship.vel * t).distance_to(m.pos + m.vel * t) < margin:
+			if TorusMath.distance_squared(ship.pos + ship.vel * t, m.pos + m.vel * t, world.config.arena_size) < margin * margin:
 				return m
 	return null
 
@@ -196,7 +196,7 @@ func _imminent_mine(ship: SimShip) -> SimMine:
 ## steering and the fire gate so bots only shoot when the shot can land.
 func _lead_angle(ship: SimShip, target: SimShip) -> float:
 	var muzzle := world.config.torpedo_speed
-	var rel := target.pos - ship.pos
+	var rel := TorusMath.shortest_delta(ship.pos, target.pos, world.config.arena_size)
 	var t_hit := rel.length() / maxf(muzzle, 1.0)
 	for _i in range(2):
 		var predicted := rel + (target.vel - ship.vel) * t_hit
@@ -227,7 +227,7 @@ func _wanted_pickup(ship: SimShip) -> SimPickup:
 				useful = ship.mines == 0 and personality != Personality.SNIPER
 		if not useful:
 			continue
-		var d := ship.pos.distance_squared_to(p.pos)
+		var d := TorusMath.distance_squared(ship.pos, p.pos, world.config.arena_size)
 		if d < best_d:
 			best_d = d
 			best = p
@@ -242,7 +242,7 @@ func _decide(ship: SimShip) -> void:
 		"primary": primary,
 		"star_pos": star_pos,
 		"star_r": primary.radius if primary != null else 0.0,
-		"dist_star": ship.pos.distance_to(star_pos),
+		"dist_star": TorusMath.distance(ship.pos, star_pos, world.config.arena_size),
 		"aggr": float(aggression - 1) / 99.0,
 		"target": world.ship_by_id(_target_id),
 	}
@@ -279,7 +279,7 @@ func _apply(ship: SimShip, dt: float) -> void:
 		var believed := _lead_angle(ship, target) + _aim_noise
 		var sol_err := absf(wrapf(believed - ship.angle, -PI, PI))
 		if sol_err < float(_p["fire_cone"]) \
-				and ship.pos.distance_to(target.pos) < _fire_range:
+				and TorusMath.distance_squared(ship.pos, target.pos, world.config.arena_size) < _fire_range * _fire_range:
 			ship.in_fire = true
 
 	# Defensive mining: brawlers and opportunists drop one when an enemy is
@@ -294,7 +294,7 @@ func _apply(ship: SimShip, dt: float) -> void:
 				continue
 			if other.team == ship.team and ship.team != -1:
 				continue
-			var rel := other.pos - ship.pos
+			var rel := TorusMath.shortest_delta(ship.pos, other.pos, world.config.arena_size)
 			if rel.length() < 380.0 and rel.dot(ship.facing()) < -0.3 * rel.length():
 				if _rng.randf() < (0.09 if timid else 0.04):
 					ship.in_mine = true
@@ -306,9 +306,9 @@ func _apply(ship: SimShip, dt: float) -> void:
 		for torp in world.torpedoes:
 			if torp.owner_id == ship.id:
 				continue
-			if ship.pos.distance_to(torp.pos) < panic:
-				# Only dodge torpedoes actually closing on us.
-				var closing := (torp.pos - ship.pos).normalized().dot((ship.vel - torp.vel).normalized())
-				if closing < -0.2:
-					ship.in_hyper = true
-					break
+				if TorusMath.distance_squared(ship.pos, torp.pos, world.config.arena_size) < panic * panic:
+					# Only dodge torpedoes actually closing on us.
+					var closing := TorusMath.shortest_delta(ship.pos, torp.pos, world.config.arena_size).normalized().dot((ship.vel - torp.vel).normalized())
+					if closing < -0.2:
+						ship.in_hyper = true
+						break

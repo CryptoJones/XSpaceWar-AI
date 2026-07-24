@@ -55,6 +55,8 @@ var in_thrust: bool = false
 var in_fire: bool = false
 var in_hyper: bool = false
 var in_mine: bool = false
+## Previous Hyper+Fire chord state for authoritative rising-edge detection.
+var hyper_chord_prev: bool = false
 
 func facing() -> Vector2:
 	return Vector2(cos(angle), sin(angle))

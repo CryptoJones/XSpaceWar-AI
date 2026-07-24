@@ -13,6 +13,8 @@ extends SceneTree
 ##   --name S         server name in browsers (default "Dedicated Arena")
 ##   --ships N        roster size 2-16 (default 12)
 ##   --mode ffa|team  (default ffa)        --diff 0-3      (default 1 Veteran)
+##   --preset classic_ffa|quick_skirmish|team_battle|survival
+##   --pace 60-100   flight pace in 5% steps (overrides the preset)
 ##   --score N        first-to-N, 0=endless (default 10)
 ##   --time MIN       match clock, 0=off    --lives N       0=unlimited
 ##   --hazard 0-100   asteroid level        --star 5-100    star size (25=classic)
@@ -64,18 +66,38 @@ func _initialize() -> void:
 			else:
 				a[key] = val
 
-	session.score_limit = int(a.get("score", "10"))
-	session.time_limit = float(a.get("time", "0")) * 60.0
-	session.lives = int(a.get("lives", "0"))
-	session.hazard = clampf(float(a.get("hazard", "30")) / 100.0, 0.0, 1.0)
-	session.star_scale = clampf(float(a.get("star", "25")) / 25.0, 0.2, 4.0)
-	session.planet_count = int(a.get("planets", "2"))
-	session.map_size = clampf(float(a.get("map", "40000")), 4000.0, 160000.0)
-	session.respawn_seconds = float(a.get("respawn", "4"))
-	session.lethal_edges = a.has("edges")
-	var mode := GameSession.Mode.TEAM if String(a.get("mode", "ffa")) == "team" else GameSession.Mode.FFA
-	session.start_skirmish(clampi(int(a.get("ships", "12")), 2, 16), mode,
-		clampi(int(a.get("diff", "1")), 0, 3))
+	if a.has("preset"):
+		MatchPresets.apply(session, String(a["preset"]))
+	if a.has("score"):
+		session.score_limit = int(a["score"])
+	if a.has("time"):
+		session.time_limit = float(a["time"]) * 60.0
+	if a.has("lives"):
+		session.lives = int(a["lives"])
+	if a.has("hazard"):
+		session.hazard = clampf(float(a["hazard"]) / 100.0, 0.0, 1.0)
+	if a.has("star"):
+		session.star_scale = clampf(float(a["star"]) / 25.0, 0.2, 4.0)
+	if a.has("planets"):
+		session.planet_count = int(a["planets"])
+	if a.has("map"):
+		session.map_size = clampf(float(a["map"]), 4000.0, 160000.0)
+	if a.has("respawn"):
+		session.respawn_seconds = float(a["respawn"])
+	if a.has("pace"):
+		session.flight_pace = clampf(float(a["pace"]), 60.0, 100.0)
+	if a.has("edges"):
+		session.lethal_edges = true
+	var mode := session.mode
+	if a.has("mode"):
+		mode = GameSession.Mode.TEAM if String(a["mode"]) == "team" else GameSession.Mode.FFA
+	var ships := session.num_ships if a.has("preset") else 12
+	if a.has("ships"):
+		ships = clampi(int(a["ships"]), 2, 16)
+	var diff := session.difficulty if a.has("preset") else BotController.Difficulty.VETERAN
+	if a.has("diff"):
+		diff = clampi(int(a["diff"]), 0, 3)
+	session.start_skirmish(ships, mode, diff)
 	NetHost.convert_to_dedicated(session)
 	_seen_gen = session.generation
 

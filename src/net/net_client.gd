@@ -112,7 +112,7 @@ func update(dt: float, local_input: Dictionary) -> void:
 	if _ping_accum >= 2.0:
 		_ping_accum = 0.0
 		_t.send(NetProtocol.pack(NetProtocol.MSG_PING,
-			{"t": Time.get_ticks_msec()}), false, NetProtocol.CH_STATE)
+			{"t": Time.get_ticks_msec()}), true, NetProtocol.CH_CONTROL)
 
 	# Smoothing offsets glide out over ~100ms.
 	var decay := exp(-10.0 * dt)
@@ -132,18 +132,27 @@ func _extrapolate(world: SimWorld, dt: float, skip: SimShip) -> void:
 			continue
 		s.vel += world.gravity_accel(s.pos) * dt
 		s.pos += s.vel * dt
+		world.clamp_ship_velocity(s)
+		if world.config.wrap_edges:
+			s.pos = TorusMath.wrap_point(s.pos, world.config.arena_size)
 	for t in world.torpedoes:
 		if world.config.torpedo_gravity:
 			t.vel += world.gravity_accel(t.pos) * dt
 		t.pos += t.vel * dt
+		if world.config.wrap_edges:
+			t.pos = TorusMath.wrap_point(t.pos, world.config.arena_size)
 	for m in world.mines:
 		m.vel += world.gravity_accel(m.pos) * dt
 		m.pos += m.vel * dt
 		m.age += dt
+		if world.config.wrap_edges:
+			m.pos = TorusMath.wrap_point(m.pos, world.config.arena_size)
 	for p in world.pickups:
 		p.vel += world.gravity_accel(p.pos) * dt
 		p.pos += p.vel * dt
 		p.age += dt
+		if world.config.wrap_edges:
+			p.pos = TorusMath.wrap_point(p.pos, world.config.arena_size)
 
 ## Convert each ship's snapshot correction into a decaying render offset so
 ## the drawn position glides to the authoritative one instead of snapping.
@@ -155,12 +164,8 @@ func _absorb_corrections(old_vis: Dictionary) -> void:
 		if not s.alive or not old_vis.has(s.id):
 			s.render_pos_offset = Vector2.ZERO
 			continue
-		var off: Vector2 = (old_vis[s.id] as Vector2) - s.pos
-		if world.config.wrap_edges:
-			if absf(off.x) > size * 0.5:
-				off.x -= signf(off.x) * size
-			if absf(off.y) > size * 0.5:
-				off.y -= signf(off.y) * size
+		var off: Vector2 = TorusMath.shortest_delta(s.pos, old_vis[s.id] as Vector2, size) \
+			if world.config.wrap_edges else (old_vis[s.id] as Vector2) - s.pos
 		s.render_pos_offset = off.limit_length(90.0)
 
 ## Adopt the snapshot's authoritative own-ship state, drop acked inputs, and

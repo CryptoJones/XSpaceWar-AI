@@ -15,7 +15,7 @@ extends RefCounted
 # BUMP THIS on ANY wire-schema change (welcome/snapshot/input fields) —
 # the strict equality check is the only thing standing between mixed
 # builds and silent desync.
-const VERSION := 7
+const VERSION := 8
 
 ## Callsign whitelist: A-Z 0-9 space dash underscore, max 16, never empty.
 ## Applied authoritatively on the HOST (clients can send anything) — this is
@@ -67,7 +67,7 @@ const CH_STATE := 1
 const CHANNELS := 2
 
 ## Renderer-relevant events forwarded inside snapshots.
-const FORWARDED_EVENTS := ["explosion", "hyperspace", "fire", "kill"]
+const FORWARDED_EVENTS := ["explosion", "hyperspace", "fire", "kill", "respawn"]
 
 static func pack(type: int, payload: Dictionary) -> PackedByteArray:
 	return var_to_bytes([type, payload])
@@ -137,7 +137,8 @@ static func snapshot_of(world: SimWorld, thrust_ids: Array, events: Array,
 	var ships := []
 	for s in world.ships:
 		ships.append([s.id, s.pos, s.vel, s.angle, s.fuel, s.ammo, 1 if s.alive else 0,
-			s.spawn_grace, s.respawn_timer, s.score, s.kills, s.deaths, s.hyperspace_cooldown])
+			s.spawn_grace, s.respawn_timer, s.score, s.kills, s.deaths,
+			s.hyperspace_cooldown, 1 if s.hyper_chord_prev else 0])
 	var torps := []
 	for t in world.torpedoes:
 		torps.append([t.id, t.owner_id, t.team, t.pos, t.vel, t.age])
@@ -200,6 +201,8 @@ static func apply_snapshot(world: SimWorld, snap: Dictionary) -> Dictionary:
 		s.kills = int(entry[10])
 		s.deaths = int(entry[11])
 		s.hyperspace_cooldown = float(entry[12])
+		if entry.size() >= 14:
+			s.hyper_chord_prev = int(entry[13]) == 1
 
 	world.torpedoes.clear()
 	for entry in snap.get("p", []):

@@ -24,7 +24,8 @@ static func step_pickups(world: SimWorld, dt: float) -> void:
 		for s in world.ships:
 			if not s.alive:
 				continue
-			if p.pos.distance_to(s.pos) <= p.radius + s.radius:
+			var pickup_clearance := p.radius + s.radius
+			if TorusMath.distance_squared(p.pos, s.pos, config.arena_size) <= pickup_clearance * pickup_clearance:
 				grant_pickup(world, s, p)
 				claimed = true
 				break

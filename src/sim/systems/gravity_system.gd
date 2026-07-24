@@ -12,7 +12,7 @@ static func accel(world: SimWorld, p: Vector2) -> Vector2:
 	for b in world.bodies:
 		if not b.gravity or b.mass <= 0.0:
 			continue
-		var d := b.pos - p
+		var d := TorusMath.shortest_delta(p, b.pos, config.arena_size)
 		var r2 := d.length_squared()
 		# Softening near the core so the acceleration never blows up.
 		var soft := b.radius * 0.5
@@ -45,4 +45,5 @@ static func integrate_ships(world: SimWorld, dt: float) -> void:
 			s.vel = Vector2.ZERO   # DEBUG freeze: park in place, ignore gravity
 			continue
 		s.vel += accel(world, s.pos) * dt
+		world.clamp_ship_velocity(s)
 		s.pos += s.vel * dt

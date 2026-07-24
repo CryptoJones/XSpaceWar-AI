@@ -15,6 +15,7 @@ func _initialize() -> void:
 	print("=== XSpaceWar-AI — combat tests ===")
 	_test_fire_and_kill()
 	_test_hyperspace_relocates()
+	_test_hyperspace_chord_edges()
 	_test_mines()
 	_test_pickups()
 	print("=== %d passed, %d failed ===" % [_passed, _failed])
@@ -72,6 +73,8 @@ func _test_fire_and_kill() -> void:
 
 func _test_hyperspace_relocates() -> void:
 	var cfg := SimConfig.from_seed(3)
+	cfg.gravity_constant = 0.0
+	cfg.wrap_edges = false
 	cfg.hyperspace_base_risk = 0.0      # disable self-destruct for a clean relocation test
 	cfg.hyperspace_risk_per_use = 0.0
 	var w := SimWorld.new(cfg)
@@ -79,8 +82,63 @@ func _test_hyperspace_relocates() -> void:
 	var s := w.add_ship()
 	var before := s.pos
 	s.in_hyper = true
+	s.in_fire = true
 	w.step()
 	_check("hyperspace: ship relocates", s.pos.distance_to(before) > 1.0 and s.alive)
+
+func _test_hyperspace_chord_edges() -> void:
+	var cfg := SimConfig.from_seed(31)
+	cfg.gravity_constant = 0.0
+	cfg.wrap_edges = false
+	cfg.hyperspace_base_risk = 0.0
+	cfg.hyperspace_risk_per_use = 0.0
+	var w := SimWorld.new(cfg)
+	var s := SimShip.new()
+	s.id = w.alloc_id()
+	s.radius = cfg.ship_radius
+	s.pos = Vector2(100, 0)
+	s.fuel = cfg.max_fuel
+	s.ammo = cfg.max_ammo
+	s.spawn_grace = 0.0
+	w.ships.append(s)
+	# Either half of the chord alone is harmless.
+	s.in_hyper = true
+	w.step()
+	var hyper_events := 0
+	for ev in w.events:
+		if ev.get("type", "") == "hyperspace":
+			hyper_events += 1
+	_check("hyperspace: Hyper alone does not jump", hyper_events == 0)
+	s.clear_inputs()
+	s.in_fire = true
+	w.step()
+	_check("hyperspace: Fire alone does not jump", _count_event(w, "hyperspace") == 0)
+	# Pressing both triggers once, and holding both across cooldown does not
+	# create another rising edge.
+	s.clear_inputs()
+	s.in_hyper = true
+	s.in_fire = true
+	w.step()
+	var first := _count_event(w, "hyperspace")
+	for _i in range(300):
+		s.in_hyper = true
+		s.in_fire = true
+		w.step()
+	_check("hyperspace: held chord cannot retrigger", _count_event(w, "hyperspace") == first)
+	s.clear_inputs()
+	w.step()
+	s.in_hyper = true
+	s.in_fire = true
+	w.step()
+	_check("hyperspace: release and repress creates a new edge",
+		_count_event(w, "hyperspace") == first + 1)
+
+func _count_event(w: SimWorld, kind: String) -> int:
+	var n := 0
+	for ev in w.events:
+		if String(ev.get("type", "")) == kind:
+			n += 1
+	return n
 
 func _test_mines() -> void:
 	var cfg := SimConfig.from_seed(11)

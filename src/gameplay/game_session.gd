@@ -8,6 +8,9 @@ extends RefCounted
 
 enum Mode { FFA, TEAM }
 
+var preset: String = MatchPresets.CLASSIC_FFA
+var flight_pace: float = 75.0
+
 var world: SimWorld
 var bots: Dictionary = {}                 ## ship_id -> BotController
 var mode: int = Mode.FFA
@@ -115,6 +118,7 @@ func _build(seed: int) -> void:
 	# Spawn ring scales down with small maps (and never sits outside them).
 	cfg.spawn_orbit_radius = clampf(cfg.arena_size * 0.035, 550.0, 1400.0)
 	cfg.respawn_time = clampf(respawn_seconds, 1.0, 15.0)
+	cfg.set_flight_pace(flight_pace)
 	cfg.mine_arm_time = clampf(mine_arm_seconds, 3.0, 30.0)
 	cfg.torpedo_life = clampf(torpedo_lifetime, 0.0, 720.0)
 	cfg.mine_life = clampf(mine_lifetime, 0.0, 720.0)

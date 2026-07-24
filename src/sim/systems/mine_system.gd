@@ -48,14 +48,16 @@ static func resolve_mines(world: SimWorld) -> void:
 		var exploded := false
 		# Consumed (detonated) by lethal bodies.
 		for b in world.bodies:
-			if b.lethal and m.pos.distance_to(b.pos) <= b.radius + m.radius:
+			var body_clearance := b.radius + m.radius
+			if b.lethal and TorusMath.distance_squared(m.pos, b.pos, config.arena_size) <= body_clearance * body_clearance:
 				exploded = true
 				break
 		# Shot by a torpedo — detonates even unarmed. This is the counterplay.
 		if not exploded:
 			var remaining: Array[SimTorpedo] = []
 			for t in world.torpedoes:
-				if not exploded and m.pos.distance_to(t.pos) <= m.radius + t.radius + 4.0:
+				var torp_clearance := m.radius + t.radius + 4.0
+				if not exploded and TorusMath.distance_squared(m.pos, t.pos, config.arena_size) <= torp_clearance * torp_clearance:
 					exploded = true
 					continue  # the torpedo is consumed by the blast
 				remaining.append(t)
@@ -68,7 +70,8 @@ static func resolve_mines(world: SimWorld) -> void:
 					continue
 				if s.team == m.team and s.team != -1 and not config.friendly_fire:
 					continue
-				if m.pos.distance_to(s.pos) <= config.mine_trigger_radius + s.radius:
+				var trigger_clearance := config.mine_trigger_radius + s.radius
+				if TorusMath.distance_squared(m.pos, s.pos, config.arena_size) <= trigger_clearance * trigger_clearance:
 					exploded = true
 					break
 		if exploded:
@@ -87,5 +90,6 @@ static func explode_mine(world: SimWorld, m: SimMine) -> void:
 		# the owner is not safe from their own mine once FF is on.
 		if not config.friendly_fire and (s.id == m.owner_id or (s.team == m.team and s.team != -1)):
 			continue
-		if m.pos.distance_to(s.pos) <= config.mine_blast_radius + s.radius:
+		var blast_clearance := config.mine_blast_radius + s.radius
+		if TorusMath.distance_squared(m.pos, s.pos, config.arena_size) <= blast_clearance * blast_clearance:
 			CollisionSystem.destroy_ship(world, s, m.owner_id if s.id != m.owner_id else -1, "mine")

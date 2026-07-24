@@ -70,6 +70,13 @@ networked Spacewar is this game's direct ancestor.
 - **Game modes:** Free-for-all, Team battle, AI bots (Rookie → Insane), and
   **Movie Mode** — an all-AI spectator attract that regenerates a fresh
   arena, roster, and teams every 30 minutes.
+- **Arcade flight pacing:** the synchronized 60–100% Flight pace setting scales
+  thrust, torpedo muzzle speed, and the ship velocity envelope. Standard is
+  75%; cooldowns, fuel timing, and real-time respawns are unchanged.
+- **Match recipes:** Classic FFA, Quick Skirmish, Team Battle, and Survival
+  configure the common rules in one click; editing an advanced value creates a
+  Custom match. Hyperspace requires a rising Hyper+Fire chord (Shift/Enter +
+  Space, or controller Y + X).
 - **Multiplayer (working today):** host-authoritative netcode with
   client-side prediction + reconciliation, automatic **LAN discovery**,
   **direct IP**, and platform-agnostic **internet play** via this repo's own

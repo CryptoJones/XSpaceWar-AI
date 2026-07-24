@@ -2,7 +2,19 @@
 
 All notable changes to **XSpaceWar-AI**.
 
-## [Unreleased]
+## [4.0.0] — 2026-07-24
+
+### Changed
+- Added synchronized 60–100% Flight pace (5% steps, 75% Standard) with a
+  shared ship velocity envelope. Thrust and torpedo speed follow the pace;
+  cooldowns, fuel timing, and respawn timing do not.
+- Respawns now choose deterministic clear locations, emit a warp-in telegraph,
+  and avoid nearby ships, torpedoes, and armed mines. Hyperspace is now a
+  rising Hyper+Fire chord and cannot retrigger while held.
+- Replaced the single minimap toggle with Tactical / Overview / Hidden modes,
+  a larger radar, seam-aware projections, and consistent wrap ghosts.
+- Added Classic FFA, Quick Skirmish, Team Battle, and Survival presets plus
+  dedicated-server `--preset` and `--pace` options.
 
 ## [3.3.0] — 2026-07-23
 

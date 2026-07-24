@@ -26,8 +26,6 @@ const DEFAULTS := {
 # Capped at 1/8 the max ship (the fastest case — small maps / inner orbits) and
 # otherwise falling off proportional to 1/orbit_r; because orbit radii scale with
 # MAP SIZE, planets on the biggest map barely crawl. Angular = linear/orbit_r.
-const SHIP_MAX_SPEED := 3300.0                    ## measured top in-play ship speed (u/s)
-const PLANET_MAX_LINEAR := SHIP_MAX_SPEED / 8.0   ## speed cap: 1/8 the max ship
 const PLANET_LINEAR_SCALE := 880000.0             ## tuned so the outer planet on a 160k map drifts ~12 u/s
 
 # No planet ever orbits inside this central square (edge length, world units)
@@ -101,7 +99,9 @@ static func populate(world: SimWorld, params: Dictionary = {}) -> Dictionary:
 			# Clockwise (positive = angle increases). Linear speed capped at 1/8 the
 			# max ship and otherwise ∝ 1/orbit_r — and since orbit_r scales with the
 			# map, planets on a huge map barely move. Angular = linear / orbit_r.
-			var v := minf(PLANET_MAX_LINEAR, PLANET_LINEAR_SCALE / orbit_r)
+			var max_ship := world.config.max_ship_speed if world.config.max_ship_speed > 0.0 \
+				else SimConfig.BASE_MAX_SHIP_SPEED
+			var v := minf(max_ship / 8.0, PLANET_LINEAR_SCALE / orbit_r)
 			pl.orbit_speed = v / orbit_r
 			pl.pos = primary.pos + Vector2(cos(pl.orbit_angle), sin(pl.orbit_angle)) * pl.orbit_radius
 			var n_moons := rng.randi_range(0, int(p["moons_max"]))

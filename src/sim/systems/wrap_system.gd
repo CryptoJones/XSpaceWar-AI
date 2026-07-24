@@ -4,13 +4,7 @@ class_name WrapSystem
 ## Stateless: operates on a passed-in SimWorld. Extracted from SimWorld (issue
 ## #18). Wrap math and edge culling are unchanged.
 
-## Wrap-mode bonus (Aaron's rule): crossing the map edge DOUBLES your speed —
-## the toroidal seam is a slingshot. Capped well above gameplay speeds so the
-## math can't run away into absurdity.
-const WRAP_BOOST := 2.0
-const WRAP_SPEED_CAP := 20000.0
-
-## Toroidal wrap: position teleports across the seam, velocity is PRESERVED
+## Toroidal wrap: position teleports across the seam, velocity is preserved
 ## (space is a torus — no free energy). Returns [wrapped_pos, vel] or empty.
 static func wrap_with_boost(world: SimWorld, pos: Vector2, vel: Vector2) -> Array:
 	var wrapped := wrap_point(world, pos)
@@ -52,14 +46,4 @@ static func enforce_lethal_edges(world: SimWorld) -> void:
 	world.pickups = p_keep
 
 static func wrap_point(world: SimWorld, p: Vector2) -> Vector2:
-	var size := world.config.arena_size
-	var half := size * 0.5
-	if p.x > half:
-		p.x -= size
-	elif p.x < -half:
-		p.x += size
-	if p.y > half:
-		p.y -= size
-	elif p.y < -half:
-		p.y += size
-	return p
+	return TorusMath.wrap_point(p, world.config.arena_size)
