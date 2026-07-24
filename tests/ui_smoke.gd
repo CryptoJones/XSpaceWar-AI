@@ -90,5 +90,23 @@ func _on_frame() -> void:
 	# The input gate still resolves with all panels closed (no stale refs).
 	_check("modal gate resolves after panel use", typeof(m._modal_open()) == TYPE_BOOL)
 
+	# Match recipes and the three-state radar are intentionally exercised via
+	# the real menu/HUD objects, not a duplicate test harness.
+	m._on_preset_selected(MatchPresets.ORDER.find(MatchPresets.QUICK_SKIRMISH))
+	_check("presets: selecting Quick Skirmish updates controls",
+		int(m._ships_slider.value) == 4 and int(m._limit_slider.value) == 5
+		and int(m._pace_slider.value) == 90)
+	m._mark_custom()
+	_check("presets: editing after selection switches to Custom",
+		m._preset_btn.selected == MatchPresets.ORDER.find(MatchPresets.CUSTOM))
+	m.hud.set_radar_mode(Hud.RadarMode.TACTICAL)
+	_check("radar: tactical mode is visible", m.hud.radar_mode() == Hud.RadarMode.TACTICAL
+		and m.hud.radar_visible())
+	m.hud.cycle_radar_mode()
+	_check("radar: M cycle reaches overview", m.hud.radar_mode() == Hud.RadarMode.OVERVIEW)
+	m.hud.cycle_radar_mode()
+	_check("radar: M cycle reaches hidden", m.hud.radar_mode() == Hud.RadarMode.HIDDEN
+		and not m.hud.radar_visible())
+
 	print("=== %d passed, %d failed ===" % [_passed, _failed])
 	quit(1 if _failed > 0 else 0)

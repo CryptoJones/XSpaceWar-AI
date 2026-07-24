@@ -21,7 +21,8 @@ class Boundary extends RefCounted:
 		var half: float = bot.world.config.arena_size * 0.5
 		var ahead: Vector2 = ship.pos + ship.vel * 1.5
 		if absf(ahead.x) > half - 300.0 or absf(ahead.y) > half - 300.0:
-			bot._want_angle = (ctx["star_pos"] - ship.pos).angle()
+			bot._want_angle = TorusMath.shortest_delta(ship.pos, ctx["star_pos"],
+				bot.world.config.arena_size).angle()
 			bot._want_thrust = true
 			return true
 		return false
@@ -41,7 +42,8 @@ class HazardDodge extends RefCounted:
 				hz_pos = mz.pos
 		if hz_pos.is_finite():
 			var lateral := Vector2(-ship.vel.y, ship.vel.x).normalized()
-			if lateral.dot(hz_pos - ship.pos) > 0.0:
+			if lateral.dot(TorusMath.shortest_delta(ship.pos, hz_pos,
+					bot.world.config.arena_size)) > 0.0:
 				lateral = -lateral
 			bot._want_angle = lateral.angle()
 			bot._want_thrust = true
@@ -52,7 +54,8 @@ class HazardDodge extends RefCounted:
 class StarEscape extends RefCounted:
 	func decide(bot, ship, ctx) -> bool:
 		if float(ctx["dist_star"]) < float(ctx["star_r"]) + 260.0:
-			bot._want_angle = (ship.pos - ctx["star_pos"]).angle()
+			bot._want_angle = TorusMath.shortest_delta(ctx["star_pos"], ship.pos,
+				bot.world.config.arena_size).angle()
 			bot._want_thrust = true
 			return true
 		return false
@@ -62,10 +65,12 @@ class Fear extends RefCounted:
 	func decide(bot, ship, ctx) -> bool:
 		var target = ctx["target"]
 		if target != null:
-			var dist_t: float = ship.pos.distance_to(target.pos)
+			var dist_t: float = sqrt(TorusMath.distance_squared(ship.pos, target.pos,
+				bot.world.config.arena_size))
 			var flee_r := lerpf(1500.0, 0.0, float(ctx["aggr"]))
 			if dist_t < flee_r:
-				bot._want_angle = (ship.pos - target.pos).angle() + bot._aim_noise
+				bot._want_angle = TorusMath.shortest_delta(target.pos, ship.pos,
+					bot.world.config.arena_size).angle() + bot._aim_noise
 				bot._want_thrust = true
 				return true
 		return false
@@ -74,10 +79,12 @@ class Fear extends RefCounted:
 class Logistics extends RefCounted:
 	func decide(bot, ship, ctx) -> bool:
 		var target = ctx["target"]
-		if target == null or ship.pos.distance_to(target.pos) > bot._fire_range:
+		if target == null or TorusMath.distance_squared(ship.pos, target.pos,
+				bot.world.config.arena_size) > bot._fire_range * bot._fire_range:
 			var want_pickup = bot._wanted_pickup(ship)
 			if want_pickup != null:
-				var lead: Vector2 = want_pickup.pos + want_pickup.vel * 0.4 - ship.pos
+				var lead: Vector2 = TorusMath.shortest_delta(ship.pos, want_pickup.pos,
+					bot.world.config.arena_size) + want_pickup.vel * 0.4
 				bot._want_angle = lead.angle()
 				bot._want_thrust = true
 				return true
@@ -93,9 +100,11 @@ class Patrol extends RefCounted:
 			var want_r: float = bot._roam_radius(float(ctx["star_r"]))
 			var dist_now := maxf(1.0, float(ctx["dist_star"]))
 			if absf(dist_now - want_r) > 280.0:
-				var dir: Vector2 = (ship.pos - ctx["star_pos"]) / dist_now
+				var dir: Vector2 = TorusMath.shortest_delta(ctx["star_pos"], ship.pos,
+					bot.world.config.arena_size) / dist_now
 				var ring_point: Vector2 = ctx["star_pos"] + dir.rotated(0.55) * want_r
-				bot._want_angle = (ring_point - ship.pos).angle()
+				bot._want_angle = TorusMath.shortest_delta(ship.pos, ring_point,
+					bot.world.config.arena_size).angle()
 				bot._want_thrust = true
 			else:
 				bot._want_angle = ship.vel.angle()
@@ -108,12 +117,15 @@ class Patrol extends RefCounted:
 class LeadAimRange extends RefCounted:
 	func decide(bot, ship, ctx) -> bool:
 		var target = ctx["target"]
-		var rel: Vector2 = target.pos - ship.pos
+		var rel: Vector2 = TorusMath.shortest_delta(ship.pos, target.pos,
+			bot.world.config.arena_size)
 		var aim := Vector2.from_angle(bot._lead_angle(ship, target))
 		bot._want_angle = aim.angle() + bot._aim_noise
 		var dist := rel.length()
 		if bot._sling > 0.0 and dist > bot._preferred_range * 1.7 and ctx["primary"] != null:
-			var blended := aim.normalized().lerp((ctx["star_pos"] - ship.pos).normalized(), bot._sling)
+			var away := TorusMath.shortest_delta(ship.pos, ctx["star_pos"],
+				bot.world.config.arena_size).normalized()
+			var blended := aim.normalized().lerp(away, bot._sling)
 			bot._want_angle = blended.angle() + bot._aim_noise
 		# Approach-thrust roll consumes RNG ONLY when out of range (short-circuit).
 		bot._want_thrust = dist > bot._preferred_range and bot._rng.randf() < maxf(0.15, float(ctx["aggr"]))

@@ -30,6 +30,7 @@ func _initialize() -> void:
 	_test_swept_and_events()
 	_test_eternal_torpedoes()
 	_test_sim_performance()
+	_test_flight_pace_and_torus()
 	_test_sim_config_roundtrip()
 	print("=== %d passed, %d failed ===" % [_passed, _failed])
 	quit(1 if _failed > 0 else 0)
@@ -355,6 +356,55 @@ func _test_sim_performance() -> void:
 	var per_step := ms / 3600.0
 	_check("perf: worst-case step budget (<4ms/step, 60Hz budget is 16.6)",
 		per_step < 4.0, "%.3f ms/step (%.0f ms total)" % [per_step, ms])
+
+func _test_flight_pace_and_torus() -> void:
+	var slow := SimConfig.from_seed(1)
+	var standard := SimConfig.from_seed(1)
+	var fast := SimConfig.from_seed(1)
+	slow.set_flight_pace(60.0)
+	standard.set_flight_pace(75.0)
+	fast.set_flight_pace(100.0)
+	_check("pace: acceleration, projectile speed, and envelope are monotonic",
+		slow.thrust_accel < standard.thrust_accel
+		and standard.thrust_accel < fast.thrust_accel
+		and slow.torpedo_speed < standard.torpedo_speed
+		and standard.torpedo_speed < fast.torpedo_speed
+		and slow.max_ship_speed < standard.max_ship_speed
+		and standard.max_ship_speed < fast.max_ship_speed)
+	var distances := [_pace_distance(slow), _pace_distance(standard), _pace_distance(fast)]
+	_check("pace: sustained thrust changes movement monotonically",
+		distances[0] < distances[1] and distances[1] < distances[2])
+	var capped := SimWorld.new(standard)
+	var pilot := capped.add_ship()
+	pilot.pos = Vector2.ZERO
+	pilot.vel = Vector2.ZERO
+	pilot.angle = 0.0
+	pilot.spawn_grace = 0.0
+	for _i in range(600):
+		pilot.in_thrust = true
+		capped.step()
+	_check("pace: ship velocity respects the synchronized envelope",
+		pilot.vel.length() <= standard.max_ship_speed + 0.001,
+		"speed=%.2f max=%.2f" % [pilot.vel.length(), standard.max_ship_speed])
+	var seam := TorusMath.shortest_delta(Vector2(499, 0), Vector2(-499, 0), 1000.0)
+	_check("torus: shortest delta crosses the seam", is_equal_approx(seam.x, 2.0))
+	_check("torus: swept seam crossing hits a nearby circle",
+		TorusMath.swept_hits_circle(Vector2(499, 0), Vector2(-499, 0),
+			Vector2(-500, 0), 5.0, 1000.0))
+
+func _pace_distance(cfg: SimConfig) -> float:
+	cfg.gravity_constant = 0.0
+	cfg.wrap_edges = false
+	var w := SimWorld.new(cfg)
+	var s := w.add_ship()
+	s.pos = Vector2.ZERO
+	s.vel = Vector2.ZERO
+	s.angle = 0.0
+	s.spawn_grace = 0.0
+	for _i in range(300):
+		s.in_thrust = true
+		w.step()
+	return s.pos.x
 
 func _test_sim_config_roundtrip() -> void:
 	# Guards the network/replay wire contract for SimConfig (see closed issue

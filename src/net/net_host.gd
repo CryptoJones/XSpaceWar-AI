@@ -232,7 +232,7 @@ func _on_packet(peer, bytes: PackedByteArray) -> void:
 			_on_hello(peer, data)
 		NetProtocol.MSG_PING:
 			_t.send(peer, NetProtocol.pack(NetProtocol.MSG_PONG, data),
-				false, NetProtocol.CH_STATE)
+				true, NetProtocol.CH_CONTROL)
 		NetProtocol.MSG_INPUT:
 			if _peers.has(peer):
 				var sid: int = _peers[peer]

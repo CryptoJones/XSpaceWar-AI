@@ -20,6 +20,7 @@ func _initialize() -> void:
 	_test_lethal_edges()
 	_test_mine_lifetime_clamp()
 	_test_manual_respawn()
+	_test_match_presets()
 	_test_team_spawns()
 	_test_review_gameplay_fixes()
 	_test_solo_practice()
@@ -200,7 +201,12 @@ func _test_manual_respawn() -> void:
 
 	human.in_fire = true                  # press fire -> back next step
 	s.update(1.0 / 60.0)
+	var saw_respawn := false
+	for ev in s.world.events:
+		if String(ev.get("type", "")) == "respawn" and int(ev.get("ship", -1)) == human.id:
+			saw_respawn = true
 	_check("respawn: human respawns once fire is pressed", human.alive)
+	_check("respawn: non-initial spawn emits a warp-in event", saw_respawn)
 
 	# A bot holds fire while dead, so it auto-respawns with no external input.
 	var bot_ship: SimShip = null
@@ -213,6 +219,29 @@ func _test_manual_respawn() -> void:
 	for _i in range(10):
 		s.update(1.0 / 60.0)
 	_check("respawn: bots still auto-respawn", bot_ship.alive)
+
+func _test_match_presets() -> void:
+	var expected := {
+		MatchPresets.CLASSIC_FFA: [8, GameSession.Mode.FFA, BotController.Difficulty.VETERAN, 10, 40000.0, 0.30, 2, false, 0, 4.0, 75.0],
+		MatchPresets.QUICK_SKIRMISH: [4, GameSession.Mode.FFA, BotController.Difficulty.ROOKIE, 5, 12000.0, 0.10, 0, false, 0, 3.0, 90.0],
+		MatchPresets.TEAM_BATTLE: [8, GameSession.Mode.TEAM, BotController.Difficulty.VETERAN, 15, 40000.0, 0.30, 2, false, 0, 4.0, 75.0],
+		MatchPresets.SURVIVAL: [8, GameSession.Mode.FFA, BotController.Difficulty.VETERAN, 0, 40000.0, 0.60, 2, true, 3, 4.0, 60.0],
+	}
+	var all_match := true
+	for id in expected:
+		var s := GameSession.new()
+		MatchPresets.apply(s, id)
+		var e: Array = expected[id]
+		all_match = all_match and s.preset == id and s.num_ships == e[0] \
+			and s.mode == e[1] and s.difficulty == e[2] and s.score_limit == e[3] \
+			and is_equal_approx(s.map_size, e[4]) and is_equal_approx(s.hazard, e[5]) \
+			and s.planet_count == e[6] and s.lethal_edges == e[7] \
+			and s.lives == e[8] and is_equal_approx(s.respawn_seconds, e[9]) \
+			and is_equal_approx(s.flight_pace, e[10]) \
+			and is_zero_approx(s.time_limit) and is_zero_approx(s.torpedo_lifetime) \
+			and is_equal_approx(s.mine_arm_seconds, 3.0) \
+			and is_equal_approx(s.mine_lifetime, 25.0) and is_equal_approx(s.star_scale, 1.0)
+	_check("presets: recipes apply exact match settings", all_match)
 
 func _test_team_spawns() -> void:
 	var s := GameSession.new()

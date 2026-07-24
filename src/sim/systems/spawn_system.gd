@@ -6,7 +6,7 @@ class_name SpawnSystem
 ## #18); RNG draw order (spawn angle jitter, clearance re-rolls, orbit
 ## direction, hyperspace risk) is unchanged so the sim stays deterministic.
 
-static func place_in_orbit(world: SimWorld, s: SimShip) -> void:
+static func place_in_orbit(world: SimWorld, s: SimShip, emit_respawn := false) -> void:
 	var config := world.config
 	var rng := world.rng
 	var center := Vector2.ZERO
@@ -29,25 +29,33 @@ static func place_in_orbit(world: SimWorld, s: SimShip) -> void:
 	if primary != null:
 		r = maxf(r, primary.radius * 3.0 + 200.0)
 	r = minf(r, config.arena_size * 0.5 * 0.85)
-	# Clearance: never materialize inside (or kissing) a rock/satellite —
-	# re-roll the ring angle a few times; deterministic via the world rng.
-	for _attempt in range(10):
+	# Clearance checks cover static hazards and the moving hazards that used to
+	# make a respawn look like a surprise kill. Sample deterministic candidates,
+	# accept the first safe one, and retain the safest candidate as a fallback
+	# for crowded arenas so this routine always produces a valid spawn.
+	var chosen := center + Vector2(cos(ang), sin(ang)) * r
+	var best_clearance := -INF
+	for attempt in range(12):
+		if attempt > 0:
+			ang = rng.randf() * TAU
 		var probe := center + Vector2(cos(ang), sin(ang)) * r
-		var blocked := false
-		for b in world.bodies:
-			if b.lethal and probe.distance_to(b.pos) < b.radius + s.radius + 60.0:
-				blocked = true
-				break
-		if not blocked:
+		var clearance := _spawn_clearance(world, s, probe)
+		if clearance > best_clearance:
+			best_clearance = clearance
+			chosen = probe
+		if clearance >= 0.0:
+			chosen = probe
 			break
-		ang = rng.randf() * TAU
-	s.pos = center + Vector2(cos(ang), sin(ang)) * r
+	s.pos = chosen
+	ang = (chosen - center).angle()
 	# Circular-orbit speed, perpendicular to the radius, random direction.
 	var speed := 0.0
 	if m > 0.0:
 		# True circular-orbit speed (Keplerian, pure 1/r^2): a still pilot
 		# orbits a stable closed ellipse forever.
 		speed = sqrt(config.gravity_constant * m / r)
+	if config.max_ship_speed > 0.0:
+		speed = minf(speed, config.max_ship_speed)
 	var dir := Vector2(-sin(ang), cos(ang))
 	if rng.randf() < 0.5:
 		dir = -dir
@@ -63,6 +71,33 @@ static func place_in_orbit(world: SimWorld, s: SimShip) -> void:
 	s.respawn_timer = 0.0
 	s.fire_cooldown = 0.0
 	s.spawn_grace = config.spawn_grace
+	s.hyper_chord_prev = s.in_hyper and s.in_fire
+	if emit_respawn:
+		world.events.append({"tk": world.tick, "type": "respawn", "ship": s.id, "pos": s.pos})
+
+static func _spawn_clearance(world: SimWorld, s: SimShip, probe: Vector2) -> float:
+	var best := INF
+	var size := world.config.arena_size
+	for b in world.bodies:
+		if b.lethal:
+			var clearance := b.radius + s.radius + 60.0
+			best = minf(best, TorusMath.distance_squared(probe, b.pos, size)
+				- clearance * clearance)
+	for other in world.ships:
+		if other != s and other.alive:
+			var clearance := other.radius + s.radius + 240.0
+			best = minf(best, TorusMath.distance_squared(probe, other.pos, size)
+				- clearance * clearance)
+	for t in world.torpedoes:
+		var clearance := t.radius + s.radius + 180.0
+		best = minf(best, TorusMath.distance_squared(probe, t.pos, size)
+			- clearance * clearance)
+	for m in world.mines:
+		if m.age >= world.config.mine_arm_time:
+			var clearance := m.radius + s.radius + 180.0
+			best = minf(best, TorusMath.distance_squared(probe, m.pos, size)
+				- clearance * clearance)
+	return best
 
 static func step_ship(world: SimWorld, s: SimShip, dt: float) -> void:
 	var config := world.config
@@ -75,7 +110,7 @@ static func step_ship(world: SimWorld, s: SimShip, dt: float) -> void:
 		# Once the timer elapses, auto-respawn unless manual_respawn is on — then
 		# the ship waits for its fire input (players press; dead bots hold fire).
 		if s.respawn_timer <= 0.0 and (not config.manual_respawn or s.in_fire):
-			place_in_orbit(world, s)
+			place_in_orbit(world, s, true)
 		s.clear_inputs()
 		return
 
@@ -116,8 +151,12 @@ static func step_ship(world: SimWorld, s: SimShip, dt: float) -> void:
 	if s.in_mine and s.mine_cooldown <= 0.0 and s.mines > 0:
 		MineSystem.drop_mine(world, s)
 
-	# Hyperspace.
-	if s.in_hyper and s.hyperspace_cooldown <= 0.0:
+	# Hyperspace is a rising edge of the Hyper+Fire chord. Holding both
+	# controls therefore cannot jump again when the cooldown expires.
+	var hyper_chord := s.in_hyper and s.in_fire
+	var hyper_pressed := hyper_chord and not s.hyper_chord_prev
+	s.hyper_chord_prev = hyper_chord
+	if hyper_pressed and s.hyperspace_cooldown <= 0.0:
 		hyperspace(world, s)
 
 	s.clear_inputs()

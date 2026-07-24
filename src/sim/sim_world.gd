@@ -159,6 +159,7 @@ func step_ship_kinematics(s: SimShip, turn: float, thrust: bool, dt: float) -> v
 	else:
 		s.fuel = minf(config.max_fuel, s.fuel + config.fuel_regen_per_sec * dt)
 	s.vel += GravitySystem.accel(self, s.pos) * dt
+	clamp_ship_velocity(s)
 	s.pos += s.vel * dt
 	if config.wrap_edges:
 		var wb := WrapSystem.wrap_with_boost(self, s.pos, s.vel)
@@ -173,6 +174,11 @@ func step_ship_kinematics(s: SimShip, turn: float, thrust: bool, dt: float) -> v
 
 func gravity_accel(p: Vector2) -> Vector2:
 	return GravitySystem.accel(self, p)
+
+func clamp_ship_velocity(s: SimShip) -> void:
+	if config.max_ship_speed > 0.0 \
+			and s.vel.length_squared() > config.max_ship_speed * config.max_ship_speed:
+		s.vel = s.vel.limit_length(config.max_ship_speed)
 
 func _advance_bodies(dt: float) -> void:
 	GravitySystem.advance_bodies(self, dt)

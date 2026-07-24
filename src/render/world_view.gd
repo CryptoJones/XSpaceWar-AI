@@ -113,6 +113,7 @@ var _seen_ev_tick := -1             ## events are consumed once (they accumulate
 # state and draw blended by the physics interpolation fraction.
 var _prev_pos := {}                 ## "s3"/"t9"/"m2"/"p7" -> last-tick position
 var _prev_angle := {}               ## ship id -> last-tick angle
+var _prev_alive := {}               ## ship id -> last-tick alive state
 var _cam_pos := Vector2.ZERO        ## camera current (per-tick) state
 var _cam_pos_prev := Vector2.ZERO
 var _cam_zoom_prev := 0.6
@@ -210,6 +211,7 @@ func _capture_prev_state() -> void:
 	for s in w.ships:
 		_prev_pos["s%d" % s.id] = s.pos
 		_prev_angle[s.id] = s.angle
+		_prev_alive[s.id] = s.alive
 	for t in w.torpedoes:
 		_prev_pos["t%d" % t.id] = t.pos
 	for m in w.mines:
@@ -259,6 +261,8 @@ func _physics_process(dt: float) -> void:
 				CameraController.add_shake(self, ev["pos"], 1.4)
 			"hyperspace":
 				ParticleSystem.spawn_burst(self, ev["pos"], Color(0.7, 1.2, 2.4), 28, 240.0)
+			"respawn":
+				ParticleSystem.spawn_burst(self, ev["pos"], Color(0.35, 1.7, 2.5), 52, 330.0)
 			"wrap":
 				ParticleSystem.spawn_burst(self, ev["pos"], Color(0.4, 1.6, 2.0), 20, 360.0)
 			"rock_break":
@@ -398,20 +402,23 @@ func _draw() -> void:
 		return
 	var world := session.world
 	_draw_arena_bounds(world)
-	for b in world.bodies:
-		match b.kind:
-			SimBody.Kind.STAR:
-				_draw_star(b, world.time)
-			SimBody.Kind.PLANET:
-				_draw_planet(b, world)
-			SimBody.Kind.MOON, SimBody.Kind.SATELLITE:
-				_draw_minor(b)
-			SimBody.Kind.ASTEROID:
-				_draw_asteroid(b, world.time)
 	var wrap := world.config.wrap_edges
 	var half := world.config.arena_size * 0.5
+	for b in world.bodies:
+		for off in _ghost_offsets(b.pos, world.config.wrap_edges,
+				world.config.arena_size * 0.5, b.radius * 2.0):
+			match b.kind:
+				SimBody.Kind.STAR:
+					_draw_star(b, world.time, off)
+				SimBody.Kind.PLANET:
+					_draw_planet(b, world, off)
+				SimBody.Kind.MOON, SimBody.Kind.SATELLITE:
+					_draw_minor(b, off)
+				SimBody.Kind.ASTEROID:
+					_draw_asteroid(b, world.time, off)
 	for p in world.pickups:
-		_draw_pickup(p, world.time)
+		for off in _ghost_offsets(p.pos, wrap, half, p.radius * 2.0):
+			_draw_pickup(p, world.time, off)
 	for m in world.mines:
 		for off in _ghost_offsets(_ipos("m%d" % m.id, m.pos), wrap, half, 100.0):
 			_draw_mine(m, world.time, off)
@@ -437,6 +444,8 @@ func _ghost_offsets(p: Vector2, wrap: bool, half: float, margin: float) -> Array
 	var offs: Array[Vector2] = [Vector2.ZERO]
 	if not wrap:
 		return offs
+	var view_half := get_viewport_rect().size * 0.5 / maxf(_camera.zoom.x, 0.1)
+	margin = maxf(margin, maxf(view_half.x, view_half.y) + 64.0)
 	var dx := 0.0
 	if p.x > half - margin:
 		dx = -2.0 * half
@@ -466,15 +475,16 @@ func _draw_arena_bounds(world: SimWorld) -> void:
 		draw_rect(Rect2(-half, -half, world.config.arena_size, world.config.arena_size),
 			Color(0.4, 0.6, 1.0, 0.08), false, 3.0)
 
-func _draw_star(b: SimBody, t: float) -> void:
+func _draw_star(b: SimBody, t: float, ghost := Vector2.ZERO) -> void:
 	var pulse := 1.0 + 0.04 * sin(t * 3.1 + float(b.seed % 7))
-	draw_circle(b.pos, b.radius * 2.1 * pulse, Color(1.0, 0.65, 0.25, 0.07))
-	draw_circle(b.pos, b.radius * 1.5 * pulse, Color(1.2, 0.8, 0.35, 0.18))
-	draw_circle(b.pos, b.radius * 1.08, Color(1.8, 1.1, 0.45, 0.7))
-	draw_circle(b.pos, b.radius * 0.92, Color(2.6, 1.8, 0.9))
-	draw_circle(b.pos, b.radius * 0.62, Color(3.4, 3.0, 2.2))
+	var p := b.pos + ghost
+	draw_circle(p, b.radius * 2.1 * pulse, Color(1.0, 0.65, 0.25, 0.07))
+	draw_circle(p, b.radius * 1.5 * pulse, Color(1.2, 0.8, 0.35, 0.18))
+	draw_circle(p, b.radius * 1.08, Color(1.8, 1.1, 0.45, 0.7))
+	draw_circle(p, b.radius * 0.92, Color(2.6, 1.8, 0.9))
+	draw_circle(p, b.radius * 0.62, Color(3.4, 3.0, 2.2))
 
-func _draw_planet(b: SimBody, world: SimWorld) -> void:
+func _draw_planet(b: SimBody, world: SimWorld, ghost := Vector2.ZERO) -> void:
 	# Earth-like: a blue ocean world flecked with green "continents". The hue is
 	# locked to the green<->blue band so a planet is NEVER yellow — only stars
 	# and ships are. Shade + continents are seeded, so a planet looks the same
@@ -484,33 +494,35 @@ func _draw_planet(b: SimBody, world: SimWorld) -> void:
 	var land := Color.from_hsv(lerpf(0.30, 0.42, t), 0.58, 0.62)    # green -> teal-green
 	# Light the day side toward the star.
 	var primary := world.primary_body()
+	var p := b.pos + ghost
 	var light := Vector2.RIGHT
 	if primary != null and primary.pos.distance_to(b.pos) > 1.0:
 		light = (primary.pos - b.pos).normalized()
-	draw_circle(b.pos, b.radius * 1.06, Color(ocean.r, ocean.g, ocean.b, 0.22))  # atmosphere rim
-	draw_circle(b.pos, b.radius, ocean.darkened(0.5))                            # night ocean
-	draw_circle(b.pos + light * b.radius * 0.26, b.radius * 0.82, ocean)         # lit ocean
+	draw_circle(p, b.radius * 1.06, Color(ocean.r, ocean.g, ocean.b, 0.22))
+	draw_circle(p, b.radius, ocean.darkened(0.5))
+	draw_circle(p + light * b.radius * 0.26, b.radius * 0.82, ocean)
 	# A few green continents over the disk (deterministic from the seed).
 	var rng := RandomNumberGenerator.new()
 	rng.seed = b.seed
 	for _i in range(3):
 		var ang := rng.randf() * TAU
 		var rr := rng.randf_range(0.0, 0.55) * b.radius
-		var c := b.pos + Vector2(cos(ang), sin(ang)) * rr
+		var c := p + Vector2(cos(ang), sin(ang)) * rr
 		draw_circle(c, b.radius * rng.randf_range(0.16, 0.30), land)
-	draw_circle(b.pos + light * b.radius * 0.5, b.radius * 0.24, ocean.lightened(0.3))  # specular glint
+	draw_circle(p + light * b.radius * 0.5, b.radius * 0.24, ocean.lightened(0.3))
 
-func _draw_minor(b: SimBody) -> void:
+func _draw_minor(b: SimBody, ghost := Vector2.ZERO) -> void:
+	var p := b.pos + ghost
 	if b.kind == SimBody.Kind.SATELLITE:
-		draw_circle(b.pos, b.radius, Color(1.4, 1.4, 1.6))
-		draw_circle(b.pos, b.radius * 2.2, Color(1.0, 0.3, 0.3, 0.18))  # hazard halo
+		draw_circle(p, b.radius, Color(1.4, 1.4, 1.6))
+		draw_circle(p, b.radius * 2.2, Color(1.0, 0.3, 0.3, 0.18))
 	else:
 		var hue := float(b.seed % 997) / 997.0
 		var c := Color.from_hsv(hue, 0.15, 0.65)
-		draw_circle(b.pos, b.radius, c)
-		draw_circle(b.pos + Vector2(-b.radius * 0.25, -b.radius * 0.25), b.radius * 0.6, c.lightened(0.2))
+		draw_circle(p, b.radius, c)
+		draw_circle(p + Vector2(-b.radius * 0.25, -b.radius * 0.25), b.radius * 0.6, c.lightened(0.2))
 
-func _draw_asteroid(b: SimBody, t: float) -> void:
+func _draw_asteroid(b: SimBody, t: float, ghost := Vector2.ZERO) -> void:
 	var poly: PackedVector2Array = _asteroid_polys.get(b.id, PackedVector2Array())
 	if poly.is_empty():
 		var rng := RandomNumberGenerator.new()
@@ -521,7 +533,7 @@ func _draw_asteroid(b: SimBody, t: float) -> void:
 			poly.append(Vector2(cos(a), sin(a)) * b.radius * rng.randf_range(0.7, 1.25))
 		_asteroid_polys[b.id] = poly
 	var spin := float(b.seed % 100) / 100.0 - 0.5
-	draw_set_transform(b.pos, t * spin)
+	draw_set_transform(b.pos + ghost, t * spin)
 	var shade := 0.38 + 0.18 * (float(b.seed % 13) / 13.0)
 	draw_colored_polygon(poly, Color(shade, shade * 0.95, shade * 0.88))
 	draw_set_transform(Vector2.ZERO)
@@ -533,11 +545,11 @@ const PICKUP_COLORS: Array[Color] = [
 ]
 const PICKUP_LETTERS := ["F", "A", "M"]
 
-func _draw_pickup(p: SimPickup, t: float) -> void:
+func _draw_pickup(p: SimPickup, t: float, ghost := Vector2.ZERO) -> void:
 	var vis := clampf(_ship_vis_scale * 0.8, 1.0, 2.2)
 	var r := p.radius * vis * (1.0 + 0.12 * sin(t * 5.0 + float(p.id)))
 	var c: Color = PICKUP_COLORS[p.kind % PICKUP_COLORS.size()]
-	var pp := _ipos("p%d" % p.id, p.pos)
+	var pp := _ipos("p%d" % p.id, p.pos) + ghost
 	draw_set_transform(pp, t * 1.2)
 	draw_colored_polygon(PackedVector2Array([
 		Vector2(r, 0), Vector2(0, r), Vector2(-r, 0), Vector2(0, -r)]),
@@ -571,7 +583,9 @@ func _draw_torpedo(t: SimTorpedo, ghost: Vector2 = Vector2.ZERO) -> void:
 func _draw_ship(s: SimShip, t: float, ghost: Vector2 = Vector2.ZERO) -> void:
 	var col := ship_color(s)
 	var k := s.radius / 12.0 * _ship_vis_scale * _ship_difficulty_visual_scale(s)
-	draw_set_transform(_ipos("s%d" % s.id, s.pos) + s.render_pos_offset + ghost,
+	var ship_pos := s.pos if not bool(_prev_alive.get(s.id, s.alive)) \
+		else _ipos("s%d" % s.id, s.pos)
+	draw_set_transform(ship_pos + s.render_pos_offset + ghost,
 		_iangle(s.id, s.angle), Vector2(k, k))
 
 	var hull: Dictionary = _hull_cache.get(s.id, {})
