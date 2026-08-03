@@ -262,7 +262,7 @@ HTMFPWGCBNOTDOD!
 
 ## Running on macOS
 
-The macOS build is **Developer ID signed as Patrick Hannah but not notarized**.
+The macOS build is **Developer ID signed as Aaron Clark but not notarized**.
 The signature protects artifact integrity and identifies its publisher, but on first
 launch Gatekeeper may still block the unnotarized download. If that happens, clear the
 quarantine flag in Terminal:

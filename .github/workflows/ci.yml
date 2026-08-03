@@ -217,7 +217,7 @@ jobs:
           append_body: true
           body: |
             ### Opening on macOS
-            The macOS app is Developer ID signed as Patrick Hannah but is not notarized.
+            The macOS app is Developer ID signed as Aaron Clark but is not notarized.
             The signature protects integrity and identifies the publisher, but Gatekeeper may
             still block the unnotarized download. If that happens, clear its quarantine flag:
 

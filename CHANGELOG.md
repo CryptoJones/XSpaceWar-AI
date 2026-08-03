@@ -2,6 +2,22 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [5.0.0] — 2026-08-02
+
+### Changed
+- macOS releases are now Developer ID signed under **Aaron Clark (J6P99Q4479)**
+  instead of the previous signing identity. The publisher shown by Gatekeeper
+  and reported by `codesign -dvvv` changes accordingly, so anyone who pinned or
+  verified the old authority string must update. Builds remain unnotarized.
+- `.github/scripts/import-developer-id.sh` and `sign-macos-app.sh` now read the
+  expected team from a named variable rather than repeating the literal in three
+  places, and the post-sign check asserts both the authority and the team id.
+
+### Added
+- `run.sh` launches the game from any working directory, resolving the project
+  root itself and honoring a `GODOT` override.
+- `.gitignore` covers `.aider*` scratch files.
+
 ## [4.0.0] — 2026-07-24
 
 ### Changed
