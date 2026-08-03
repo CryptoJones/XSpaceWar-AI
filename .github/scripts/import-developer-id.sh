@@ -23,10 +23,15 @@ security set-key-partition-list -S apple-tool:,apple: -s \
 security list-keychains -d user -s "$KEYCHAIN_PATH"
 security default-keychain -d user -s "$KEYCHAIN_PATH"
 
+# Team ID this repository is expected to sign under. The guard is what makes a
+# wrong or missing certificate fail loudly here instead of silently producing an
+# unsigned build further down the job.
+EXPECTED_TEAM_ID="J6P99Q4479"
+
 IDENTITY="$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" \
   | sed -n 's/.*"\(Developer ID Application:[^"]*\)".*/\1/p')"
-if [[ -z "$IDENTITY" || "$IDENTITY" != *"(GPKDR6QL9Q)" ]]; then
-  echo "Expected Developer ID Application identity was not imported" >&2
+if [[ -z "$IDENTITY" || "$IDENTITY" != *"($EXPECTED_TEAM_ID)" ]]; then
+  echo "Expected Developer ID Application identity for team $EXPECTED_TEAM_ID was not imported" >&2
   exit 1
 fi
 
