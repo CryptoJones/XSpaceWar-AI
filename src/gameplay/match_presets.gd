@@ -18,7 +18,7 @@ const LABELS := {
 	CUSTOM: "Custom",
 }
 const SUMMARIES := {
-	CLASSIC_FFA: "8 pilots · Veteran · first to 10 · 40k wrap arena",
+	CLASSIC_FFA: "8 pilots · mixed skill · first to 10 · 40k wrap arena",
 	QUICK_SKIRMISH: "4 pilots · Rookie · first to 5 · 3s respawn · fast pace",
 	TEAM_BATTLE: "2 teams · Veteran · first to 15 · 40k wrap arena",
 	SURVIVAL: "8 pilots · 3 lives · 60% asteroids · lethal edge",
@@ -43,6 +43,19 @@ static func apply(session: GameSession, id: String) -> void:
 		CLASSIC_FFA:
 			_configure(session, 8, GameSession.Mode.FFA, BotController.Difficulty.VETERAN,
 				10, 40000.0, 0.30, 2, false, false, 4.0, 0, 75.0)
+			# Classic FFA is what a first-time player picks, and eight uniform
+			# VETERANs gave them no pecking order — nobody to beat and nobody to
+			# fear, at 0.26s reaction and first-to-10. A ladder instead: two they
+			# can hunt, four that fight back, one that punishes carelessness.
+			session.difficulty_spread = [
+				BotController.Difficulty.ROOKIE,
+				BotController.Difficulty.VETERAN,
+				BotController.Difficulty.VETERAN,
+				BotController.Difficulty.ROOKIE,
+				BotController.Difficulty.VETERAN,
+				BotController.Difficulty.VETERAN,
+				BotController.Difficulty.ACE,
+			]
 		QUICK_SKIRMISH:
 			_configure(session, 4, GameSession.Mode.FFA, BotController.Difficulty.ROOKIE,
 				5, 12000.0, 0.10, 0, false, false, 3.0, 0, 90.0)

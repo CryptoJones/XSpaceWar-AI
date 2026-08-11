@@ -14,7 +14,12 @@ enum Difficulty { ROOKIE, VETERAN, ACE, INSANE }
 enum Personality { BRAWLER, SNIPER, SLINGSHOT, OPPORTUNIST }
 
 const PRESETS := {
-	Difficulty.ROOKIE:  {"reaction": 0.45, "aim_error": 0.30, "fire_cone": 0.18, "aggression": 0.50, "panic": 70.0, "hyper": false},
+	# ROOKIE softened 2026-08-11: aim_error 0.30 -> 0.20, panic 70 -> 90. At 0.30
+	# a rookie missed so consistently that a new player never learned they were
+	# in a fight — the trainer has to land enough shots for the game to read as
+	# winnable, not as a shooting gallery pointed the wrong way. The ceiling is
+	# untouched: ACE 0.07 and INSANE 0.02 still define the skill curve.
+	Difficulty.ROOKIE:  {"reaction": 0.45, "aim_error": 0.20, "fire_cone": 0.18, "aggression": 0.50, "panic": 90.0, "hyper": false},
 	Difficulty.VETERAN: {"reaction": 0.26, "aim_error": 0.15, "fire_cone": 0.12, "aggression": 0.72, "panic": 110.0, "hyper": true},
 	Difficulty.ACE:     {"reaction": 0.15, "aim_error": 0.07, "fire_cone": 0.085, "aggression": 0.88, "panic": 150.0, "hyper": true},
 	Difficulty.INSANE:  {"reaction": 0.07, "aim_error": 0.02, "fire_cone": 0.05, "aggression": 1.00, "panic": 190.0, "hyper": true},

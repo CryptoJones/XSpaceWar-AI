@@ -15,6 +15,9 @@ var _failed := 0
 func _initialize() -> void:
 	print("=== XSpaceWar-AI — gameplay tests ===")
 	_test_match_flow()
+	_test_difficulty_spread()
+	_test_classic_ffa_is_a_ladder()
+	_test_rookie_can_actually_hit()
 	_test_ship_colors()
 	_test_lives()
 	_test_lethal_edges()
@@ -50,6 +53,79 @@ func _make_world(seed: int) -> SimWorld:
 	return w
 
 # --------------------------------------------------------------------------
+
+func _test_difficulty_spread() -> void:
+	# Eight identical VETERANs gave a newcomer no pecking order. A ladder gives
+	# them something to beat and something to fear; uniform tuning cannot.
+	var s := GameSession.new()
+	s.difficulty_spread = [
+		BotController.Difficulty.ROOKIE,
+		BotController.Difficulty.VETERAN,
+		BotController.Difficulty.ACE,
+	]
+	s.start_skirmish(4, GameSession.Mode.FFA, BotController.Difficulty.VETERAN)
+	var tiers: Array[int] = []
+	for id in s.bots:
+		tiers.append(int(s.bots[id].difficulty))
+	_check("spread: bots do not all share one tier",
+		tiers.size() >= 3 and tiers.min() != tiers.max(),
+		"tiers=%s" % [tiers])
+	_check("spread: every tier comes from the ladder",
+		tiers.all(func(t): return s.difficulty_spread.has(t)),
+		"tiers=%s" % [tiers])
+
+	# Dealt in order and wrapped, never rolled: a random draw could produce a
+	# roster of aces and recreate the wall this exists to remove.
+	var a := GameSession.new()
+	a.difficulty_spread = [BotController.Difficulty.ROOKIE, BotController.Difficulty.ACE]
+	a.start_skirmish(4, GameSession.Mode.FFA, BotController.Difficulty.VETERAN)
+	var b := GameSession.new()
+	b.difficulty_spread = [BotController.Difficulty.ROOKIE, BotController.Difficulty.ACE]
+	b.start_skirmish(4, GameSession.Mode.FFA, BotController.Difficulty.VETERAN)
+	var first: Array[int] = []
+	var second: Array[int] = []
+	for id in a.bots:
+		first.append(int(a.bots[id].difficulty))
+	for id in b.bots:
+		second.append(int(b.bots[id].difficulty))
+	first.sort()
+	second.sort()
+	_check("spread: deterministic across builds", first == second,
+		"%s vs %s" % [first, second])
+
+	# Empty spread must leave every existing caller untouched.
+	var u := GameSession.new()
+	u.start_skirmish(4, GameSession.Mode.FFA, BotController.Difficulty.ROOKIE)
+	var uniform := true
+	for id in u.bots:
+		if int(u.bots[id].difficulty) != BotController.Difficulty.ROOKIE:
+			uniform = false
+	_check("spread: empty means uniform, as before", uniform)
+
+
+func _test_classic_ffa_is_a_ladder() -> void:
+	# Classic FFA is what a first-time player picks. It must not be a wall.
+	var s := GameSession.new()
+	MatchPresets.apply(s, MatchPresets.CLASSIC_FFA)
+	_check("classic: carries a mixed roster", not s.difficulty_spread.is_empty())
+	_check("classic: includes something beatable",
+		s.difficulty_spread.has(BotController.Difficulty.ROOKIE))
+	_check("classic: still includes something to fear",
+		s.difficulty_spread.has(BotController.Difficulty.ACE))
+	_check("classic: no INSANE pilots in the newcomer preset",
+		not s.difficulty_spread.has(BotController.Difficulty.INSANE))
+
+
+func _test_rookie_can_actually_hit() -> void:
+	# A trainer that never lands a shot reads as a shooting gallery pointed the
+	# wrong way; the player never learns they are in a fight.
+	var rookie: Dictionary = BotController.PRESETS[BotController.Difficulty.ROOKIE]
+	var ace: Dictionary = BotController.PRESETS[BotController.Difficulty.ACE]
+	_check("rookie: aim error tightened to 0.20",
+		is_equal_approx(float(rookie["aim_error"]), 0.20))
+	_check("rookie: still clearly the worst shot",
+		float(rookie["aim_error"]) > float(ace["aim_error"]) * 2.0)
+
 
 func _test_match_flow() -> void:
 	var s := GameSession.new()

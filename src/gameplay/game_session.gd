@@ -17,6 +17,19 @@ var mode: int = Mode.FFA
 var num_ships: int = 8
 var num_teams: int = 2
 var difficulty: int = BotController.Difficulty.VETERAN
+## Optional per-pilot skill ladder. When non-empty, bots are dealt these tiers in
+## order instead of all sharing [member difficulty].
+##
+## Eight identical VETERANs give a newcomer no pecking order — nobody in the
+## field they can beat and nobody to fear. A mixed roster gives them a bottom of
+## the ladder to farm and a top to respect, which uniform tuning cannot do at any
+## single value. Movie Mode has always known this (it randomises tiers precisely
+## because "rookies crashing among aces makes better television"); this brings
+## the same idea to the presets a player actually starts with.
+##
+## Empty is the default and means uniform, so Custom matches and every existing
+## caller are unchanged.
+var difficulty_spread: Array[int] = []
 
 # Movie Mode: all-AI spectator that regenerates everything on a timer.
 var movie_mode: bool = false
@@ -68,6 +81,10 @@ var restart_timer := 0.0
 var finished_recorder: Replay = null
 
 var _rng := RandomNumberGenerator.new()
+## How many bots have been dealt a tier from [member difficulty_spread] this
+## build. Reset per build so a restart deals the same ladder rather than
+## drifting through it.
+var _bots_dealt: int = 0
 var on_regenerate: Callable = Callable()  ## optional hook for the renderer
 var recorder: Replay = null               ## when set, captures inputs each step
 
@@ -134,6 +151,7 @@ func _build(seed: int) -> void:
 	world = SimWorld.new(cfg)
 	bots.clear()
 	ship_names.clear()
+	_bots_dealt = 0  # deal the same ladder on a restart, don't drift through it
 
 	# Procedural arena — vary the layout a little by mode. Kept sparse:
 	# space should read as mostly empty with hazards, not an obstacle course.
@@ -169,6 +187,12 @@ func _build(seed: int) -> void:
 			if movie_mode:
 				bot_diff = _rng.randi_range(BotController.Difficulty.ROOKIE,
 					BotController.Difficulty.INSANE)
+			elif not difficulty_spread.is_empty():
+				# Dealt in order and wrapped, not randomised: a ladder the player
+				# can learn is the point, and a roll that happened to produce
+				# eight aces would recreate the wall this exists to remove.
+				bot_diff = difficulty_spread[_bots_dealt % difficulty_spread.size()]
+				_bots_dealt += 1
 			bots[ship.id] = BotController.new(world, ship.id, bot_diff)
 			ship_names[ship.id] = BotController.callsign(ship.hull_seed)
 
