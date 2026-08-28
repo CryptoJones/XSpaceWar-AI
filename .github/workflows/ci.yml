@@ -157,13 +157,21 @@ jobs:
           MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
           MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
         run: ./.github/scripts/import-developer-id.sh
-      - name: Sign and package macOS app
+      # Sign, then notarize, then staple — same bundle, that order. The archive
+      # is rebuilt from the STAPLED .app so the ticket ships inside the download
+      # and Gatekeeper clears it without a network round trip.
+      - name: Sign, notarize, and package macOS app
+        env:
+          MACOS_NOTARY_ISSUER_ID: ${{ secrets.MACOS_NOTARY_ISSUER_ID }}
+          MACOS_NOTARY_KEY_ID: ${{ secrets.MACOS_NOTARY_KEY_ID }}
+          MACOS_NOTARY_KEY_P8: ${{ secrets.MACOS_NOTARY_KEY_P8 }}
         run: |
           mkdir -p payload signed
           ditto -x -k unsigned/xspacewar-ai-macos.zip payload
           app="$(find payload -type d -name 'XSpaceWar-AI.app' -print -quit)"
           test -n "$app"
           ./.github/scripts/sign-macos-app.sh "$app"
+          ./.github/scripts/notarize-macos-app.sh "$app"
           ditto -c -k --sequesterRsrc --keepParent "$app" \
             signed/xspacewar-ai-macos-universal.zip
           (cd signed && shasum -a 256 xspacewar-ai-macos-universal.zip \
@@ -217,12 +225,9 @@ jobs:
           append_body: true
           body: |
             ### Opening on macOS
-            The macOS app is Developer ID signed as Aaron Clark but is not notarized.
-            The signature protects integrity and identifies the publisher, but Gatekeeper may
-            still block the unnotarized download. If that happens, clear its quarantine flag:
+            The macOS app is Developer ID signed as Aaron Clark, notarized by Apple, and the
+            notarization ticket is stapled into the bundle. It opens normally — no Gatekeeper
+            warning, and no `xattr` quarantine dance. The stapled ticket means that holds even
+            on a machine that is offline.
 
-            ```sh
-            xattr -dr com.apple.quarantine /path/to/XSpaceWar-AI.app
-            ```
-
-            Verify the matching `.sha256` manifest before bypassing quarantine.
+            Verify the matching `.sha256` manifest before use.
