@@ -5,6 +5,10 @@ name: itch.io deploy
 # the repo variable ITCH_DEPLOY == 'true'. Arm it by setting that variable, the
 # BUTLER_API_KEY secret, and (optionally) the ITCH_TARGET var — see itch/README.md.
 on:
+  # A release published by hand in the web UI fires this. A release created by
+  # ci.yml does NOT: GitHub suppresses workflow triggers for events raised with
+  # GITHUB_TOKEN, so this trigger silently never fired for a tagged release.
+  # ci.yml therefore calls this workflow directly via workflow_call below.
   release:
     types: [published]
   workflow_dispatch:
@@ -12,6 +16,12 @@ on:
       tag:
         description: "Existing release tag to (re)deploy (e.g. v3.1.41)"
         required: true
+  workflow_call:
+    inputs:
+      tag:
+        description: "Release tag to deploy, passed by ci.yml"
+        required: true
+        type: string
 
 jobs:
   butler:
@@ -19,6 +29,10 @@ jobs:
     # Gate: nothing runs until you flip ITCH_DEPLOY on in repo variables.
     if: ${{ vars.ITCH_DEPLOY == 'true' }}
     runs-on: ubuntu-latest
+    # Only reads the release it is shipping. Stated explicitly because a called
+    # workflow inherits the caller's token and can never widen it.
+    permissions:
+      contents: read
     env:
       TAG: ${{ github.event.release.tag_name || inputs.tag }}
       # itch game page as <user>/<game>; override per fork via the ITCH_TARGET var.
