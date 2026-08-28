@@ -231,3 +231,15 @@ jobs:
             on a machine that is offline.
 
             Verify the matching `.sha256` manifest before use.
+
+  # The release job publishes with GITHUB_TOKEN, which cannot trigger the
+  # `release: published` event. Calling itch-deploy here is what actually ships
+  # a tag to itch.io; the gate on ITCH_DEPLOY still lives inside that workflow.
+  itch:
+    name: itch.io deploy
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: release
+    uses: ./.github/workflows/itch-deploy.yml
+    with:
+      tag: ${{ github.ref_name }}
+    secrets: inherit
