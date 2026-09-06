@@ -72,6 +72,9 @@ static func place_in_orbit(world: SimWorld, s: SimShip, emit_respawn := false) -
 	s.fire_cooldown = 0.0
 	s.spawn_grace = config.spawn_grace
 	s.hyper_chord_prev = s.in_hyper and s.in_fire
+	s.max_shields = config.shield_max
+	s.shields = config.shield_max
+	s.shield_timer = 0.0
 	if emit_respawn:
 		world.events.append({"tk": world.tick, "type": "respawn", "ship": s.id, "pos": s.pos})
 
@@ -129,17 +132,28 @@ static func step_ship(world: SimWorld, s: SimShip, dt: float) -> void:
 		while s.mine_timer >= config.mine_regen_interval and s.mines < config.max_mines:
 			s.mine_timer -= config.mine_regen_interval
 			s.mines += 1
+	if config.shield_max > 0 and s.shields < s.max_shields:
+		s.shield_timer += dt
+		if s.shield_timer >= config.shield_recharge_delay:
+			s.shields += 1
+			s.shield_timer = 0.0
+			world.events.append({"tk": world.tick, "type": "shield_recharge", "ship": s.id, "pos": s.pos})
 
 	# Rotation.
 	s.angle = wrapf(s.angle + s.in_turn * config.turn_rate * dt, -PI, PI)
 
-	# Thrust (fuel-limited). Integration of velocity happens in
-	# GravitySystem.integrate_ships alongside gravity; here we just apply the
-	# thrust impulse and burn fuel.
+	# Thrust (fuel-limited) and active retro-braking.
 	if s.in_thrust and s.fuel > 0.0:
 		s.vel += s.facing() * config.thrust_accel * dt
 		s.fuel = maxf(0.0, s.fuel - config.thrust_fuel_per_sec * dt)
 		world.events.append({"tk": world.tick, "type": "thrust", "ship": s.id, "pos": s.pos})
+	elif s.in_brake and s.vel.length_squared() > 1.0 and s.fuel > 0.0:
+		var speed := s.vel.length()
+		var brake_accel := config.thrust_accel * 0.95
+		var dv := minf(speed, brake_accel * dt)
+		s.vel -= s.vel.normalized() * dv
+		s.fuel = maxf(0.0, s.fuel - config.thrust_fuel_per_sec * dt)
+		world.events.append({"tk": world.tick, "type": "brake", "ship": s.id, "pos": s.pos})
 	else:
 		s.fuel = minf(config.max_fuel, s.fuel + config.fuel_regen_per_sec * dt)
 
@@ -189,7 +203,7 @@ static func hyperspace(world: SimWorld, s: SimShip) -> void:
 	# place_in_orbit is a SPAWN helper (full resupply + grace); a jump is
 	# just a relocation — keep the pilot's resources and grant no shield.
 	var keep := [s.fuel, s.ammo, s.ammo_timer, s.mines, s.mine_timer,
-		s.mine_cooldown, s.fire_cooldown]
+		s.mine_cooldown, s.fire_cooldown, s.shields, s.shield_timer]
 	place_in_orbit(world, s)
 	s.fuel = keep[0]
 	s.ammo = keep[1]
@@ -198,4 +212,6 @@ static func hyperspace(world: SimWorld, s: SimShip) -> void:
 	s.mine_timer = keep[4]
 	s.mine_cooldown = keep[5]
 	s.fire_cooldown = keep[6]
+	s.shields = keep[7]
+	s.shield_timer = keep[8]
 	s.spawn_grace = 0.0

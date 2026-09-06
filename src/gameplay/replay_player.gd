@@ -90,6 +90,7 @@ func _step_once(world: SimWorld) -> void:
 		s.in_fire = (flags & Replay.FLAG_FIRE) != 0
 		s.in_hyper = (flags & Replay.FLAG_HYPER) != 0
 		s.in_mine = (flags & Replay.FLAG_MINE) != 0
+		s.in_brake = (flags & Replay.FLAG_BRAKE) != 0
 	world.step()
 	if world.tick > replay.final_tick:
 		finished = true

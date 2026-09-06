@@ -16,6 +16,7 @@ var _respawn_label: Label
 var _final_board: Label
 var _debug_label: Label
 var _edge_warn: Label
+var _missile_warn: Label
 var _spec_hint: Label
 var _hyper_label: Label
 var _feed: Array[Dictionary] = []   ## {"t": text, "ttl": seconds}
@@ -48,19 +49,19 @@ func _ready() -> void:
 	_score.custom_minimum_size = Vector2(320, 0)
 	add_child(_score)
 
-	# The three gauges (fuel / ammo / mines) sit top-center under the banner.
+	# The gauges (fuel / ammo / mines / shields) sit top-center under the banner.
 	# (No key-binding hint text — the menu's KEYS panel and the splash own that.)
 	_bars = Control.new()
 	_bars.set_anchors_preset(Control.PRESET_CENTER_TOP)
 	_bars.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	_bars.position = Vector2(-155, 52)
-	_bars.size = Vector2(310, 74)
+	_bars.size = Vector2(310, 96)
 	_bars.draw.connect(_draw_bars)
 	add_child(_bars)
 	_hyper_label = _make_label(12, Color(0.65, 0.85, 1.0, 0.82))
 	_hyper_label.set_anchors_preset(Control.PRESET_CENTER_TOP)
 	_hyper_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	_hyper_label.position.y = 130
+	_hyper_label.position.y = 152
 	_hyper_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	add_child(_hyper_label)
 
@@ -86,6 +87,15 @@ func _ready() -> void:
 	_edge_warn.position.y = -120
 	_edge_warn.visible = false
 	add_child(_edge_warn)
+
+	# Incoming hostile missile alert (center-top under hyper label, red/orange pulse).
+	_missile_warn = _make_label(20, Color(1.0, 0.35, 0.2))
+	_missile_warn.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_missile_warn.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_missile_warn.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_missile_warn.position.y = 172
+	_missile_warn.visible = false
+	add_child(_missile_warn)
 
 	# Small, out-of-the-way watcher hint (bottom-right) — never blocks the action.
 	_spec_hint = _make_label(14, Color(0.7, 0.85, 1.0, 0.75))
@@ -242,6 +252,30 @@ func _update_edge_warning(human: SimShip) -> void:
 	else:
 		_edge_warn.visible = false
 
+func _update_missile_warning(human: SimShip) -> void:
+	var w := session.world
+	if w == null or human == null or not human.alive:
+		_missile_warn.visible = false
+		return
+	var threat_found := false
+	var min_dist := 1.0e9
+	for torp in w.torpedoes:
+		if torp.owner_id != human.id:
+			var d_sq := TorusMath.distance_squared(human.pos, torp.pos, w.config.arena_size)
+			if d_sq < 350.0 * 350.0:
+				var delta := TorusMath.shortest_delta(torp.pos, human.pos, w.config.arena_size)
+				var rel_vel := torp.vel - human.vel
+				if rel_vel.dot(delta) > 0.0:
+					threat_found = true
+					min_dist = minf(min_dist, sqrt(d_sq))
+	if threat_found:
+		_missile_warn.visible = true
+		_missile_warn.text = tr("⚠ MISSILE INCOMING  %d") % int(min_dist)
+		var pulse := 0.6 + 0.4 * absf(sin(Time.get_ticks_msec() / 1000.0 * 12.0))
+		_missile_warn.modulate.a = pulse
+	else:
+		_missile_warn.visible = false
+
 func _make_rich(size: int) -> RichTextLabel:
 	var r := RichTextLabel.new()
 	r.bbcode_enabled = true
@@ -299,6 +333,7 @@ func _process(dt: float) -> void:
 	else:
 		_radar_span = lerpf(_radar_span, span_target, 1.0 - exp(-RADAR_ZOOM_SMOOTH * dt))
 	_update_edge_warning(human)
+	_update_missile_warning(human)
 	if human != null:
 		var risk := session.world.config.hyperspace_base_risk \
 			+ session.world.config.hyperspace_risk_per_use * float(human.hyperspace_uses)
@@ -670,3 +705,15 @@ func _draw_bars() -> void:
 	for i in range(cfg.max_mines):
 		var c2 := Color(1.0, 0.45, 0.25) if i < human.mines else Color(1, 1, 1, 0.10)
 		_bars.draw_rect(Rect2(50 + i * (mine_w + 4.0), 50, mine_w, 12), c2)
+	# Shield pips (when shields enabled).
+	if cfg.shield_max > 0:
+		_bars.draw_string(ThemeDB.fallback_font, Vector2(0, 84), tr("SHIELD"),
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color(0.7, 0.8, 0.9, 0.8))
+		var shield_w := w / float(cfg.shield_max)
+		for i in range(cfg.shield_max):
+			var c3 := Color(0.35, 0.85, 1.0) if i < human.shields else Color(1, 1, 1, 0.10)
+			_bars.draw_rect(Rect2(50 + i * shield_w, 74, shield_w - 2.0, 12), c3)
+		if human.shields < human.max_shields and human.alive:
+			var recharge_frac := clampf(1.0 - (human.shield_timer / maxf(cfg.shield_recharge_delay, 0.1)), 0.0, 1.0)
+			if recharge_frac > 0.0:
+				_bars.draw_rect(Rect2(50, 88, w * recharge_frac, 2), Color(0.35, 1.2, 2.0, 0.7))

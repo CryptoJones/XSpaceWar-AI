@@ -65,6 +65,7 @@ static func apply(session: GameSession, id: String) -> void:
 		SURVIVAL:
 			_configure(session, 8, GameSession.Mode.FFA, BotController.Difficulty.VETERAN,
 				0, 40000.0, 0.60, 2, true, false, 4.0, 3, 60.0)
+			session.shield_max = 1
 
 static func _configure(session: GameSession, ships: int, mode: int, diff: int,
 		limit: int, map: float, hazards: float, planets: int, lethal: bool,
@@ -90,3 +91,4 @@ static func _configure(session: GameSession, ships: int, mode: int, diff: int,
 	session.mine_arm_seconds = 3.0
 	session.mine_lifetime = 25.0
 	session.star_scale = 1.0
+	session.shield_max = 2

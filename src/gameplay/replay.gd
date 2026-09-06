@@ -10,6 +10,7 @@ const FLAG_THRUST := 1
 const FLAG_FIRE := 2
 const FLAG_HYPER := 4
 const FLAG_MINE := 8
+const FLAG_BRAKE := 16
 
 var header := {}
 var frames: Array = []     ## [tick, ship_id, turn: float, flags: int], changes only
@@ -46,6 +47,8 @@ func capture(world: SimWorld) -> void:
 			flags |= FLAG_HYPER
 		if s.in_mine:
 			flags |= FLAG_MINE
+		if s.in_brake:
+			flags |= FLAG_BRAKE
 		var cur := [s.in_turn, flags]
 		if _last.get(s.id) != cur:
 			_last[s.id] = cur

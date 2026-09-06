@@ -151,6 +151,47 @@ static func fanfare() -> AudioStreamWAV:
 		s[i] = v * 0.35
 	return _to_wav(s)
 
+## Shield deflection: bright electric crackle with resonant punch.
+static func shield_hit() -> AudioStreamWAV:
+	var n := int(0.18 * RATE)
+	var s := PackedFloat32Array()
+	s.resize(n)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 303
+	var phase := 0.0
+	for i in range(n):
+		var t := float(i) / RATE
+		var k := float(i) / float(n)
+		var f := lerpf(920.0, 160.0, pow(k, 0.4))
+		phase += TAU * f / RATE
+		var v := sin(phase) + 0.45 * sin(phase * 2.4)
+		v += (rng.randf() * 2.0 - 1.0) * 0.45 * exp(-t * 35.0)
+		s[i] = v * 0.75 * exp(-t * 14.0)
+	return _to_wav(s)
+
+## Hit confirmation: high, crisp dual-tone chirp when landing a shot.
+static func hit_confirm() -> AudioStreamWAV:
+	var n := int(0.09 * RATE)
+	var s := PackedFloat32Array()
+	s.resize(n)
+	for i in range(n):
+		var t := float(i) / RATE
+		var v := 0.5 * sin(TAU * 1760.0 * t) + 0.4 * sin(TAU * 2637.0 * t)
+		s[i] = v * exp(-t * 38.0) * 0.7
+	return _to_wav(s)
+
+## Threat warning: rapid double pulse blip when hostile ordnance is closing fast.
+static func threat_warning() -> AudioStreamWAV:
+	var n := int(0.12 * RATE)
+	var s := PackedFloat32Array()
+	s.resize(n)
+	for i in range(n):
+		var t := float(i) / RATE
+		var pulse := 1.0 if (t < 0.04 or (t > 0.06 and t < 0.10)) else 0.1
+		var v := sin(TAU * 1200.0 * t) * pulse
+		s[i] = v * 0.5
+	return _to_wav(s)
+
 static func _to_wav(samples: PackedFloat32Array, loop := false) -> AudioStreamWAV:
 	var bytes := PackedByteArray()
 	bytes.resize(samples.size() * 2)

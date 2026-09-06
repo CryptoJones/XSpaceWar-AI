@@ -67,7 +67,7 @@ const CH_STATE := 1
 const CHANNELS := 2
 
 ## Renderer-relevant events forwarded inside snapshots.
-const FORWARDED_EVENTS := ["explosion", "hyperspace", "fire", "kill", "respawn"]
+const FORWARDED_EVENTS := ["explosion", "hyperspace", "fire", "kill", "respawn", "shield_hit", "shield_recharge", "brake"]
 
 static func pack(type: int, payload: Dictionary) -> PackedByteArray:
 	return var_to_bytes([type, payload])
@@ -103,6 +103,7 @@ static func apply_input(ship: SimShip, inp: Dictionary) -> void:
 	ship.in_fire = bool(inp.get("f", false))
 	ship.in_hyper = bool(inp.get("h", false))
 	ship.in_mine = bool(inp.get("m", false))
+	ship.in_brake = bool(inp.get("b", false))
 
 # --------------------------------------------------------------------------
 # Welcome / roster

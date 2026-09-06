@@ -14,7 +14,10 @@ var _zip_s: AudioStreamWAV
 var _hyper_s: AudioStreamWAV
 var _thrust_s: AudioStreamWAV
 var _fanfare_s: AudioStreamWAV
-var _ui_player: AudioStreamPlayer    ## non-positional (fanfare, future UI)
+var _shield_hit_s: AudioStreamWAV
+var _hit_confirm_s: AudioStreamWAV
+var _threat_s: AudioStreamWAV
+var _ui_player: AudioStreamPlayer    ## non-positional (fanfare, hit confirm, UI)
 var _music_player: AudioStreamPlayer ## looping ambient drone
 
 var _pool: Array[AudioStreamPlayer2D] = []
@@ -29,6 +32,9 @@ func _ready() -> void:
 	_zip_s = SoundForge.wrap_zip()
 	_thrust_s = SoundForge.thrust_loop()
 	_fanfare_s = SoundForge.fanfare()
+	_shield_hit_s = SoundForge.shield_hit()
+	_hit_confirm_s = SoundForge.hit_confirm()
+	_threat_s = SoundForge.threat_warning()
 	_ui_player = AudioStreamPlayer.new()
 	add_child(_ui_player)
 	_music_player = AudioStreamPlayer.new()
@@ -52,6 +58,10 @@ func play_event(ev: Dictionary) -> void:
 			_play_at(_fire_s, pos, -10.0, _rng.randf_range(0.92, 1.12))
 		"explosion":
 			_play_at(_boom_s, pos, -1.0, _rng.randf_range(0.85, 1.10))
+		"shield_hit":
+			_play_at(_shield_hit_s, pos, -4.0, _rng.randf_range(0.92, 1.08))
+		"shield_recharge":
+			_play_at(_zip_s, pos, -14.0, 1.8)
 		"hyperspace":
 			_play_at(_hyper_s, pos, -5.0, _rng.randf_range(0.95, 1.05))
 		"wrap":
@@ -66,6 +76,19 @@ func play_event(ev: Dictionary) -> void:
 			_play_at(_fanfare_s, pos, -10.0, 2.2)  # quick bright blip
 		"thrust":
 			_hold_thrust(int(ev.get("ship", -1)), pos)
+
+func play_hit_confirm() -> void:
+	_ui_player.stream = _hit_confirm_s
+	_ui_player.volume_db = -5.0
+	_ui_player.pitch_scale = _rng.randf_range(0.97, 1.03)
+	_ui_player.play()
+
+func play_threat_warning() -> void:
+	if not _ui_player.playing:
+		_ui_player.stream = _threat_s
+		_ui_player.volume_db = -6.0
+		_ui_player.pitch_scale = 1.0
+		_ui_player.play()
 
 ## Call once per physics step after the frame's events are fed in: ages the
 ## thrust holds and keeps loop players glued to their ships.

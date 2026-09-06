@@ -52,6 +52,7 @@ var key_binds := {
 	"turn_left": KEY_A,
 	"turn_right": KEY_D,
 	"thrust": KEY_W,
+	"brake": KEY_X,
 	"fire": KEY_SPACE,
 	"mine": KEY_S,
 	"hyper": KEY_SHIFT,
@@ -68,6 +69,7 @@ var pad_binds := {
 	"turn_left": JOY_BUTTON_DPAD_LEFT,
 	"turn_right": JOY_BUTTON_DPAD_RIGHT,
 	"thrust": JOY_BUTTON_A,
+	"brake": JOY_BUTTON_LEFT_SHOULDER,
 	"fire": JOY_BUTTON_X,
 	"mine": JOY_BUTTON_B,
 	"hyper": JOY_BUTTON_Y,
@@ -93,6 +95,7 @@ var _camera: Camera2D
 var _bg_mat: ShaderMaterial
 var _audio: AudioDirector
 var _thrusting := {}                ## ship_id -> true (fired thrust this step)
+var _braking := {}                  ## ship_id -> true (fired retro-brake this step)
 var _asteroid_polys := {}           ## body_id -> PackedVector2Array
 var _hull_cache := {}               ## ship_id -> {"poly": ..., "tail": float}
 var _seen_generation := -1
@@ -120,6 +123,7 @@ var _cam_zoom_prev := 0.6
 var _match_over_seen := false
 var _shake := 0.0                   ## camera shake energy (decays)
 var _popups: Array[Dictionary] = [] ## floating kill texts: pos/vel/text/ttl/color
+var _threat_timer: float = 0.0      ## cadence for hostile torpedo warning audio
 
 const DUEL_SHOT_TIME := 7.0         ## seconds before the movie camera recuts
 
@@ -224,6 +228,8 @@ func _physics_process(dt: float) -> void:
 		return
 	_capture_prev_state()
 	_thrusting.clear()
+	_braking.clear()
+	_threat_timer = maxf(0.0, _threat_timer - dt)
 	if external_driver.is_valid():
 		external_driver.call(dt)
 	elif session.world != null:
@@ -247,12 +253,20 @@ func _physics_process(dt: float) -> void:
 		# Continuous-state events (thrust flames) are re-emitted every frame
 		# by design; one-shots are consumed exactly once via tick stamps.
 		if String(ev.get("type", "")) != "thrust" \
+				and String(ev.get("type", "")) != "brake" \
 				and int(ev.get("tk", -1)) < _seen_ev_tick:
 			continue  # (stamps lag the post-step tick by one)
 		_audio.play_event(ev)
 		match ev.get("type", ""):
 			"thrust":
 				_thrusting[ev["ship"]] = true
+			"brake":
+				_braking[ev["ship"]] = true
+			"shield_hit":
+				ParticleSystem.spawn_burst(self, ev["pos"], Color(0.4, 1.2, 2.5), 24, 280.0)
+				CameraController.add_shake(self, ev["pos"], 0.4)
+				if int(ev.get("attacker", -1)) == session.human_ship_id and int(ev.get("ship", -1)) != session.human_ship_id:
+					_audio.play_hit_confirm()
 			"explosion":
 				ParticleSystem.spawn_burst(self, ev["pos"], Color(2.4, 1.5, 0.5), 56, 420.0)
 				CameraController.add_shake(self, ev["pos"], 1.0)
@@ -276,6 +290,26 @@ func _physics_process(dt: float) -> void:
 				ParticleSystem.add_kill_popup(self, int(ev["killer"]), int(ev["victim"]))
 				if int(ev["victim"]) == session.human_ship_id:
 					_killcam_id = int(ev["killer"])
+				if int(ev["killer"]) == session.human_ship_id and int(ev["victim"]) != session.human_ship_id:
+					_audio.play_hit_confirm()
+
+	# Threat warning: alert human if a hostile torpedo is incoming within dangerous proximity
+	var human := session.human_ship()
+	if human != null and human.alive and _threat_timer <= 0.0:
+		var threat_found := false
+		for torp in session.world.torpedoes:
+			if torp.owner_id != human.id:
+				var d_sq := TorusMath.distance_squared(human.pos, torp.pos, session.world.config.arena_size)
+				if d_sq < 350.0 * 350.0:
+					var delta := TorusMath.shortest_delta(torp.pos, human.pos, session.world.config.arena_size)
+					var rel_vel := torp.vel - human.vel
+					if rel_vel.dot(delta) > 0.0:
+						threat_found = true
+						break
+		if threat_found:
+			_audio.play_threat_warning()
+			_threat_timer = 0.9
+
 	_audio.update(dt, session.world)
 	ParticleSystem.step_popups(self, dt)
 	_seen_ev_tick = session.world.tick
@@ -290,6 +324,8 @@ func _on_new_generation() -> void:
 	_asteroid_polys.clear()
 	_hull_cache.clear()
 	_thrusting.clear()
+	_braking.clear()
+	_threat_timer = 0.0
 	_follow_id = -1
 	_focus_a = -1
 	_focus_b = -1
@@ -330,6 +366,7 @@ func gather_local_input() -> Dictionary:
 	if Input.is_action_pressed("xsw_turn_right"):
 		turn += 1.0
 	var thrust := Input.is_action_pressed("xsw_thrust")
+	var brake := Input.is_action_pressed("xsw_brake")
 	var fire := Input.is_action_pressed("xsw_fire")
 	var hyper := Input.is_action_pressed("xsw_hyper")
 	var mine := Input.is_action_pressed("xsw_mine")
@@ -343,13 +380,14 @@ func gather_local_input() -> Dictionary:
 		thrust = thrust or Input.get_joy_axis(pad, JOY_AXIS_TRIGGER_RIGHT) > 0.4
 		mine = mine or Input.get_joy_axis(pad, JOY_AXIS_TRIGGER_LEFT) > 0.4
 
-	return {"u": turn, "t": thrust, "f": fire, "h": hyper, "m": mine}
+	return {"u": turn, "t": thrust, "f": fire, "h": hyper, "m": mine, "b": brake}
 
 ## Alternate (non-rebindable) keys that stay active alongside the bound key.
 const _ALT_KEYS := {
 	"turn_left": KEY_LEFT,
 	"turn_right": KEY_RIGHT,
 	"thrust": KEY_UP,
+	"brake": KEY_C,
 	"hyper": KEY_ENTER,
 	"mine": KEY_DOWN,
 }
@@ -429,6 +467,7 @@ func _draw() -> void:
 		if s.alive:
 			for off in _ghost_offsets(_ipos("s%d" % s.id, s.pos) + s.render_pos_offset, wrap, half, 240.0):
 				_draw_ship(s, world.time, off)
+	_draw_targeting_reticle(world, world.time)
 	if not race_gates.is_empty():
 		for i in range(race_gates.size()):
 			var hot := i == race_next_gate % race_gates.size()
@@ -602,18 +641,114 @@ func _draw_ship(s: SimShip, t: float, ghost: Vector2 = Vector2.ZERO) -> void:
 			Vector2(tail_x + 1.0, -4.5), Vector2(tail_x - len, 0)])
 		draw_colored_polygon(flame, Color(2.2, 1.3, 0.35, 0.9))
 
+	# Retro-brake thruster flares while braking (forward-facing RCS puffs).
+	if _braking.has(s.id):
+		var puff_len := 7.0 + 3.0 * sin(t * 35.0 + float(s.id))
+		var jet_l := PackedVector2Array([Vector2(6.0, 5.0), Vector2(8.0, 6.0), Vector2(6.0 + puff_len, 7.0)])
+		var jet_r := PackedVector2Array([Vector2(6.0, -5.0), Vector2(8.0, -6.0), Vector2(6.0 + puff_len, -7.0)])
+		draw_colored_polygon(jet_l, Color(0.6, 1.4, 2.2, 0.85))
+		draw_colored_polygon(jet_r, Color(0.6, 1.4, 2.2, 0.85))
+
 	draw_colored_polygon(pts, col)
 	if s.id == session.human_ship_id:
 		var outline := pts.duplicate()
 		outline.append(pts[0])
 		draw_polyline(outline, Color(2.0, 2.0, 2.0), 1.5)
 
+	# Active energy shield halo contour.
+	if s.shields > 0:
+		var s_alpha := 0.25 + 0.12 * sin(t * 4.0 + float(s.id))
+		var s_rad := 20.0 + float(s.shields) * 2.0
+		var s_col := Color(0.35, 1.2, 2.4, s_alpha)
+		draw_arc(Vector2.ZERO, s_rad, 0.0, TAU, 28, s_col, 1.5)
+		if s.shields > 1:
+			draw_arc(Vector2.ZERO, s_rad - 2.5, 0.0, TAU, 24, Color(s_col.r, s_col.g, s_col.b, s_alpha * 0.5), 1.0)
+
 	# Spawn-grace shield ring.
 	if s.spawn_grace > 0.0:
 		var a := 0.25 + 0.35 * absf(sin(t * 8.0))
-		draw_arc(Vector2.ZERO, 22.0, 0.0, TAU, 24, Color(0.6, 1.4, 2.0, a), 2.0)
+		draw_arc(Vector2.ZERO, 25.0, 0.0, TAU, 24, Color(1.2, 1.8, 0.6, a), 2.0)
 
 	draw_set_transform(Vector2.ZERO)
+
+func _find_best_target(human: SimShip, world: SimWorld) -> SimShip:
+	var best: SimShip = null
+	var best_score := -1.0e9
+	var human_fwd := Vector2(cos(human.angle), sin(human.angle))
+	for s in world.ships:
+		if not s.alive or s.id == human.id:
+			continue
+		if human.team >= 0 and s.team == human.team:
+			continue
+		var delta := TorusMath.shortest_delta(human.pos, s.pos, world.config.arena_size)
+		var dist := delta.length()
+		if dist > 1800.0 or dist < 1.0:
+			continue
+		var dir := delta / dist
+		var dot := human_fwd.dot(dir)
+		var score := dot * 800.0 - dist * 0.4
+		if score > best_score:
+			best_score = score
+			best = s
+	return best
+
+func _draw_targeting_reticle(world: SimWorld, t: float) -> void:
+	var human := session.human_ship()
+	if human == null or not human.alive:
+		return
+	var target := _find_best_target(human, world)
+	if target == null:
+		return
+
+	var muzzle := world.config.torpedo_speed
+	var arena_sz := world.config.arena_size
+	var rel := TorusMath.shortest_delta(human.pos, target.pos, arena_sz)
+	var t_hit := rel.length() / maxf(muzzle, 1.0)
+	for _i in range(3):
+		var predicted := rel + (target.vel - human.vel) * t_hit
+		t_hit = predicted.length() / maxf(muzzle, 1.0)
+
+	var lead_offset := rel + (target.vel - human.vel) * t_hit
+	var lead_pos := human.pos + lead_offset
+	if world.config.wrap_edges:
+		lead_pos = TorusMath.wrap_point(lead_pos, arena_sz)
+
+	var wrap := world.config.wrap_edges
+	var half := arena_sz * 0.5
+	var lead_angle := lead_offset.angle()
+	var angle_diff := absf(wrapf(human.angle - lead_angle, -PI, PI))
+	var is_locked := angle_diff < 0.10
+
+	var target_render_pos := _ipos("s%d" % target.id, target.pos)
+	for off in _ghost_offsets(target_render_pos, wrap, half, 100.0):
+		var tp := target_render_pos + off
+		var br_size := 18.0
+		var br_col := Color(0.3, 2.2, 0.6, 0.85) if is_locked else Color(1.0, 0.4, 0.4, 0.65)
+		draw_line(tp + Vector2(-br_size, -br_size), tp + Vector2(-br_size + 6, -br_size), br_col, 1.5)
+		draw_line(tp + Vector2(-br_size, -br_size), tp + Vector2(-br_size, -br_size + 6), br_col, 1.5)
+		draw_line(tp + Vector2(br_size, -br_size), tp + Vector2(br_size - 6, -br_size), br_col, 1.5)
+		draw_line(tp + Vector2(br_size, -br_size), tp + Vector2(br_size, -br_size + 6), br_col, 1.5)
+		draw_line(tp + Vector2(-br_size, br_size), tp + Vector2(-br_size + 6, br_size), br_col, 1.5)
+		draw_line(tp + Vector2(-br_size, br_size), tp + Vector2(-br_size, br_size - 6), br_col, 1.5)
+		draw_line(tp + Vector2(br_size, br_size), tp + Vector2(br_size - 6, br_size), br_col, 1.5)
+		draw_line(tp + Vector2(br_size, br_size), tp + Vector2(br_size, br_size - 6), br_col, 1.5)
+
+	var lead_col := Color(0.3, 2.4, 0.7, 0.9) if is_locked else Color(1.0, 0.85, 0.25, 0.65)
+	for off in _ghost_offsets(lead_pos, wrap, half, 60.0):
+		var lp := lead_pos + off
+		var d_size := 6.0 if not is_locked else 8.0
+		var diamond := PackedVector2Array([
+			lp + Vector2(0, -d_size),
+			lp + Vector2(d_size, 0),
+			lp + Vector2(0, d_size),
+			lp + Vector2(-d_size, 0),
+			lp + Vector2(0, -d_size)
+		])
+		draw_polyline(diamond, lead_col, 1.5)
+		draw_circle(lp, 1.5, lead_col)
+
+		if rel.length_squared() < 1400.0 * 1400.0:
+			draw_line(target_render_pos + off, lp, Color(lead_col.r, lead_col.g, lead_col.b, 0.25), 1.0)
 
 func _ship_difficulty_visual_scale(s: SimShip) -> float:
 	if session == null or not session.bots.has(s.id):

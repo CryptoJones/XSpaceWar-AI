@@ -92,4 +92,5 @@ static func explode_mine(world: SimWorld, m: SimMine) -> void:
 			continue
 		var blast_clearance := config.mine_blast_radius + s.radius
 		if TorusMath.distance_squared(m.pos, s.pos, config.arena_size) <= blast_clearance * blast_clearance:
-			CollisionSystem.destroy_ship(world, s, m.owner_id if s.id != m.owner_id else -1, "mine")
+			var impulse := TorusMath.shortest_delta(m.pos, s.pos, config.arena_size)
+			CollisionSystem.damage_ship(world, s, m.owner_id if s.id != m.owner_id else -1, "mine", 2, impulse)

@@ -58,7 +58,7 @@ static func resolve(world: SimWorld, dt: float) -> void:
 			if TorusMath.swept_hits_moving_circle(t_prev, t.pos, s_prev, s.pos,
 					s.radius + t.radius, config.arena_size):
 				var killer := -1 if s.id == t.owner_id else t.owner_id
-				destroy_ship(world, s, killer, "torpedo")
+				damage_ship(world, s, killer, "torpedo", 1, t.vel)
 				consumed = true
 				break
 		if not consumed:
@@ -77,7 +77,11 @@ static func resolve(world: SimWorld, dt: float) -> void:
 				continue
 			if TorusMath.swept_hits_circle(s_prev, s.pos, b.pos,
 					b.radius + s.radius, config.arena_size):
-				destroy_ship(world, s, -1, "body")
+				if b.kind == SimBody.Kind.ASTEROID and config.shield_max > 0 and s.shields > 0:
+					damage_ship(world, s, -1, "asteroid", 1, s.vel * -0.5)
+					break_rock(world, b)
+				else:
+					destroy_ship(world, s, -1, "body")
 				break
 
 	# Ships vs ships.
@@ -133,6 +137,28 @@ static func bounce(a: SimShip, b: SimShip, arena_size: float) -> void:
 		a.pos -= n * overlap * 0.5
 		b.pos += n * overlap * 0.5
 
+static func damage_ship(world: SimWorld, s: SimShip, killer_id: int, cause: String, damage: int = 1, impulse_vel: Vector2 = Vector2.ZERO) -> void:
+	if not s.alive or s.spawn_grace > 0.0:
+		return
+	if s.frozen or s.invulnerable:
+		return
+	if world.config.shield_max > 0 and s.shields > 0:
+		s.shields = maxi(0, s.shields - damage)
+		s.shield_timer = 0.0
+		if impulse_vel.length_squared() > 1.0:
+			s.vel += impulse_vel.normalized() * 120.0
+		world.events.append({
+			"tk": world.tick,
+			"type": "shield_hit",
+			"ship": s.id,
+			"pos": s.pos,
+			"killer": killer_id,
+			"remaining": s.shields,
+			"cause": cause
+		})
+		return
+	destroy_ship(world, s, killer_id, cause)
+
 static func destroy_ship(world: SimWorld, s: SimShip, killer_id: int, cause: String) -> void:
 	if not s.alive:
 		return
@@ -148,5 +174,16 @@ static func destroy_ship(world: SimWorld, s: SimShip, killer_id: int, cause: Str
 			killer.kills += 1
 			killer.score += 1
 			world.events.append({"tk": world.tick, "type": "kill", "killer": killer_id, "victim": s.id})
+			# Salvage drop from destroyed enemy ship
+			if world.config.pickup_chance > 0.0 and world.rng.randf() < 0.60:
+				var p := SimPickup.new()
+				p.id = world.alloc_id()
+				p.kind = world.rng.randi() % SimPickup.Kind.size()
+				p.pos = s.pos
+				var ang := world.rng.randf() * TAU
+				p.vel = s.vel * 0.3 + Vector2(cos(ang), sin(ang)) * world.rng.randf_range(15.0, 45.0)
+				p.ttl = world.config.pickup_ttl * 1.5
+				p.radius = world.config.pickup_radius * 1.1
+				world.pickups.append(p)
 	elif cause == "torpedo" or cause == "hyperspace" or cause == "mine":
 		s.score -= 1  # suicide / self-destruct penalty

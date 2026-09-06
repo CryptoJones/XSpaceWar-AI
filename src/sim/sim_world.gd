@@ -151,10 +151,15 @@ func _step_torpedoes(dt: float) -> void:
 ## position / wrap) exactly as a full step would, without weapons, timers, or
 ## collisions. Used by net clients to predict the local ship: the order
 ## matches SpawnSystem.step_ship -> GravitySystem.integrate_ships for one ship.
-func step_ship_kinematics(s: SimShip, turn: float, thrust: bool, dt: float) -> void:
+func step_ship_kinematics(s: SimShip, turn: float, thrust: bool, dt: float, brake: bool = false) -> void:
 	s.angle = wrapf(s.angle + clampf(turn, -1.0, 1.0) * config.turn_rate * dt, -PI, PI)
 	if thrust and s.fuel > 0.0:
 		s.vel += s.facing() * config.thrust_accel * dt
+		s.fuel = maxf(0.0, s.fuel - config.thrust_fuel_per_sec * dt)
+	elif brake and s.vel.length_squared() > 1.0 and s.fuel > 0.0:
+		var speed := s.vel.length()
+		var dv := minf(speed, config.thrust_accel * 0.95 * dt)
+		s.vel -= s.vel.normalized() * dv
 		s.fuel = maxf(0.0, s.fuel - config.thrust_fuel_per_sec * dt)
 	else:
 		s.fuel = minf(config.max_fuel, s.fuel + config.fuel_regen_per_sec * dt)

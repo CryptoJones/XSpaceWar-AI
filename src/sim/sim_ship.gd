@@ -32,6 +32,9 @@ var hyperspace_cooldown: float = 0.0
 var hyperspace_uses: int = 0
 var spawn_grace: float = 0.0
 var radius: float = 12.0
+var shields: int = 0
+var max_shields: int = 0
+var shield_timer: float = 0.0
 ## DEBUG ONLY (dev-mode freeze key): park in place — skip gravity/motion and be
 ## immune to collision. Never set in normal or networked play; defaults false so
 ## the deterministic sim is unaffected.
@@ -55,6 +58,7 @@ var in_thrust: bool = false
 var in_fire: bool = false
 var in_hyper: bool = false
 var in_mine: bool = false
+var in_brake: bool = false
 ## Previous Hyper+Fire chord state for authoritative rising-edge detection.
 var hyper_chord_prev: bool = false
 
@@ -67,3 +71,4 @@ func clear_inputs() -> void:
 	in_fire = false
 	in_hyper = false
 	in_mine = false
+	in_brake = false

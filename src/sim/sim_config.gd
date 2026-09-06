@@ -40,6 +40,8 @@ var spawn_grace: float = 1.5            ## seconds of invulnerability after (re)
 var spawn_orbit_radius: float = 1250.0
 var respawn_time: float = 4.0
 var lives: int = 0                      ## deaths before elimination (0 = unlimited)
+var shield_max: int = 0                 ## 0 = classic 1-hit kill; >0 = energy shields
+var shield_recharge_delay: float = 6.0  ## seconds without damage before shield recharges
 
 ## ---- Wire serialization -------------------------------------------------
 ## EVERY config override a session applies must round-trip here: the net
@@ -59,6 +61,8 @@ func to_wire() -> Dictionary:
 		"mr": manual_respawn,
 		"fp": flight_pace,
 		"fs": max_ship_speed,
+		"sm": shield_max,
+		"sd": shield_recharge_delay,
 	}
 
 static func from_wire(d: Dictionary) -> SimConfig:
@@ -72,6 +76,8 @@ static func from_wire(d: Dictionary) -> SimConfig:
 	cfg.torpedo_life = float(d.get("tl", cfg.torpedo_life))
 	cfg.mine_life = float(d.get("ml", cfg.mine_life))
 	cfg.mine_arm_time = float(d.get("ma", cfg.mine_arm_time))
+	cfg.shield_max = int(d.get("sm", cfg.shield_max))
+	cfg.shield_recharge_delay = float(d.get("sd", cfg.shield_recharge_delay))
 	# Absent in pre-feature tapes/peers -> false = the old auto-respawn rule.
 	cfg.manual_respawn = bool(d.get("mr", false))
 	if d.has("fp") or d.has("fs"):

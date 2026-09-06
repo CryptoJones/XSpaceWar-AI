@@ -18,6 +18,8 @@ func _initialize() -> void:
 	_test_hyperspace_chord_edges()
 	_test_mines()
 	_test_pickups()
+	_test_shields()
+	_test_braking()
 	print("=== %d passed, %d failed ===" % [_passed, _failed])
 	quit(1 if _failed > 0 else 0)
 
@@ -253,3 +255,51 @@ func _test_pickups() -> void:
 			granted = ship.mines > 0
 	_check("pickup: touching it grants the cargo and consumes it",
 		granted and w.pickups.is_empty())
+
+func _test_shields() -> void:
+	var cfg := SimConfig.from_seed(42)
+	cfg.wrap_edges = false
+	cfg.shield_max = 2
+	cfg.shield_recharge_delay = 1.0
+	var w := SimWorld.new(cfg)
+	var attacker := w.add_ship()
+	attacker.pos = Vector2.ZERO; attacker.angle = 0.0; attacker.spawn_grace = 0.0
+	var target := w.add_ship()
+	target.pos = Vector2(250, 0); target.vel = Vector2.ZERO; target.spawn_grace = 0.0
+
+	_check("shield: target spawns with full shields", target.shields == 2)
+	_drive(attacker, 0.0, false, true)
+	w.step()
+
+	for _i in range(120):
+		attacker.clear_inputs()
+		target.clear_inputs()
+		w.step()
+		if target.shields < 2:
+			break
+	_check("shield: first hit absorbs damage and keeps ship alive",
+		target.alive and target.shields == 1)
+
+	# Let shields recharge after delay
+	for _i in range(120):
+		w.step()
+		if target.shields == 2:
+			break
+	_check("shield: recharges back to max over time", target.shields == 2)
+
+func _test_braking() -> void:
+	var cfg := SimConfig.from_seed(99)
+	var w := SimWorld.new(cfg)
+	var s := w.add_ship()
+	s.pos = Vector2(10000, 10000)
+	s.vel = Vector2(500, 0)
+	s.fuel = cfg.max_fuel
+
+	s.in_brake = true
+	var initial_fuel := s.fuel
+	var initial_speed := s.vel.length()
+	for _i in range(30):
+		s.in_brake = true
+		w.step()
+	_check("brake: decelerates velocity toward zero", s.vel.length() < initial_speed)
+	_check("brake: consumes fuel during deceleration", s.fuel < initial_fuel)

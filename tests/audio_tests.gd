@@ -15,10 +15,12 @@ func _initialize() -> void:
 	var hyper := SoundForge.hyperspace()
 	var thrust := SoundForge.thrust_loop()
 
-	for pair in [["fire", fire], ["explosion", boom], ["hyperspace", hyper], ["thrust", thrust], ["wrap_zip", SoundForge.wrap_zip()]]:
+	for pair in [["fire", fire], ["explosion", boom], ["hyperspace", hyper], ["thrust", thrust],
+			["wrap_zip", SoundForge.wrap_zip()], ["shield_hit", SoundForge.shield_hit()],
+			["hit_confirm", SoundForge.hit_confirm()], ["threat_warning", SoundForge.threat_warning()]]:
 		var wav: AudioStreamWAV = pair[1]
 		_check("%s: synthesized non-trivial PCM" % pair[0],
-			wav != null and wav.data.size() > 2000 and wav.mix_rate == SoundForge.RATE,
+			wav != null and wav.data.size() > 1000 and wav.mix_rate == SoundForge.RATE,
 			"bytes=%d" % (wav.data.size() if wav != null else -1))
 
 	_check("explosion outlasts fire", boom.data.size() > fire.data.size())

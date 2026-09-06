@@ -86,6 +86,7 @@ const BINDABLE := [
 	["turn_left", "Turn left"],
 	["turn_right", "Turn right"],
 	["thrust", "Thrust"],
+	["brake", "Brake / Retro-thrusters"],
 	["fire", "Fire torpedo"],
 	["mine", "Drop mine"],
 	["hyper", "Hyperspace (with Fire)"],
@@ -901,6 +902,7 @@ func _build_controls_panel() -> HBoxContainer:
 	row.add_child(_controls_column("KEYBOARD", [
 		["%s / %s  or  ◄ ►" % [_key_name("turn_left"), _key_name("turn_right")], "turn"],
 		["%s  or  ▲" % _key_name("thrust"), "thrust"],
+		["%s  or  C" % _key_name("brake"), "brake"],
 		[_key_name("fire"), "fire torpedo"],
 		["%s  or  ▼" % _key_name("mine"), "drop mine"],
 		["%s or ENTER + SPACE" % _key_name("hyper"), "hyperspace"],
@@ -912,6 +914,7 @@ func _build_controls_panel() -> HBoxContainer:
 	row.add_child(_controls_column("GAMEPAD", [
 		["LEFT STICK", "turn"],
 		["%s / RT" % _pad_name("thrust"), "thrust"],
+		[_pad_name("brake"), "brake"],
 		[_pad_name("fire"), "fire torpedo"],
 		["%s / LT" % _pad_name("mine"), "drop mine"],
 		["%s + %s" % [_pad_name("hyper"), _pad_name("fire")], "hyperspace"],

@@ -311,9 +311,10 @@ func _apply(ship: SimShip, dt: float) -> void:
 		for torp in world.torpedoes:
 			if torp.owner_id == ship.id:
 				continue
-				if TorusMath.distance_squared(ship.pos, torp.pos, world.config.arena_size) < panic * panic:
-					# Only dodge torpedoes actually closing on us.
-					var closing := TorusMath.shortest_delta(ship.pos, torp.pos, world.config.arena_size).normalized().dot((ship.vel - torp.vel).normalized())
-					if closing < -0.2:
-						ship.in_hyper = true
-						break
+			if TorusMath.distance_squared(ship.pos, torp.pos, world.config.arena_size) < panic * panic:
+				# Only dodge torpedoes actually closing on us.
+				var closing := TorusMath.shortest_delta(ship.pos, torp.pos, world.config.arena_size).normalized().dot((ship.vel - torp.vel).normalized())
+				if closing < -0.2:
+					ship.in_hyper = true
+					ship.in_fire = true
+					break
