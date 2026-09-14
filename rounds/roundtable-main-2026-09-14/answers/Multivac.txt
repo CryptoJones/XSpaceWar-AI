@@ -1,0 +1,61 @@
+**1. Sim Determinism & Arithmetic Edge Cases**  
+- **Division-by-zero**:  
+  - `TorusMath.shortest_delta` and `distance` functions check `size <= 0.0` and return early, preventing division by zero.  
+  - No unguarded divisions by `r` or `mass` in collision/gravity code.  
+- **NaN/Inf**:  
+  - `sqrt` and `length` calls operate on squared distances or clamped values, avoiding NaN.  
+  - `clampf`/`maxf`/`minf` guard arithmetic (e.g., `s.fuel = maxf(0.0, ...)`).  
+- **Unseeded RNG**:  
+  - `SimWorld.rng` is seeded from `config.seed` in `_init`.  
+- **Toroidal wrapping/tunneling**:  
+  - `WrapSystem.wrap_with_boost` and `TorusMath` handle wrapping correctly.  
+  - Swept collision uses `TorusMath` for wrap-aware hits.  
+  - No obvious tunneling escapes.  
+**Verdict**: No critical defects found.  
+
+**2. Netcode & Packet Security**  
+- **Crash/memory leaks**:  
+  - `NetProtocol.unpack` uses `bytes_to_var` (safe) and rejects oversized packets (`MAX_CLIENT_PACKET`).  
+  - `_inputs`/`_acked` grow with connected peers but are cleared on disconnect.  
+- **Spoofing**:  
+  - Ship IDs are assigned authoritatively by the host.  
+  - Input sequence `q` is validated against `_acked` with `MAX_INPUT_SEQ_GAP` guard.  
+- **Rate limits**:  
+  - `MAX_PEERS_PER_IP`, `MAX_PACKETS_PER_PUMP_PER_PEER`, `MIN_HELLO_GAP_TICKS` mitigate DoS.  
+- **Sequence exhaustion**:  
+  - `MAX_INPUT_SEQ_GAP` prevents sequence counter pinning.  
+**Verdict**: No critical defects found.  
+
+**3. Bot AI & Behavior Trees**  
+- **Freeze/loop/crash**:  
+  - `BotBehaviors` chain has early-exit priority (no infinite loops).  
+  - Target acquisition checks `target != null` and `alive` status.  
+- **Toroidal lead aim**:  
+  - `LeadAimRange` uses `TorusMath.shortest_delta` for wrap-aware targeting.  
+- **Difficulty scaling**:  
+  - Parameters scale with difficulty (e.g., `maxf(0.12, float(ctx["aggr"]))`).  
+  - Visual size scaling is separate and not shown.  
+**Verdict**: No critical defects found.  
+
+**4. Dedicated Server, Moderation & Persistence**  
+- **Concurrency/file corruption**:  
+  - `_persist_bans` writes synchronously on ban/unban.  
+  - Replay writes are atomic.  
+- **Command injection**:  
+  - Console commands are parsed internally (no shell execution).  
+- **Memory leaks**:  
+  - `_tracks` and `_cmd_queue` are bounded.  
+**Verdict**: No critical defects found.  
+
+**5. Dead Code, Missing Guards & Fragile Constructs**  
+- **Unhandled errors**:  
+  - `FileAccess` operations lack error handling in replay/banfile code.  
+  - Transport `open` failures are logged but not always fatal.  
+- **State transitions**:  
+  - Match restart logic appears robust (`_on_session_rebuilt`).  
+- **Fragile constructs**:  
+  - `NetProtocol.unpack` type checks prevent malformed data crashes.  
+  - `MAX_CLIENT_PACKET` guards against large-packet DoS.  
+**Verdict**: Minor robustness issues in file I/O, but no critical defects.  
+
+**Overall**: The codebase is well-hardened against determinism, net security, and DoS risks. Minor improvements in error handling and file I/O robustness are recommended but not critical.

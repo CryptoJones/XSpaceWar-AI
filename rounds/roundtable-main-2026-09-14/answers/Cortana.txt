@@ -1,0 +1,44 @@
+**Verdict: not ship-ready as a public v5.0.0.** Two match-breaking defects are visible from the text alone, one from a single hostile packet and one from a config flag that the dedicated server exposes. The rest is a mix of real moderation gaps and things I could not verify because the relevant files were not provided.
+
+## Confirmed defects, ranked
+
+**1. One NaN input poisons the whole arena (Q2, critical).** `apply_input` does `clampf(float(u), -1, 1)`. Godot's clamp is comparison-based, so NaN passes straight through. NaN turn produces NaN angle, then NaN velocity and position if thrusting. Every swept test returns false on NaN, so the ship becomes unkillable by torpedoes and bodies. The ship-vs-ship check is `distance_squared > clearance²`, which is false for NaN, so it "collides" with every alive ship every tick. In bounce mode, `bounce` spreads NaN into each ship's velocity and the entire roster is frozen in NaN forever. In lethal-ram mode, every ship earlier in the array dies each tick with no penalty to the attacker, and since `_inputs[sid]` is replayed every step the attack repeats after each respawn. Fix: reject the packet in `_on_packet` unless `u` is a finite float and `q` is an int, and add `is_finite` guards in `apply_input`.
+
+**2. Toroidal math is applied even when wrap is off (Q1, Q3, high).** Every caller in `CollisionSystem`, `SpawnSystem`, and `BotBehaviors` passes `config.arena_size` to `TorusMath` unconditionally. `Boundary` proves `arena_size` is nonzero under `lethal_edges`. So with `--edges`, `shortest_delta` still folds deltas longer than half the map. Bots see a target far across the arena as close in the opposite direction, fly toward the lethal wall, and get bounced back by `Boundary` in a permanent oscillation. Lead aim fires shots off the map. Spawn clearance and collisions also see phantom neighbors through a seam that does not exist. `AimAnalyzer._delta` branches on `wrap`, so the authors know the distinction, but the sim does not. Fix: a `config.torus_size()` helper returning zero when `wrap_edges` is false.
+
+**3. Hello throttle breaks after a match restart (Q2, high on direct/LAN).** `_last_hello_tick` stores the world tick, but the rebuilt world starts at tick zero. Any IP whose last hello was at tick N in the previous match gets "connecting too fast" until the new match passes tick N. A player who joined 20 minutes into match one and reconnects after a crash in match two is locked out for 20 minutes. Fix: key on wall-clock ticks or clear the map in `_on_session_rebuilt` before its early return.
+
+**4. Per-IP cap is checked at HELLO, not at connect (Q2, high).** ENet is opened with 32 max peers. A peer that connects and never sends HELLO is never counted in `_peers`, never throttled, and never timed out. One address holding 32 silent connections makes the server full for everyone, and `MAX_PEERS_PER_IP` never fires. Fix: record connect tick per peer and kick anything without a HELLO after a few seconds. Whether `DirectHostTransport` enforces anything at connect is not shown.
+
+**5. Bans store the wrong name and cannot be undone (Q4, medium).** `_ban_peer` bans the tagged display name, but `_is_banned` matches the requested name. A player tagged `BOB-4827` is banned as that string and rejoins as `BOB` without renaming. Separately, `_ban_addrs` has no removal path, so the console's `unban` prints "removed" while the address stays banned until restart.
+
+**6. Banfile write is not atomic (Q4, medium).** `_persist_bans` truncates and rewrites in place. A kill mid-write leaves a partial or empty file, and the next boot silently loads fewer bans. Write to a temp path and rename.
+
+**7. Snapshot thrust list is stale and duplicated (Q2, medium).** `_broadcast_snapshot` scans the entire accumulated event buffer, up to 512 entries, for thrust events. With a dozen ships thrusting that is 20 to 40 ticks of history, so `th` carries hundreds of duplicate ids per snapshot at 20 Hz, and client flames lag by up to 0.7 seconds. Filter by tick and dedupe.
+
+**8. Relay death leaves a zombie dedicated server (Q4, medium).** `dedicated_main` never checks `host.transport_failed()`. After a relay link drop it keeps stepping bots forever, nobody can join, and nothing is logged.
+
+**9. Unbounded growth on endless matches (Q4, medium).** Torpedoes have no fuse by default, live in Keplerian gravity, and only die on contact. Ones fired near-tangentially settle into stable orbits and accumulate. With `--score 0` there is no rebuild to flush them, so collision cost, spawn clearance cost, and snapshot size grow without bound. The replay recorder has the same problem when `--record` meets an endless match. `_last_hello_tick` also never prunes, though that one is small.
+
+## Smaller issues
+
+- **Type confusion floods the log.** `bool()` and `int()` on a Dictionary raise runtime errors in GDScript rather than converting. A client sending non-scalar fields at 8 packets per pump generates hundreds of error lines per second on the host. Not a crash, but a disk-filling nuisance. Fix is the same type validation as finding 1.
+- **A dead rammer keeps killing.** In ships-vs-ships, `a` dying on the first contact does not break the inner loop, so it kills every later overlapping ship in the same tick. `destroy_ship` also rewards team kills with score when friendly fire is on.
+- **Ships-vs-ships is not swept.** Every other test is swept, but this one is an instantaneous distance check. Tunneling depends on `max_ship_speed`, which is not shown.
+- **Torpedo prev-position is wrong on seam ticks.** `wrap_with_boost` changes velocity before `resolve` recomputes `t_prev` from the new velocity. Small phantom miss or hit window at each seam crossing.
+- **Aim heuristics have false-positive paths.** Nearest-enemy flipping resets the cone clock, so a shot at a long-tracked target counts as sub-human acquisition. A target hyperspacing while the aim happens to land within 3 degrees counts as a seam lock. Warnings only, but the console shows the flag next to names.
+- **`HazardDodge` with zero velocity** produces a zero lateral vector and dodges toward angle zero regardless of the hazard.
+- **Dead code.** `CollisionSystem.segment_hits_circle` and `TorusMath.wrap_point` have no callers in the provided files. The callsign-whitelist docstring in `net_protocol.gd` is attached to `parse_addr`.
+- **Console thread is never joined** and cannot be, since it blocks in stdin. Verify shutdown is clean, and verify a blank Enter does not end the console if `read_string_from_stdin` strips the newline.
+- **Unclamped operator flags.** `--planets` and `--respawn` ignore their documented ranges.
+
+## No defect found
+
+- **Sequence gap wrap-around.** `q` is int64 incremented at 60 Hz, so exhaustion takes hundreds of millions of years. Overflow arithmetic wraps silently and every path recovers via the rebase branch. A client can only pin its own ship.
+- **Slot spoofing.** Ship id comes from `_peers[peer]`, never from the packet. Reclaim is off by default.
+- **Console command injection.** No shell, names pass a strict whitelist, and printed names are sanitized.
+- **AimAnalyzer after a peerless rebuild.** `_seen_tick` and `_fire_tick` are reassigned every observe call, so it self-heals after one tick.
+
+## Insufficient evidence
+
+`GravitySystem`, `WrapSystem`, `BotController`, `_lead_angle`, and the transports were not provided. That covers the single most likely division-by-zero site, which is gravity evaluated inside a body for a spawn-graced ship that skipped body collision. It also covers whether bot RNGs are seeded from the sim, whether ENet fragments oversized unreliable snapshots, and whether a maxed star on a minimum map pushes the spawn ring inside the star. Those need the missing files, not more guessing.

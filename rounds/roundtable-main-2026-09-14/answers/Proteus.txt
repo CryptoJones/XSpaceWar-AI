@@ -1,0 +1,23 @@
+**Concrete Findings:**
+
+1. **Sim Determinism & Arithmetic Edge Cases:**
+   - *No division-by-zero vulnerabilities or NaN/Inf propagation found.* The codebase uses safe arithmetic operations and does not perform any divisions that could result in division by zero. Additionally, there are no unseeded random calls.
+   - *No evidence of entities escaping the arena or creating infinite loops due to toroidal wrapping or swept collision tunneling.* The `TorusMath` class handles shortest-path calculations correctly, and the `CollisionSystem` resolves collisions properly within the toroidal space.
+
+2. **Netcode & Packet Security:**
+   - *No clear vulnerabilities found that allow a malicious client to crash the host, cause memory leaks, trigger unbounded dictionary growth, spoof another player's ship/slot, or bypass packet/rate limits.* The `NetProtocol` and `NetHost` classes implement robust validation and handling of incoming packets, with strict limits on packet size and frequency.
+   - *The `MAX_INPUT_SEQ_GAP` guard appears robust against sequence wrap-around or exhaustion over long-running matches.* The guard is designed to handle sane input sequence gaps and resets, preventing exploitation through sequence manipulation.
+
+3. **Bot AI & Behavior Trees:**
+   - *No failure modes found where bots freeze, fail to acquire targets, loop infinitely, crash on null/dead targets, or miscalculate toroidal lead aim across the arena wrap.* The `BotBehaviors` class implements a priority-based decision-making system that appears to handle various scenarios correctly.
+   - *No edge-case game breaks introduced by difficulty scaling.* The difficulty scaling mechanism adjusts bot behaviors appropriately without introducing game-breaking issues.
+
+4. **Dedicated Server, Moderation & Persistence:**
+   - *No concurrency/lifecycle bugs, file corruption risks with `--banfile` under concurrent or interrupted writes, command injection in the moderation console, or memory leaks over multi-hour matches found.* The `dedicated_main.gd` script manages the server and moderation console effectively, with proper handling of ban file persistence and console commands.
+   - *The moderation console commands are safely implemented and do not appear vulnerable to command injection.*
+
+5. **Dead Code, Missing Guards & Fragile Constructs:**
+   - *No unhandled error conditions or fragile constructs found across the load-bearing files.* The codebase appears to handle various edge cases and state transitions robustly, with appropriate guards and error handling in place.
+
+**Summary:**
+- The codebase appears robust and well-implemented across the evaluated areas. No critical defects or vulnerabilities were identified in the provided files. The simulation, netcode, bot AI, dedicated server, and moderation components all function as intended without apparent flaws.

@@ -1,0 +1,55 @@
+Model: `openai/gpt-oss-120b`.
+
+Release verdict: not ready for a major public release. There are two release-blocking issues: remote NaN injection into the authoritative simulation and unbounded permanent projectiles.
+
+1. Sim determinism and arithmetic
+
+- Critical: `NetProtocol.apply_input()` accepts non-finite `u`. `clampf(NaN, ...)` does not reliably make it finite; the NaN can enter `s.angle`, then `facing()`, velocity, position, collision math, AI, and snapshots. Reject non-numeric and non-finite values before applying input.
+- With `torpedo_life == 0`, torpedoes live forever and have no population cap. Ammo regeneration therefore permits unbounded memory, snapshot size, and per-tick collision cost.
+- `place_in_orbit()` can divide by zero at `gravity_constant * m / r` when `r == 0`, and can take `sqrt()` of a negative value if configuration is invalid. Configuration validation is not shown.
+- Ammo and mine regeneration loops are infinite when their respective intervals are zero or negative.
+- The spawn-radius safety constraint is applied before the arena clamp. A small arena or oversized primary can force the final radius back inside the star. All 12 candidates then share the same unsafe radius.
+- `TorusMath.shortest_delta()` corrects by only one arena width. Displacements greater than 1.5 widths produce an incorrect shortest path. Permanent accelerating torpedoes make this reachable unless speed and timestep are strictly bounded elsewhere.
+- Torpedoes wrap—and may receive a slingshot velocity change—before collision resolution. Reconstructing `t_prev` afterward from the wrapped position and new velocity does not represent the actual trajectory.
+- Ship-versus-ship collision is endpoint-only, despite the “swept collision” description. Fast ships can tunnel through one another.
+- No infinite loops exist in the shown torus functions. `WrapSystem`, `GravitySystem`, and `MineSystem` are absent, so near-zero gravity and actual wrapping-loop safety cannot be verified.
+- No unseeded randomness appears in the shown simulation code. The host’s `randi_range()` for duplicate callsigns is unseeded but does not mutate simulation state.
+
+2. Netcode and packet security
+
+- Payload shape is checked, but field types and finiteness are not. Hostile variants reach `int()`, `float()`, `String()`, and `bool()` conversions directly. Exact Godot failure behavior for every invalid conversion is unsure, but the schema is not crash-safe.
+- Sequence handling is not monotonic: duplicates are accepted, negative values are accepted, and any value more than 1024 below the current ACK is treated as a reset. A delayed or malicious old packet can rewind `_acked`, after which legitimate current packets may be rejected as excessive jumps.
+- There is no modular sequence comparison. Signed 64-bit exhaustion is not practically relevant at 60 Hz, but arithmetic at actual wrap is unguarded.
+- `_last_hello_tick` is never pruned, allowing permanent growth under long-running churn from distinct addresses.
+- Raw connections have no shown HELLO timeout. They can occupy transport slots without entering `_peers`, bypassing the established-peer-per-IP accounting.
+- PING is accepted before HELLO and echoed reliably. Combined with eight packets per pump, this supplies avoidable unauthenticated outbound work.
+- The pump limit is a per-frame allowance, not a time-based rate limit, and persistent flooding never triggers disconnection.
+- Callsign ban bypass: if `PILOT` is banned, a relay client can request an empty or punctuation-only name. `_is_banned()` sees an empty filtered name, but later `sanitize_name()` assigns `PILOT`.
+- No path was found for a client to select or spoof another ship ID; ship ownership comes exclusively from `_peers`.
+
+3. Bot behavior
+
+- Bots always use toroidal deltas, including lethal-edge mode. Targeting and steering can therefore choose a nonexistent wrapped route in a non-wrapping arena.
+- `LeadAimRange` labels its vector `away`, but computes ship-to-star, which points toward the star. This reverses the documented slingshot blend.
+- Hazard dodging with zero velocity produces a zero lateral vector and an arbitrary angle instead of a meaningful escape direction.
+- The shown cascade is finite, and `LeadAimRange` receives a non-null target under the stated early-exit invariant.
+- Target acquisition, `_lead_angle()`, and visual difficulty scaling are not provided; freeze behavior, lead interception correctness, and size-scaling edge cases cannot be verified.
+
+4. Dedicated server, moderation, and persistence
+
+- Ban persistence truncates the live file before rewriting. Power loss or process termination can leave an empty or partial ban list. Use a temporary file, flush it, then atomically rename it.
+- There is no in-process concurrent banfile writer, but two server processes sharing a file would race without locking.
+- The blocking console thread is never stopped or joined. Shutdown can leak the thread, hang, or produce Godot lifecycle errors.
+- `_cmd_queue` is unbounded, although only local stdin can feed it.
+- No shell execution occurs, so no command-injection path was found.
+- Replay recording is not finalized during shutdown, so the active match can be lost.
+- Aim analysis scores fire events using post-step geometry. A fire-plus-hyperspace action is measured from the destination, not the firing position. If the shooter is dead or has no enemy at observation time, `cur_err` remains stale and can falsely count as tight aim.
+
+5. Fragile or dead constructs
+
+- Outbound snapshots have no size guard; permanent torpedoes will eventually exceed practical transport or client decode limits.
+- `segment_hits_circle()` is unused in the supplied collision implementation.
+- The `pname == ""` fallback is dead because `sanitize_name()` always returns a nonempty value.
+- The SimWorld documentation still says events are cleared each step, contradicting the accumulating implementation.
+- `thrust_ids` scans the retained event history without tick filtering, so snapshots can repeatedly mark stale thrust events and include duplicate ship IDs.
+- Reopen lifecycle is incomplete: `close()` leaves `_names`, `_last_hello_tick`, `_failure_handled`, and other state intact. Reusing a `NetHost` instance can inherit stale state.

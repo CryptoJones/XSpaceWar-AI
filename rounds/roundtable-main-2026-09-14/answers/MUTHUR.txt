@@ -1,0 +1,46 @@
+**1. Sim Determinism & Arithmetic Edge Cases**
+
+- **`spawn_system.gd` `place_in_orbit`:** If `primary == null` and `config.spawn_orbit_radius <= 0.0` (or `config.arena_size <= 0.0`), `r` evaluates to `0.0`. The subsequent `speed = sqrt(config.gravity_constant * m / r)` then evaluates `0.0 / 0.0` → NaN, and the ship’s velocity is permanently poisoned with NaN. This is a division-by-zero / NaN-propagation vulnerability contingent on malformed or edge-case `SimConfig` values when no primary gravitating body exists.
+- **`sim_world.gd` `step(dt = -1.0)`:** No `is_finite(dt)` guard. A NaN argument passes the `dt < 0.0` branch test, propagates into `time += dt` and `tick += 1`, and permanently corrupts the simulation timeline.
+- **`collision_system.gd` ship-vs-ship collisions:** Uses a static point-distance test (`TorusMath.distance_squared(a.pos, b.pos, ...)`) instead of the swept tests used for torpedoes and bodies. Two ships moving rapidly toward each other can tunnel through one another within a single fixed step if their discrete positions never overlap.
+- **`torus.gd`:** No division-by-zero found. `size <= 0.0` is guarded in `shortest_delta`, `wrap_point`, and both `swept_hits_*` functions; `len_sq < 0.000001` prevents division by zero in the swept linear-intersection tests. No infinite loops from wrapping.
+- No unseeded random calls found in the provided sim files; all draws route through `world.rng` or `bot._rng`.
+- **Unsupported claim:** The brief asserts “bit-for-bit” reproducibility. The code seeds `RandomNumberGenerator`, but the provided material does not prove Godot 4.6.3 floating-point and RNG behavior are deterministic across runs.
+- **Delegated code:** `GravitySystem.accel` is not provided; inverse-square gravity division-by-zero at `distance == 0` cannot be verified here.
+
+**2. Netcode & Packet Security**
+
+- **`net_host.gd` `_last_hello_tick`:** Grows without bound for every unique IP that transmits a `MSG_HELLO`, including rejected and throttled sources. Over a long-running host this is an unbounded dictionary growth / memory leak and a DoS vector against server RAM.
+- **`net_host.gd` input-sequence guard:** `MAX_INPUT_SEQ_GAP = 1024` operates on 64-bit `int`. No practical wrap-around or exhaustion vulnerability exists in a match lifetime. A client can force a sequence reset to a large negative number via the `last - q > MAX_INPUT_SEQ_GAP` rebase branch, but afterward normal in-window logic resumes; this does not bypass rate limits or spoof inputs.
+- No ship/slot spoofing found: `MSG_INPUT` is accepted only for the `sid` bound to the peer in `_peers`.
+- `NetProtocol.unpack` rejects packets larger than `max_bytes` before `bytes_to_var`, and the host passes `MAX_CLIENT_PACKET = 4096`. The code uses `bytes_to_var` (not `with_objects`), rejecting script/object smuggling at the API level. No crash vulnerability is evident in the provided parsing logic.
+- **`net_host.gd` `_broadcast_snapshot`:** Snapshot byte arrays are constructed without an upper-size check. A high entity count could produce a snapshot that exceeds the transport MTU; the code does not verify `bytes.size()` before `_t.send`.
+- **Unsupported claim:** The brief calls deserialization “safe.” The provided code uses the objectless `bytes_to_var`, but the material does not prove Godot’s implementation is immune to CPU-exhaustion or memory-exhaustion attacks within the 4 KB limit.
+
+**3. Bot AI & Behavior Trees**
+
+- No freeze or infinite-loop defects found in the provided cascade. `Patrol` always claims the decision when no target exists, so the bot never falls through idle.
+- **`bot_behaviors.gd` `LeadAimRange`:** Accesses `target.pos` without a null check. It is reachable only when `Patrol` defers (guaranteeing `target != null` at cascade entry), but the behavior is not defensive against a target nulled by external mutation mid-cascade.
+- **Toroidal lead aim:** `LeadAimRange` delegates lead-angle computation to `bot._lead_angle(ship, target)`, which is **not provided** in the material. Therefore, the brief’s implicit claim that bots correctly compute toroidal lead aim is **unsupported by the material provided**.
+- No difficulty-scaling edge-case game breaks found in the provided code. `HazardDodge` is skipped for sub-Veteran difficulty; `StarEscape` applies universally.
+- **Unsupported claim:** The brief states “Enemy ship visual size scales inversely with difficulty (Rookies fly larger, easier targets).” The provided `bot_behaviors.gd` contains no rendering or visual-size logic; this claim is unsupported by the material provided.
+
+**4. Dedicated Server, Moderation & Persistence**
+
+- **`dedicated_main.gd` `_persist_bans`:** Rewrites `--banfile` in-place with `FileAccess.WRITE`. There is no atomic write (temp file + rename). A crash or `SIGKILL` during the write truncates the persistent ban store. `store_line` errors are not checked after each call; a full disk causes silent data loss.
+- No command injection found. Console input is split on whitespace and passed as literal string arguments to `kick_name` / `ban_name` / `unban_name`; no shell execution is performed.
+- **`dedicated_main.gd` console thread lifecycle:** The `_console` Thread is started but never signaled to exit nor joined. On `SceneTree.quit()`, the process may hang if the thread remains blocked on `OS.read_string_from_stdin`.
+- **`dedicated_main.gd` `_tick`:** `while _accum >= fixed` has no guard against `fixed <= 0`. If `config.fixed_dt` is misconfigured to `0.0`, the loop spins forever.
+- **`aim_analyzer.gd`:** Memory is bounded per watched player (`Track` is small, erased on `forget`/`reset`). No memory leak found in the analyzer over multi-hour matches.
+- **Unsupported claim:** The brief cites replay recording for “cheating adjudication.” The recording hooks are present, but the replay format’s integrity, tamper resistance, and serialization bounds are not shown in the material.
+
+**5. Dead Code, Missing Guards & Fragile Constructs**
+
+- **Dead code:** `sim_world.gd` `_advance_bodies`, `_hyperspace`, and `_destroy_ship` are unused internal forwarders (admitted by comments as API-preservation shims).
+- **Fragile event buffer:** `sim_world.gd` `step` retains up to 256 past events after exceeding 512. A consumer lagging by more than 256 events loses data permanently.
+- **High-speed tunneling:** `collision_system.gd` ship-vs-ship collision uses a static distance test instead of the swept tests used elsewhere, permitting high-speed tunneling (also listed in Q1).
+- **`bot_behaviors.gd` `HazardDodge`:** `ship.vel.normalized()` on a zero-velocity ship returns a zero vector silently; the computed dodge angle becomes `0.0` radians regardless of hazard bearing, rendering the dodge ineffective.
+- **`spawn_system.gd` `place_in_orbit`:** No guard against negative `config.arena_size`, which yields a negative spawn radius and places ships opposite the intended orbit vector.
+- **`net_host.gd` `_on_hello` name-tag loop:** `while taken.has(tagged.to_upper())` generates random four-digit tags with `randi_range(0, 9999)` but has no iteration ceiling. Collision resolution is practically instantaneous for 16 players, yet the loop is unbounded.
+- **`net_protocol.gd` `apply_match_state`:** No element-type validation on the `mo` array; it implicitly trusts `mo[0]`..`mo[5]` to be coerceable to the expected types.
+- **`dedicated_main.gd` `_seed_bans`:** If the banfile cannot be read, the error is logged and the server continues booting with an empty persistent ban list.

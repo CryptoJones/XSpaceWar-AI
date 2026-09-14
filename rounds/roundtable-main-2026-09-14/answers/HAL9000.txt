@@ -1,0 +1,225 @@
+# Roundtable Lane — XSpaceWar-AI @ 20c5697
+
+Read adversarially against the 5 questions. Findings ranked by blast radius. Where I couldn't verify (files not supplied), I say so rather than guess.
+
+---
+
+## 🔴 Critical
+
+### 1. A client can inject NaN into the authoritative sim and become an immortal ghost
+`net_protocol.gd → apply_input()`
+
+```gdscript
+ship.in_turn = clampf(float(inp.get("u", 0.0)), -1.0, 1.0)
+```
+
+`clampf` does **not** sanitize NaN — Godot's `CLAMP` is `a < min ? min : (a > max ? max : a)`, and both comparisons are false for NaN, so NaN passes straight through. `var_to_bytes`/`bytes_to_var` round-trip NaN doubles fine, so any client can send `{"q":1,"u":NAN}`.
+
+Propagation chain, all on the **host's** authoritative world:
+- `step_ship()`: `s.angle = wrapf(s.angle + NaN * turn_rate * dt, ...)` → `fposmod(NaN,…)` = NaN
+- `s.facing()` → `(NaN, NaN)` → `s.vel` NaN → `s.pos` NaN
+- `CollisionSystem`: every distance comparison against NaN is false → **the ship can never be killed by anything**
+- `snapshot_of()` ships NaN `Vector2`s to every connected client at 20 Hz
+- **Collateral**: `SpawnSystem._spawn_clearance()` does `best = minf(best, NaN)` → `MIN(x, NaN)` returns NaN → `clearance >= 0.0` is false for all 12 attempts *and* `clearance > best_clearance` is false, so **every other player's spawn safety check is silently disabled for the rest of the match**.
+
+There is no `is_finite()` guard anywhere in the input path, the step pipeline, or `snapshot_of()`.
+
+**Fix**: validate in `apply_input` — `var u := float(inp.get("u", 0.0)); ship.in_turn = clampf(u if is_finite(u) else 0.0, -1.0, 1.0)`. Add a cheap `is_finite()` sweep on ship pos/vel at the end of `step()` and hard-reset offenders.
+
+**Related, same root**: nothing type-checks the payload dict. `float(inp["u"])` / `int(data.get("q", 0))` / `int(data.get("v", -1))` on an `Array` or `Dictionary` value is an invalid Variant cast — error-spam per frame at best. `typeof()` gates on the five input fields and on `v`/`q` cost nothing.
+
+### 2. Torpedoes are immortal by default and uncapped — the dedicated server is a slow-motion bomb
+`sim_world.gd → _step_torpedoes()`, `collision_system.gd → resolve()`
+
+```gdscript
+if config.torpedo_life > 0.0:   # default is 0 → the branch never runs
+```
+
+Your own comment confirms it: *"the default is 0: torpedoes fly FOREVER until they hit something."* The arena is toroidal, so they never leave either. `world.torpedoes` has **no cap**, and collision is `O(T×B) + O(T×S)` per 60 Hz step plus `O(T)` per 20 Hz snapshot.
+
+Worst reachable config is straight off your documented CLI: `--map 160000 --hazard 0 --planets 0 --score 0 --time 0`. Huge arena, almost nothing to hit, endless match. 16 ships × ammo regen ≈ several torpedoes/sec, accumulating for hours. At T=5000 that's ~330k `TorusMath` calls per step (20M/s in GDScript) and ~250 KB per snapshot × 20 Hz × N clients.
+
+Hit probability is the only thing bounding this, and it's a *statistical* bound, not an engineering one. Ship a hard `MAX_TORPEDOES` (oldest-first eviction) or a default non-zero `torpedo_life`. This is the single most likely way a public v5.0.0 server dies.
+
+### 3. `_on_session_rebuilt`'s early return skips resets that are unconditionally required
+`net_host.gd → _on_session_rebuilt()`
+
+```gdscript
+if not _open or _peers.is_empty():
+    return          # <-- skips _inputs/_acked/_ev_tick/aim.reset()
+```
+
+A dedicated server restarts matches whenever bots hit the score limit, and `_peers` is routinely empty at that moment. The reassignment loop is correctly guarded — but `_ev_tick = -1` and `aim.reset()` are **not** peer-dependent state and get skipped with it.
+
+Two concrete consequences after the first all-bot restart:
+
+- `_ev_tick` holds the old world's tick (say 40000). New world starts at tick 0. In `update()`: `if int(ev.get("tk", -1)) < _ev_tick: continue` → **every explosion, kill, fire, hyperspace and respawn event is dropped** for the next ~11 minutes of wall clock. A player joining a restarted dedicated server sees a silent, effect-less arena.
+- `aim._fire_tick` likewise stays high, so `if tk <= _fire_tick: continue` discards every fire event → **the aim analyzer is permanently dead** for the rest of the server's uptime. `/watch` reports clean forever. The anticheat surface you're shipping as a headline feature silently stops existing after match #1.
+
+**Fix**: hoist `_inputs.clear()`, `_acked.clear()`, `_ev_tick = -1`, `aim.reset()`, and `_last_hello_tick.clear()` above the early return.
+
+---
+
+## 🟠 High
+
+### 4. `_last_hello_tick` — unbounded growth, plus a post-restart lockout
+`net_host.gd → _on_hello()`
+
+Two bugs in one dict:
+
+**(a) Memory leak.** Keyed by remote IP string, written on every accepted hello, **never pruned** — not on disconnect, not on rebuild, not in `close()`. A long-lived VPS accumulates one entry per unique address forever. An attacker with a /64 makes that arbitrarily fast. This is the literal "unbounded dictionary growth" the brief asks about.
+
+**(b) Lockout.** The gate compares against `session.world.tick`, which **resets to 0 on every match rebuild**:
+
+```gdscript
+if now_tick - int(_last_hello_tick.get(addr, -1000000)) < MIN_HELLO_GAP_TICKS:
+    _reject(peer, "connecting too fast")
+    return          # note: _last_hello_tick[addr] is NOT updated on this path
+```
+
+Post-restart, `0 - 40000 = -40000 < 3` → rejected. The stored tick is never refreshed, so a returning regular is locked out until `world.tick` exceeds their stale value — **up to the full length of the previous match**, with a misleading "connecting too fast" message. Use `Time.get_ticks_msec()`, which is monotonic across rebuilds.
+
+### 5. Pre-hello connections bypass every per-IP limit
+`net_host.gd → _on_packet()`, `_on_hello()`
+
+`MAX_PEERS_PER_IP` counts entries in `_peers`, which are only created **on HELLO**. A peer that connects and never sends HELLO is invisible to the cap — and `MSG_PING` is answered *before* any `_peers` check, so the attacker can keep the connection warm indefinitely with pings the host obligingly echoes.
+
+`open()` passes `max_peers: 32` to the transport. One IP opens 32 silent connections, pings them, and every legitimate joiner is refused at the ENet layer before your code sees them. The DoS bounds in the brief all sit one layer too high.
+
+**Fix**: track un-helloed peers with a connect timestamp, apply the per-IP cap on `"connect"`, and reap anything that hasn't helloed within a few seconds.
+
+### 6. Relay clients are exempt from *all* DoS hardening
+`net_host.gd → _skip_ip_limits()`
+
+```gdscript
+return addr == "" or addr == "127.0.0.1" or addr == "::1"
+```
+
+Relay peers report `""`. So the hello throttle, the per-IP connection cap, and address banning are **all disabled on the relay path** — which the brief describes as the zero-config default for internet play. Issue #13's hardening protects LAN games and does nothing for the mode most public players will use. Ask the relay to forward an opaque per-client token (a hash is enough) so the same limits apply.
+
+### 7. `--banfile` write is a truncate-in-place — one SIGTERM loses the ban list
+`dedicated_main.gd → _persist_bans()`
+
+```gdscript
+var f := FileAccess.open(_banfile, FileAccess.WRITE)   # truncates immediately
+...
+f.close()
+```
+
+`FileAccess.WRITE` zeroes the file *before* the first `store_line`. Kill the process in that window — systemd stop, VPS reboot, OOM, full disk — and the file is empty or truncated. There is no backup and no atomic swap. Since this file *is* the persistence store (your comment says so), that's the whole moderation history gone.
+
+**Fix**: write `_banfile + ".tmp"`, `f.close()`, then `DirAccess.rename_absolute()`. Rename is atomic on the same filesystem. Also note two servers sharing one banfile clobber each other with no detection.
+
+### 8. Console thread is never joined; there is no shutdown path at all
+`dedicated_main.gd`
+
+`_console.start(_console_loop)` spawns a thread that blocks in `OS.read_string_from_stdin(1024)`. There is no `_finalize()`, no `wait_to_finish()`, no `host.close()`, no `_persist_bans()` on exit. On an interactive terminal the read never returns, so the thread cannot be cancelled — Godot will complain about a `Thread` destroyed while active, and shutdown may hang.
+
+Second consequence: **the in-progress match recording is discarded on every shutdown.** `_finalize_recording()` only runs from `_tick` on a generation change, so a SIGTERM throws away the evidence for the match currently being played — exactly the match an admin is most likely to want.
+
+---
+
+## 🟡 Medium
+
+### 9. A destroyed ship keeps ramming in the same step
+`collision_system.gd → resolve()`, ships-vs-ships
+
+The inner `for j` loop never re-checks `a.alive` after `destroy_ship(world, a, …)`. With `ship_collision_lethal`, ship A dies against B at `j=1` and then goes on to kill C at `j=2` and D at `j=3` in the same tick. In the non-lethal branch, `bounce()` is applied to a corpse, mutating a dead ship's velocity. B is accidentally protected (`destroy_ship` early-returns on `not s.alive`); A is not. Add `if not a.alive: break` at the top of the `j` body.
+
+### 10. `th` (thrust ids) carries ~0.5 s of stale, duplicated history every snapshot
+`net_host.gd → _broadcast_snapshot()`
+
+```gdscript
+for ev in session.world.events:
+    if String(ev.get("type", "")) == "thrust":
+        thrust_ids.append(ev["ship"])
+```
+
+No tick filter — unlike `_event_accum`, which correctly gates on `_ev_tick`. But `world.events` **accumulates** (capped at 512, trimmed to 256). With 16 ships thrusting at 60 Hz the buffer *is* thrust events, ~0.5 s deep. So `th` ships ~256 entries of heavily duplicated ids instead of the ≤16 the docstring promises, every snapshot, 20×/sec. Clients render thrust flames for ships that stopped burning half a second ago, and you're paying ~30× the bandwidth for it. Filter on `ev["tk"] >= session.world.tick - 1` and dedupe.
+
+**Related**: because thrust floods the 512-entry buffer, kill/explosion events are evicted after roughly 16 ticks (~0.27 s). A single frame hitch longer than that silently drops kill-feed entries.
+
+### 11. AimAnalyzer will flag honest players — three independent false-positive paths
+`aim_analyzer.gd`
+
+- **Nearest-enemy churn resets the acquisition clock.** `_nearest_enemy()` re-picks the *closest* enemy every tick. In a 12-ship FFA that flips constantly, and each flip does `tr.target = e.id; tr.cone_since = world.tick`. The next shot then evaluates `(world.tick - tr.cone_since) < REACTION_TICKS` against a clock that started ~now → scored as `fast_acquire`. A single tick of >12° jitter does the same. `FAST_FRAC_FLAG` is only 0.5, so crowded-arena play inflates straight past it.
+- **Hyperspace and respawn are indistinguishable from seam crossings.** The seam test is purely `absf(raw.x) > size * 0.5` on the target's frame-to-frame delta. A target that hyperspaces or respawns across the map produces exactly that signature; if your aim happens to be within 3° at that instant, it's a "seam lock." Three of those and you're on the warning list. Gate on `world.config.wrap_edges` *and* confirm the jump is seam-consistent (the delta should be ≈ ±`size` on one axis, not arbitrary).
+- **The seam reason has no `MIN_SHOTS` gate.** The other two reasons require `tr.shots >= MIN_SHOTS`; `if tr.seam_locks >= SEAM_FLAG` does not — and `report()` explicitly admits entries with `tr.shots == 0 and tr.seam_locks > 0`. **A player who has never fired a shot can be flagged.**
+
+- **Off-by-one**: `tr.cur_err` is measured from post-step state at tick T, but matched against fire events stamped T-1. Every recorded aim error is one tick late, biasing `tight_frac`.
+
+You've correctly built this as warnings-only, which caps the damage — but a heuristic that flags everyone is a heuristic admins learn to ignore.
+
+### 12. `place_in_orbit`'s radius clamp can undo the star-clearance guarantee
+`spawn_system.gd → place_in_orbit()`
+
+```gdscript
+var r := config.spawn_orbit_radius
+if primary != null:
+    r = maxf(r, primary.radius * 3.0 + 200.0)   # clear the star
+r = minf(r, config.arena_size * 0.5 * 0.85)     # ...then undo it
+```
+
+The `minf` runs unconditionally after the `maxf`, so on a small map with a big star it can drive `r` **below** `primary.radius`. `--map 4000 --star 100` gives a hard cap of 1700 against a 4×-scaled star — both values straight off your documented CLI. Result: ships spawn inside the star, `_spawn_clearance` returns negative for all 12 attempts, the fallback picks the least-bad in-star position, and the ship dies to the body collision on the next step → **an infinite spawn/death loop**, burning RNG draws and events every cycle. (I can't confirm the exact base star radius without `ArenaGen` — but the clamp order provably permits `r < primary.radius`, and nothing asserts otherwise.) Clamp the *star* against the arena, or reject the config at startup.
+
+Also, `speed = sqrt(config.gravity_constant * m / r)` divides by `r` with no zero guard. Not reachable through the CLI (`--map` floors at 4000), but it's one config-loader change away from `INF` velocity.
+
+### 13. `parse_addr` silently mangles every IPv6 address
+`net_protocol.gd → parse_addr()`
+
+`t.rsplit(":", false, 1)` on `"::1"` splits on the *last* colon → ip `":"` / `"::"`, port `1`. On `"2001:db8::1"` → ip `"2001:db8:"`, port `1`. The bracketed form `"[::1]:24642"` yields ip `"[::1]"`, which ENet won't resolve. So `--relay <ipv6>` fails with a confusing connection error rather than a validation message. The docstring notes this is now "one home for the three places that need it" — which means the bug is consistently wrong everywhere. Bracket-detect first: if the string starts with `[`, split on `]:`. Also range-check the port (`--relay host:99999` is passed through unvalidated).
+
+### 14. UI-driven bans ban the wrong string
+`net_host.gd → _ban_peer()` vs `ban_name()`
+
+`_ban_peer` bans `String(_names.get(peer, ""))` — the **post-tag** name. If the player was auto-tagged on join (`GRIEFER` → `GRIEFER-4827`, which happens whenever the callsign collides with a bot or another pilot), the ban stores `GRIEFER-4827`. They rejoin as `GRIEFER` and walk right past `_is_banned`, which correctly matches against the *requested* name. The console path (`kick_name(…, true)` → `ban_name(arg)`) is fine; the `PlayersPanel` path (`kick_ship(sid, reason, ban=true)`) is not. Store the untagged base alongside the display name.
+
+### 15. `MAX_INPUT_SEQ_GAP` doesn't do what its comment claims
+`net_host.gd → _on_packet()`
+
+```gdscript
+if last < 0 \
+        or (q >= last and q - last <= MAX_INPUT_SEQ_GAP) \
+        or (last - q > MAX_INPUT_SEQ_GAP):
+```
+
+On **wrap-around / exhaustion** specifically: no defect. GDScript ints are 64-bit; a 60 Hz client needs ~4.8 billion years to reach 2⁶³. That question is closed.
+
+But the stated defense — *"we refuse to advance `_acked` that far so it can't pin the counter high"* — doesn't hold. The `last < 0` branch accepts **any** first value, so a hostile client pins `_acked[sid] = 2^62` on packet one. And the third branch (`last - q > GAP`) then re-bases on any subsequent small value, so the pin is also trivially undone. Neither the attack nor the guard has teeth. Impact is genuinely low (corrupted `acks` only affect the attacker's own reconciliation), but the comment overstates the protection — worth either fixing or de-claiming before a release that advertises these bounds.
+
+---
+
+## 🟢 Low / cleanup
+
+- **Dead code**: `CollisionSystem.segment_hits_circle()` has zero call sites in the supplied files, and it's the **non-toroidal** version — a trap for the next contributor. Delete it or mark it `_test_only`.
+- **Duplicated torus math**: `AimAnalyzer._delta()` reimplements `TorusMath.shortest_delta()` (minus the `size <= 0` guard). Two implementations of seam math that can drift apart is exactly how the seam heuristic gets subtly wrong later. Call the shared one.
+- **Redundant guard**: `if _peer_addr(peer) in _ban_addrs and not _ban_addrs.is_empty()` — the second clause is unreachable-false only when the first is already false.
+- **Swept-collision back-extrapolation is wrong**: `t_prev := t.pos - t.vel * dt` and `s_prev := s.pos - s.vel * dt` reconstruct the previous position from the **post-step** velocity. Velocity changed during the step (gravity, thrust, and `wrap_with_boost`'s slingshot), so the reconstructed segment is not the path actually travelled. For the slingshot boost the error is large. Cache `prev_pos` on the entity at the top of `step()` instead of back-solving. (Couldn't inspect `wrap_system.gd` / `gravity_system.gd` — flagging the pattern, not the magnitude.)
+- **Zero-velocity → heading (1,0)**: `Vector2(-ship.vel.y, ship.vel.x).normalized()` in `HazardDodge` and `ship.vel.angle()` in `Patrol` both return `0.0` for an exactly-zero velocity, so bots dodge/drift toward world +X regardless of geometry. Reachable: `place_in_orbit` sets `s.vel = dir * 0.0` when there's no gravitating primary (`m <= 0`). Self-corrects within a tick or two once thrust applies, so: cosmetic, but it's the same zero-vector class as the NaN issue.
+- **Arg parser takes the next flag as a value**: `--star --port 24642` → `float("--port")` = 0.0 → `clampf(0.0/25.0, 0.2, 4.0)` = 0.2, a pinhole star, silently. Only `--record` guards with `begins_with("--")`. Apply that check everywhere, and clamp `--respawn` / `--score` / `--time` (docs promise `--respawn 1-15`; the code clamps nothing — `--respawn 0` gives same-tick respawn spam).
+- **`report()` rebuilt and re-sorted per lookup**: `is_flagged()` and `reasons_for()` each call `report()`, which allocates and sorts the whole array; `_run_command("players")` calls it once per player. Tiny at 16 ships, but it's a needless O(p² log p).
+- **Replay filename collision**: `Time.get_datetime_string_from_system()` has one-second granularity; two finalizations in the same second silently overwrite. Also `_finalize_recording` drops the recording with no `printerr` when `FileAccess.open` fails, unlike every other error path in the file.
+- **`_broadcast_snapshot` sets `_snap_accum = 0.0`** instead of `-= SNAPSHOT_INTERVAL`, discarding the remainder. Harmless at 60/20, but it can't catch up if a step ever exceeds the interval.
+
+---
+
+## No defect found
+
+- **Command injection in the moderation console.** `_run_command` dispatches on a fixed `match`; no shell, no `eval`, no path interpolation. The obvious vector — a callsign containing `\n` injecting extra lines into the banfile — is blocked upstream by `filter_name`, which whitelists `A-Z 0-9 space - _` only. `ban_list()` returns already-filtered strings, so `_persist_bans` can't be poisoned. Clean.
+- **Console thread data races.** All host mutation happens on the main thread via `_drain_commands`; the reader thread touches only `_cmd_queue` under `_cmd_mutex`, and the drain does `duplicate()` + `clear()` inside the lock. Correct. (The *lifecycle* is broken — see #8 — but the concurrency is not.)
+- **Ship/slot spoofing via MSG_INPUT.** The ship id comes from `_peers[peer]`, never from the payload, and spectators (`sid < 0`) are rejected. No spoofing path. `--reclaim` does allow name-based hijacking, but it's off by default and the docstring says exactly that — deliberate, not litigating it.
+- **Input sequence wrap-around / exhaustion.** 64-bit ints; unreachable. (The guard has a different problem — #15.)
+- **Object smuggling via `bytes_to_var`.** Correctly using the non-`_with_objects` variant, with a size check before deserialization. Right call.
+
+---
+
+## Unverified — need files I wasn't given
+
+- `gravity_system.gd`: whether `accel()` softens `r → 0`. If it doesn't, a torpedo through a **non-lethal** gravitating body's center is an unguarded singularity — the torpedo/body loop does `if not b.lethal: continue`, so such a body never eats torpedoes. Same for a `frozen`/`invulnerable` debug ship parked at a body center, since `destroy_ship` early-returns for those.
+- `wrap_system.gd → wrap_with_boost()`: the slingshot's velocity modification is what makes the `t_prev` back-extrapolation above worst-case wrong.
+- `bot_controller.gd`: `_lead_angle()` (the toroidal lead-aim question in Q3 is unanswerable without it), plus whether `ctx["target"]` is sticky across ticks — if it is, a cached dead/removed target reaching `LeadAimRange.decide()` is worth checking, since that behavior is the cascade's unconditional terminal and does `target.pos` with no null or `alive` guard of its own.
+- `sim_config.gd`: confirmation that `torpedo_life` actually defaults to `0.0` (finding #2 rests on it — though the code comment asserts it plainly).
+
+---
+
+**Bottom line**: the architecture is sound and the security posture is honest about its limits — I found no way to smuggle objects, spoof a slot, or inject a command. What I'd hold the release for is the swarm of state-lifecycle bugs: #1 (NaN), #2 (torpedo accumulation), and #3 (`_on_session_rebuilt`) each independently degrade or kill a headline feature on a real dedicated server, and #3 does it *silently*. Worth the extra pass before v5.0.0 leaves the hive. 🐝🔎

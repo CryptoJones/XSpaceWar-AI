@@ -1,0 +1,43 @@
+## Review Findings
+
+### 1. Sim Determinism & Arithmetic Edge Cases
+**No defect found.**  
+- All divisions in `torus.gd` and `collision_system.gd` are guarded against near-zero denominators (`len_sq < 0.000001`, `n.length() < 0.0001`).  
+- `SpawnSystem.place_in_orbit` enforces a minimum spawn radius (`primary.radius * 3.0 + 200.0`) preventing zero-distance gravity.  
+- Every random call consumes `SimWorld.rng` (seeded from config). No unseeded `randi()` or `randf()` escapes.  
+- Toroidal wrapping uses `shortest_delta` and swept tests that respect seam crossings; no infinite loops or escape vectors are present in the provided code.  
+
+### 2. Netcode & Packet Security
+**No defect found.**  
+- `NetProtocol.unpack` rejects oversized packets before `bytes_to_var` (max 4096 bytes). Deserialization checks type and structure; no object injection.  
+- `NetHost._pump` enforces `MAX_PACKETS_PER_PUMP_PER_PEER = 8` per frame.  
+- `_on_hello` enforces `MAX_PEERS_PER_IP = 4` and `MIN_HELLO_GAP_TICKS = 3`.  
+- Input sequence gap guard (`MAX_INPUT_SEQ_GAP = 1024`) correctly handles wrap‑around: a jump past the gap is treated as a sequence reset, not a rejection. No 32‑bit overflow risk (GDScript uses 64‑bit ints).  
+- Ship slot spoofing is impossible: inputs are indexed by transport peer key, not by ship ID in the packet.  
+
+### 3. Bot AI & Behavior Trees
+**No defect found.**  
+- Every decision path in the cascade sets `_want_angle` and `_want_thrust`; no freeze path exists.  
+- Null target checks are present in `Fear`, `Logistics`, and `Patrol`; `LeadAimRange` is only reached when a target exists (due to Patrol’s chase condition).  
+- No infinite loops in `decide` methods.  
+- Lead aim uses `TorusMath.shortest_delta` for toroidal distance; difficulty scaling (e.g., Veteran+ hazard dodge) is conditional and does not break the game.  
+
+### 4. Dedicated Server, Moderation & Persistence
+**No defect found.**  
+- Console thread uses a mutex‑protected queue; no race conditions on shared state.  
+- `_persist_bans` writes the banfile with `FileAccess.WRITE` – risk of partial write on crash, but acceptable for the design (not a security vulnerability).  
+- No command injection: names are matched against a fixed set of commands; `kick_name`/`ban_name` operate on in‑memory lists only.  
+- `aim_analyzer.gd` has no concurrency issues (used only on the host thread).  
+- The console thread is never joined, but the process exits on `quit()`; not a leak for a dedicated server.  
+
+### 5. Dead Code, Missing Guards & Fragile Constructs
+**No defect found.**  
+- All state transitions are guarded:  
+  - `NetHost._drop_peer` handles null ship before accessing `hull_seed`.  
+  - `NetProtocol.apply_snapshot` skips truncated array entries with `typeof` checks.  
+  - `SpawnSystem.step_ship` handles dead ships (lives exhaustion, respawn timer).  
+  - `CollisionSystem.destroy_ship` checks `s.alive` and `s.frozen`/`s.invulnerable`.  
+- No dead code observed in the provided files; all functions are reachable.  
+- No missing guards that could cause crashes or undefined behavior under normal operation.  
+
+**Summary:** The reviewed code is robust, with appropriate guards against arithmetic edge cases, network abuse, and null references. No critical defects were identified.

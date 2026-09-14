@@ -1,0 +1,27 @@
+Verdict: The core physics hold together, but your infrastructure has fatal unforced errors. You are exposing the host to memory exhaustion, trivial sequence bypassing, and data loss on your moderation files. Fix the IP tracking and the file I/O before you put this on a public port.
+
+**1. Sim Determinism & Arithmetic Edge Cases**
+No defect found in the core math. Your swept collision deltas respect the zero-length bounds before division, and orbit radii are mathematically insulated from the singularity. Determinism is preserved: the RNG is seeded at init, and no unseeded global randoms bleed into the fixed step. The toroidal wrapping checks local space correctly. As long as your engine-enforced velocity clamps hold, nothing is tunneling out of the arena or infinite-looping on a seam.
+
+**2. Netcode & Packet Security**
+This is where you bleed, boy.
+*   **Memory Leak:** `_last_hello_tick` in `NetHost` records every connecting IP to throttle floods, but it never prunes old addresses. A script spoofing UDP source IPs will quietly bloat that dictionary until your host starves and dies.
+*   **Sequence Bypassing:** Your `MAX_INPUT_SEQ_GAP` guard is a busted lock. Because you allow `last - q > 1024` as a valid sequence reset, a hostile client can intentionally send an input sequence far in the past to force a re-base, then jump forward, fully bypassing the gap restriction. 
+*   **Spoofing:** `reclaim_names` uses raw string equality. If you flip that on for a public server, anyone can spoof a live callsign, trigger the disconnect, and hijack their ship.
+
+**3. Bot AI & Behavior Trees**
+There’s your ghost in the machine: a phantom seam bug. In `LeadAimRange`, you correctly calculate a toroidal `rel` distance, but then you pass the raw `ship` and `target` straight into `bot._lead_angle()`. Unless that hidden function duplicates your toroidal wrapping, your Veterans will calculate lead aim across the absolute void of the map instead of across the wrap seam when chasing.
+
+No fatal freezes, but watch the slingshot math: if the lead `aim` vector and the `away` star vector perfectly oppose each other, the `blended` lerp yields a zero vector. Godot evaluates a zero vector's angle as 0 radians. Your bots will randomly twitch due east for one frame.
+
+**4. Dedicated Server, Moderation & Persistence**
+Your moderation persistence is begging for data loss. In `_persist_bans()`, calling `FileAccess.open(_banfile, FileAccess.WRITE)` truncates the target file immediately. If the server is killed, loses power, or panics before the list finishes writing, your entire ban database evaporates. Write to a temporary file and atomically rename it.
+
+Console threading uses a mutex properly, and since you don't execute shell processes, command injection isn't on the table.
+
+**5. Dead Code, Missing Guards & Fragile Constructs**
+The primary hidden cost is `bytes_to_var()`. Capping the packet at 4KB stops basic volume floods, but a maliciously crafted, deeply nested variant array inside those 4KB can still trigger a C++ stack overflow during engine deserialization. 
+
+Your moderation console loop is also burning unnecessary cycles: typing `players` calls `is_aim_flagged` for every peer, which in turn calls `report()`, recalculating the standard deviations for the entire roster on every single iteration. It won't freeze the host at a 16-player cap, but it's sloppy architecture.
+
+Clean enough. I’d still keep one hand near the rollback.

@@ -1,0 +1,19 @@
+**Findings:**
+
+1. **Sim Determinism & Arithmetic Edge Cases**: No defect found in provided files (`sim_world.gd`, `torus.gd`, `collision_system.gd`, `spawn_system.gd`). RNG is seeded, swept-circle guards prevent division-by-zero, and spawn clearance checks avoid invalid positions. (GravitySystem/WrapSystem not provided; assessed only where visible.)
+
+2. **Netcode & Packet Security**: **DEFECT** in `net_host.gd`: `_last_hello_tick` dictionary grows unbounded with unique client IPs over time (no cleanup), risking memory leak in long-running hosts. Sequence gap guard (`MAX_INPUT_SEQ_GAP=1024`) is sound (handles wrap/reset safely via signed-int arithmetic).
+
+3. **Bot AI & Behavior Trees**: **DEFECT** in `bot_behaviors.gd`: `LeadAimRange.decide()` risks division-by-zero when normalizing `away` vector if ship coincides with star position (and star non-lethal). Occurs when `_sling>0`, `dist>preferred_range*1.7`, and `ctx["primary"]!=null`. No guard for zero vector.
+
+4. **Dedicated Server, Moderation & Persistence**: No defect found in provided files (`dedicated_main.gd`, `aim_analyzer.gd`). Banfile writes are single-threaded (main thread), command parsing avoids injection, and aim-analyzer tracks are cleared on resets/peer drops.
+
+5. **Dead Code, Missing Guards & Fragile Constructs**: 
+   - **Missing guard**: `net_host.gd` `_last_hello_tick` lacks expiration (unbounded growth).  
+   - **Fragile construct**: `bot_behaviors.gd` `LeadAimRange` assumes non-zero `away` vector (fails if ship at star).  
+   No dead code observed in provided snippets.  
+
+**Evidence:**  
+- Q2: `net_host.gd` lines 90-96 (`_last_hello_tick` update without pruning).  
+- Q3: `bot_behaviors.gd` lines 142-146 (`away := ... .normalized()` with zero-vector risk).  
+- All other claims: verified via provided code snippets (no speculation).

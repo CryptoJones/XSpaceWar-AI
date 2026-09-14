@@ -1,0 +1,103 @@
+**Findings first.** Several reachable defects. Gravity/Wrap/Mine/Pickup/BotController/GameSession were not in the dump — those paths are `unsure`, not clean.
+
+---
+
+### 1. Sim determinism & arithmetic
+
+**Reachable**
+- **Infinite-lifetime torpedoes.** `_step_torpedoes`: default `torpedo_life == 0` means projectiles never expire. On a wrapping arena they miss forever. `world.torpedoes` and every 20 Hz snapshot grow without bound. Multi-hour dedicated match is the end state: RAM + snapshot size climb until the host stutters or unpack blows the client 1 MB cap.
+- **Ship–ship is not swept.** Torps vs body/ship use `TorusMath.swept_*`. Ships vs ships use a point test on current `pos`. High relative speed (uncapped `max_ship_speed == 0`, or gravity slingshot) tunnels. Lethal ram and elastic bounce both skip.
+- **Swept `p0 = pos - vel*dt` after wrap.** Torpedoes wrap in `_step_torpedoes` *before* `CollisionSystem.resolve`. If `|vel*dt| > arena_size/2`, `shortest_delta` takes the short path and the swept segment is the wrong chord. Same pattern for ships vs bodies (`s_prev`) while ships wrap *after* collision — inconsistent. Extreme speed required; uncapped + gravity makes it reachable. Normal capped play: not reachable.
+- **Kepler spawn `sqrt(G*m/r)`.** Guarded on `m > 0` only. `r = minf(..., arena_size * 0.425)`. `arena_size <= 0` → `r == 0` → Inf/NaN velocity. Dedicated CLI clamps map to 4000–160000; a raw `SimConfig` with `arena_size == 0` is the only path. Treat as latent unless config is clamped in `SimConfig` (not provided).
+
+**Guarded / not reachable in this dump**
+- `TorusMath` zero-size and `len_sq < 1e-6` branches. `bounce` zero-normal. Patrol `dist_now = maxf(1.0, ...)`.
+- Spawn clearance: 12 attempts, always commits best candidate — no infinite loop, no “stuck unspawned.”
+- Sim RNG is `config.seed`. Name tags use global `randi_range` (not sim).
+
+**Unsure (code missing):** inverse-square `GravitySystem.accel` at `r == 0` (sitting on the star). `WrapSystem.wrap_with_boost` multi-wrap / slingshot. Entities escaping if both `wrap_edges` and `lethal_edges` are false — config, not a bug by itself.
+
+**Do not “fix” wrapping by removing the torus shortest-path.** The actual hole is **torpedo TTL = 0** and **non-swept ship–ship**.
+
+---
+
+### 2. Netcode & packet security
+
+**Reachable**
+- **`_last_hello_tick` never evicted.** Keyed by IP, written on every throttled hello, never removed on disconnect. Direct/LAN host, long uptime, many distinct IPs → unbounded dict. Small per entry; still a leak.
+- **MSG_PING reflection.** Host `pack`s the client’s entire `data` dict back on reliable CH_CONTROL. Bounded by `MAX_CLIENT_PACKET` (4096), so not a crash, but a cheap bandwidth/CPU amp and a way to keep the host serializing attacker-shaped dicts.
+- **`_inputs[sid] = data` stores the raw dict.** Extra keys live until overwrite/drop. Bounded by packet size × peers — not a leak, but `apply_input` is the only sanitizer. Do not treat the stored payload as trusted schema.
+- **Relay (`peer_address == ""`) skips per-IP caps and hello throttle.** Deliberate for NAT/relay. End state: one relay attacker can occupy all slots / hello as fast as the transport allows. Not a bypass of `MAX_CLIENT_PACKET` or the 8-pkt/pump cap.
+
+**Seq gap (`MAX_INPUT_SEQ_GAP = 1024`)**
+- Forward jump `q - last > 1024` refused. Good.
+- `last - q > 1024` is an intentional **rebase**. A malicious owner of that ship can yank `_acked` backward and then walk it up 1024 at a time. They already own the slot; they cannot steal another. Not wrap-around exhaustion: GDScript int is 64-bit; 60 Hz would need geological time to saturate.
+- First packet `last < 0` accepts any `q` (including huge). Next legit small `q` hits the rebase branch. No pin-high freeze of later inputs — that part of the comment holds.
+
+**Not reachable from this dump**
+- Script/object smuggling: `bytes_to_var` without objects + `[int, dict]` check.
+- Slot spoof: inputs only for `_peers[peer]`; spectators `sid < 0` dropped. `reclaim_names` (default off) is the only hijack-by-name path — leave it off on public servers; do not “harden” it, **do not turn it on**.
+- Host crash via truncated snapshot arrays: that’s the *client* apply path.
+- Name `while taken.has(tagged)` infinite loop: roster ≤ 16, 10⁴ tags. Not reachable.
+
+**Packet/rate limits:** 4096 / 8-per-pump / 4-per-IP (direct only) hold. Flood past 8/pump is dropped for that pump, not kicked — waste CPU, not memory.
+
+---
+
+### 3. Bot AI
+
+**In `bot_behaviors.gd` only**
+- Cascade is early-exit, no loops. `LeadAimRange` is only reached after `Patrol` defers (`target != null` and chase roll). No null deref on `target` in that file.
+- `HazardDodge` `vel.normalized()` on zero vel → Godot `ZERO`, not NaN. Bot thrusts at angle 0 instead of dodging — degraded, not a crash.
+- Rookie skips `HazardDodge` — they eat rocks/mines more. Not a game break.
+- Fear/logistics/star/boundary all short-circuit cleanly.
+
+**Unsure (BotController / `_lead_angle` / `_imminent_hazard` / ctx build not provided):** dead-target freeze, toroidal lead across the seam, null `ctx["star_pos"]` if no primary. Do not invent a lead-aim bug from this file; `shortest_delta` is used for steering, lead itself is elsewhere.
+
+**Difficulty visual scaling:** not in these files. No defect found here. Do not change the cascade order — RNG draws are conditional; reordering breaks determinism.
+
+---
+
+### 4. Dedicated server, moderation, persistence
+
+**Reachable**
+- **`--banfile` write is truncate-in-place.** `_persist_bans` opens `WRITE` (truncates immediately), then writes lines. Kill/crash/disk-full mid-write → **empty or partial banfile**. Next boot loads nothing. Console ban/unban is the only writer (main thread) — no concurrent-write race, but **interrupted write corrupts the store**. Should be write-temp + rename. Until then, do not treat `--banfile` as durable.
+- **Torpedo/snapshot leak** (Q1) is the dedicated multi-hour memory problem, not the console thread.
+- **CLI `--ban` / `--banfile` consume the next argv blindly.** `--ban --port 24642` bans the string `--port`. Fragile, not injection.
+
+**Not reachable**
+- Command injection: console is a closed `match` on `kick|ban|unban|players|watch|bans|help`. Names go through `filter_name` / string compare. Ban path is not a shell.
+- Console vs sim races: stdin thread only appends to a mutexed queue; `_drain_commands` runs on the tree thread.
+- AimAnalyzer never bans (by design). `observe` is idempotent per tick. `_tracks` reset on rebuild, `forget` on drop. `report()` on every `is_aim_flagged` is O(n) over tiny n — not a leak.
+
+**Unsure:** `Thread` not joined on `quit` — process exit reaps it. Replay `FileAccess.WRITE` same truncate pattern as banfile (evidence loss, not a security hole).
+
+---
+
+### 5. Unguarded / fragile (ship-blocking)
+
+| Item | End state | Change? |
+|---|---|---|
+| `torpedo_life == 0` | Unbounded sim + snapshots | **Yes. Give a finite default or a hard cap on live torps.** |
+| Banfile truncate | Lost bans after crash | **Yes. Atomic replace.** |
+| Ship–ship point test | Tunnel at high v | Yes if uncapped speed/gravity is supported |
+| `_last_hello_tick` | Slow dict growth | Yes, cheap eviction |
+| MSG_PING echo-whole-dict | Bounded amp | Echo `{t}` only |
+| `destroy_ship` `frozen`/`invulnerable` DEBUG | Immortal ships if a flag leaks on | Strip or compile-gate before public |
+| Thrust events accumulated in `world.events` (cap 512) then **all** scanned for `thrust_ids` | Duplicate ids, fat snapshots | Snapshot from last interval only |
+| `segment_hits_circle` (Euclidean) unused by `resolve` | Dead code | Ignore |
+| `SimWorld._advance_bodies` forwarder | Dead | Ignore |
+| Global `randi_range` for name tags | Non-deterministic tags only | Do not touch sim RNG |
+| `apply_snapshot` no Vector2 type checks | Malicious **host** crashes clients | Out of scope for client-vs-host model |
+
+**Unhandled state:** if neither wrap nor lethal edges, positions diverge to Inf; gravity then NaNs. Config problem — do not add silent clamps in the integrator unless product requires a bounded arena always.
+
+---
+
+### Verdict by question
+
+1. **Defects:** immortal torpedoes (reachable); non-swept ship collision (reachable at high v); wrap-then-swept inconsistency (reachable only if `|v|Δt| > size/2`). Div0 at `r==0` latent. Gravity at star center: **unsure**.
+2. **No host crash / slot spoof / gap wrap-exhaustion** in the provided host path. **DoS leftovers:** ping echo, hello-tick map, relay IP-limit exemption (intentional). Seq rebase is working as designed, not a steal.
+3. **No freeze/infinite loop/null crash in `bot_behaviors.gd`.** Lead/torus/dead-target in the controller: **unsure**. Do not reorder the cascade.
+4. **Banfile non-atomic write is a real persistence bug.** No console injection. Multi-hour leak is torpedoes, not the stdin thread.
+5. Ship the TTL cap and atomic banfile. Do not enable `reclaim_names` on public hosts. Do not rewrite the net unpacker. Do not “fix” determinism by seeding `randi_range` into `SimWorld.rng`.

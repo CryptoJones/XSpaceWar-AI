@@ -1,0 +1,77 @@
+**Overall Grade: C- (Shippable only after the findings below are addressed; the sim core is competent, the peripheral plumbing is not.)**
+
+---
+
+## 1. Sim Determinism & Arithmetic Edge Cases
+
+**F1.1 — Swept-collision displacement wrap corrupts fast projectiles (HIGH).**
+`TorusMath.swept_hits_circle` computes `shortest_delta(p0, p1, size)` for the *displacement*. Torpedo velocity is `ship_vel + torpedo_speed` and is **not** clamped by `max_ship_speed` (only ships are, in `clamp_ship_velocity`). With `torpedo_life = 0` (the documented default — "fly FOREVER"), a slingshot torpedo can exceed `arena_size/2` per tick, at which point `shortest_delta` wraps the displacement **backwards** and the swept test tests the wrong segment entirely. Result: tunneling through bodies, or phantom hits on the opposite side of the arena. Same defect in `swept_hits_moving_circle`. Your own comment says "callers must teleport-guard wraps" — `CollisionSystem.resolve` does not; it reconstructs `t_prev = t.pos - t.vel * dt` even when `WrapSystem.wrap_with_boost` teleported the entity, producing a bogus segment across the seam (false-positive torpedo kills).
+
+**F1.2 — Unbounded torpedo/population growth (MEDIUM).**
+Default `torpedo_life = 0` plus forever-flying projectiles in an open arena means `world.torpedoes` can grow monotonically. Consequences: (a) snapshot payload grows unboundedly, (b) once a snapshot exceeds the client's default `unpack` cap of 1 MB, clients silently drop **every** snapshot (`{}` returned) — a soft lock-on-join that scales with match length. No cap on concurrent torpedoes per ship or world exists in the provided code. Unsure whether MineSystem/PickupSystem bound their arrays; not provided.
+
+**F1.3 — Fallback spawn can be inside a lethal body (MEDIUM).**
+`place_in_orbit` accepts `best_clearance` even when negative ("retain the safest candidate as a fallback"). In a saturated arena this spawns a ship overlapping a star/asteroid; `CollisionSystem` kills it next tick; in `lives` mode this is a death loop that drains lives without player agency. No hard guarantee of a valid spawn exists.
+
+**F1.4 — No defect found** in `torus.wrap_point` (`fposmod` handles negatives), and the Keplerian `sqrt(m/r)` path is guarded (`r` is clamped to `≥ primary.radius*3+200`, `m > 0` checked). Division-by-zero: none in provided files.
+
+## 2. Netcode & Packet Security
+
+**F2.1 — `_last_hello_tick` grows without bound (MEDIUM).**
+Keyed by remote IP, never pruned. A botnet or rotating-address scanner grows this dictionary indefinitely on a long-running dedicated server. Same class of leak: nothing evicts stale IPs. Slow memory DoS.
+
+**F2.2 — Per-IP caps are entirely bypassed for relay clients (MEDIUM, arguably by design but undocumented).**
+`_skip_ip_limits("")` exempts every relay client. MAX_PEERS_PER_IP and the hello throttle do not apply. The only backstop is bot-slot exhaustion (`server full`) plus the 8-spectator cap. Your call whether that's acceptable — but the brief advertises these limits as "strict DoS bounds," which is overstated.
+
+**F2.3 — Input sequence guard: no exploit found, but the rebase is sloppy.**
+Negative `q` values are accepted wholesale (initial `last < 0` accepts anything, and `last - q > 1024` re-bases downward). A hostile client can arbitrarily reset its own sequence — affecting only its own ship. Wraparound at int64 at 60 Hz is not a practical concern. No defect, but the comment's threat model ("q=2^31") is handled at the cost of accepting unbounded negative counters you never validate.
+
+**F2.4 — MSG_PING answered pre-authentication (LOW).**
+Any connected peer gets a reliable-channel PONG with an echoed, unvalidated dictionary before HELLO. Bounded by 4096 bytes; a mild reflection/amplification vector and a protocol-hygiene smell. Also: `int(data.get("q", 0))` on a client-supplied Variant — if a client sends `"q": "abc"`, `int()` coerces; if it sends an Array, behavior depends on Godot's coercion and is unverified — **unsure**, but input payload types beyond `u/t/f/h/m/q` are never schema-validated.
+
+**F2.5 — Flood cap throttles but never disconnects (LOW).**
+A peer can sustain 8 × 4 KB `bytes_to_var` decodes per pump at 60 Hz indefinitely. Bounded CPU burn, forever, with no kick. Weak.
+
+## 3. Bot AI
+
+**F3.1 — Degenerate lateral dodge (LOW).** `HazardDodge`: if `ship.vel == Vector2.ZERO`, `normalized()` returns zero, the dot test is 0 (not `> 0`), and the bot aims at `Vector2.ZERO.angle()` = 0 (due east) and thrusts. Not a freeze, but a brain-dead frame. No null-target crash found: `LeadAimRange` is only reached when `Patrol` deferred with `target != null` — fragile coupling, but correct today.
+
+**F3.2 — Toroidal lead aim: unsure.** `_lead_angle` is not in the provided code; I cannot falsify wrap-crossing lead errors. Say so in the release notes rather than asserting correctness.
+
+**F3.3 — Difficulty visual scaling** is not present in any provided file. **No defect found — and no evidence either.**
+
+## 4. Dedicated Server, Moderation, Persistence
+
+**F4.1 — CLI argument parser swallows flags (HIGH).**
+`val = args[i + 1] if i + 1 < args.size() else "1"` unconditionally consumes the next token. `--record --port 5000` sets `record = "--port"` (caught by your `begins_with("--")` check) **and silently discards `--port` entirely** — the server boots on the default port with no error. Same for `--edges --relay x`. This is a correctness bug in the primary deployment entry point.
+
+**F4.2 — Banfile write is not atomic (MEDIUM).**
+`FileAccess.open(WRITE)` truncates then writes. A crash mid-write destroys the entire persistent ban store with no recovery. Standard tmp-file + rename is mandatory for a "persistence store," which is what you claim it is.
+
+**F4.3 — Unvalidated numeric CLI args (LOW).**
+`--port abc` → `int()` = 0 → bind failure (handled, at least). `--score garbage` → 0 → endless match. `--ships -5` → clamped. Inconsistent validation discipline.
+
+**F4.4 — No command injection found.** Console commands are dispatched via `match`, never shell. Multibyte/UTF-8 names through `filter_name` are sanitized. **No defect.**
+
+**F4.5 — Replay disk growth unbounded** when `--record` is on (no rotation/pruning). Operator surprise on a VPS.
+
+## 5. Dead Code, Missing Guards, Fragile Constructs
+
+- **Snapshot bloat:** `removed_body_ids` is re-sent **in full in every snapshot** (F1.2's sibling). On asteroid-heavy maps this is an O(match-length) wire cost, 20×/second.
+- **`AimAnalyzer._delta`** duplicates `TorusMath.shortest_delta` — drift risk; the parser-drift comment in `net_protocol.gd` ("the dedicated server's copy had already drifted") proves this codebase's duplication history.
+- **Aim sampling skew:** `cur_err` is measured post-step while fire events are stamped pre-increment tick — the "reaction time" metric carries up to one tick of systematic error. Noted; conservative thresholds probably absorb it, but it's undocumented.
+- **`var err: Error`** may be read uninitialized on the non-relay path if `open()` returns early — GDScript defaults make this benign-but-sloppy.
+- `apply_snapshot` resets torpedo `life` to config default each snapshot — benign at `torpedo_life=0`, wrong when a fuse is configured.
+
+---
+
+## Mandatory Revision Requirements
+
+1. Clamp or segment swept-displacement tests for entities whose per-tick displacement exceeds `arena_size/2`; teleport-guard `t_prev`/`s_prev` after wrap boosts.
+2. Impose a hard world cap on torpedoes (and confirm mine/pickup caps); cap `removed_body_ids` replication (delta + ack).
+3. Guarantee a valid spawn or fail loudly; never silently accept a negative-clearance fallback.
+4. Prune `_last_hello_tick`; document relay exemption honestly or fix it.
+5. Fix the CLI parser to not consume following flags; make banfile writes atomic (tmp + rename).
+6. Provide `_lead_angle`, `MineSystem`, `PickupSystem`, `WrapSystem`, and `GameSession` for review — half the load-bearing logic was withheld from a "major public release" audit. That is unacceptable, and my grade reflects the missing half as much as the found defects.
+
+Resubmit with diffs and a determinism regression test for F1.1. Until then: **do not ship.**

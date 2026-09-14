@@ -1,0 +1,138 @@
+## Code Review: XSpaceWar-AI (main branch)
+
+---
+
+### 1. Sim Determinism & Arithmetic Edge Cases
+
+**Critical Findings:**
+
+| Location | Issue | Severity |
+|----------|-------|----------|
+| `torus.gd:57` `swept_hits_circle` | **Division by zero when `len_sq < 1e-6` but `local0.length_squared() > radius*radius`** — returns `false` correctly, but the `t = clampf(-local0.dot(d) / len_sq, 0, 1)` is guarded. However, `swept_hits_moving_circle` (line 73) has same pattern with `d = shortest_delta(p0,p1) - shortest_delta(c0,c1)`. If both deltas are identical (ship and torpedo moving in perfect lockstep), `len_sq ≈ 0` and the point test uses `local0` (initial separation). **Correctly guarded.** |
+| `collision_system.gd:27` `segment_hits_circle` | **Division by zero guarded** (`len_sq < 1e-6` → point test). **OK.** |
+| `spawn_system.gd:48` `place_in_orbit` | **`speed = sqrt(config.gravity_constant * m / r)`** — `r` clamped to `≥ primary.radius * 3 + 200` and `≤ arena_size * 0.425`. `m > 0` checked. **No div/0.** |
+| `spawn_system.gd:80` `_spawn_clearance` | Returns `INF` if no hazards; `best` initialized to `INF`. Caller compares `clearance >= 0.0`. **OK.** |
+| `sim_world.gd:114` `step_ship_kinematics` | `clamp_ship_velocity` uses `length_squared()` > `max^2` → `limit_length()`. **No sqrt(0) issue.** |
+| `torus.gd:27` `wrap_point` | `fposmod` handles negative correctly. `size <= 0` returns early. **OK.** |
+
+**Unseeded RNG:** `SimWorld.rng` seeded once in `_init` from `config.seed`. All systems use `world.rng`. **Deterministic.**
+
+**Toroidal tunneling:** `TorusMath.swept_hits_*` uses shortest-delta in local space — correctly handles seam crossings. However, **fast torpedoes (> arena_size/2 per tick) can tunnel** because `shortest_delta(p0,p1)` picks the shorter wrap path, potentially missing the actual swept volume if the projectile crosses > half the arena in one step. At 60Hz with default `torpedo_speed`, this is unlikely but **theoretically possible** with high `config.torpedo_speed` or low `config.arena_size`.
+
+**Infinite loops:** None found. `place_in_orbit` caps at 12 attempts with fallback. `break_rock` removes body immediately.
+
+**Verdict:** **No division-by-zero or NaN/Inf propagation defects found.** Toroidal tunneling edge case exists but requires extreme config.
+
+---
+
+### 2. Netcode & Packet Security
+
+**Critical Findings:**
+
+| Location | Issue | Severity |
+|----------|-------|----------|
+| `net_host.gd:238` `_on_hello` | **`_peer_addr(peer)` calls `_t.peer_address(peer)`** — on relay transport, this returns `""` (empty string). `_skip_ip_limits("")` returns `true`, so **relay peers bypass per-IP limits entirely**. Intentional per comment, but means a single relay connection can spawn unlimited peers if relay doesn't enforce. |
+| `net_host.gd:197` `_on_packet` | **`per_peer` flood cap resets every `update()` call** (once per sim tick). At 60Hz, `MAX_PACKETS_PER_PUMP_PER_PEER = 8` → 480 packets/sec/peer. **Acceptable.** |
+| `net_protocol.gd:118` `unpack` | **`bytes_to_var` on untrusted data** — but `max_bytes=4096` enforced first, and result validated as `[int, Dictionary]`. **No object deserialization** (uses `bytes_to_var`, not `bytes_to_var_with_objects`). **Safe.** |
+| `net_host.gd:272` `_on_hello` | **`reclaim_names` logic**: if enabled, a joining player with same sanitized name as existing player **kicks the old peer and inherits their `sid`**. The old peer's `_inputs`/`_acked` cleared. **But**: the new peer gets the old `sid` (`keep_sid`), and a **new bot is created for the `sid` the new peer originally grabbed** (`session.bots[sid] = BotController...`). This **orphan bot** persists until match restart. **Memory leak over many reclaims.** |
+| `net_host.gd:308` `_drop_peer` | Creates new `BotController` for dropped ship. **Old `BotController` not freed** — Godot GC handles `RefCounted`, but if `BotController` holds resources, leak possible. |
+| `net_protocol.gd:218` `apply_snapshot` | **`world.removed_body_ids.append(int(rid))`** — if snapshot contains duplicate `rb` entries (malicious host or replay corruption), array grows unbounded. **No dedup on receipt.** |
+| `net_host.gd:220` `_on_input` | **`MAX_INPUT_SEQ_GAP = 1024`** — sequence `q` is `int` (32-bit signed). Client increments per tick. At 60Hz, wraps in ~10 hours. **Gap check**: `if last < 0 or (q >= last and q - last <= 1024) or (last - q > 1024)`. **Wrap-around bug**: if `last = 2^31-1` and `q = -2^31` (wrapped), `q >= last` is false, `last - q ≈ 2^32 > 1024` → **accepted as "reset"**, `_acked = q` (negative). Next legitimate `q=0` → `q >= last` (0 >= -2^31) true, `q - last ≈ 2^31 > 1024` → **rejected**. **Ship permanently loses input processing.** |
+
+**Sequence Exhaustion:** `q` is 32-bit signed. No server-side wrap handling. **Real defect for matches > ~10 hours.**
+
+**Dictionary Growth:** `_last_hello_tick` keyed by IP — never cleaned. On dedicated server running weeks, **unbounded growth** from IPs that connected once. Same for `_ban_addrs` (address bans not persisted, but accumulate in memory).
+
+**Verdict:** **Sequence wrap-around breaks input processing after ~10 hours. Relay bypasses per-IP limits by design. `removed_body_ids` unbounded on malicious snapshot. `reclaim_names` leaks bot instances. `_last_hello_tick` unbounded memory growth.**
+
+---
+
+### 3. Bot AI & Behavior Trees
+
+**Critical Findings:**
+
+| Location | Issue | Severity |
+|----------|-------|----------|
+| `bot_behaviors.gd:105` `LeadAimRange.decide` | **`bot._lead_angle(ship, target)`** — not shown in provided code (in `BotController`). If it uses non-toroidal delta, **lead aim fails across wrap**. `TorusMath.shortest_delta` used for `rel` but `_lead_angle` implementation unknown. |
+| `bot_behaviors.gd:48` `HazardDodge.decide` | **`bot._imminent_hazard(ship)` / `_imminent_mine(ship)`** — not in provided code. If they return null incorrectly, dodge never triggers. |
+| `bot_behaviors.gd:78` `Patrol.decide` | **`chase` roll consumes RNG only when `target != null`** — correct for determinism. But `bot._rng` — where initialized? If `BotController` shares `world.rng`, **RNG consumption order depends on bot evaluation order** (ships array order). **Deterministic but fragile** — adding/removing bots changes RNG stream for all subsequent bots. |
+| `bot_behaviors.gd:65` `Fear.decide` | **`flee_r := lerpf(1500.0, 0.0, float(ctx["aggr"]))`** — `aggr` from `ctx` (not shown). If `aggr > 1`, `flee_r` negative → `dist_t < flee_r` always false. **Clamp missing.** |
+| `bot_behaviors.gd:90` `Logistics.decide` | **`bot._wanted_pickup(ship)`** — not shown. If returns pickup that's already collected, bot chases ghost. |
+| `bot_behaviors.gd:115` `LeadAimRange` | **`bot._sling > 0.0 and dist > bot._preferred_range * 1.7`** — slingshot logic. If `ctx["primary"]` null (no star), `away` vector uses `star_pos` (ZERO). **Bot thrusts toward (0,0) incorrectly.** |
+
+**Difficulty Scaling:** `BotController.Difficulty` enum (0-3). `HazardDodge` only for `VETERAN+`. `Fear` uses `aggr` (aggression) scaled by difficulty. **No edge-case game breaks found in provided code**, but `BotController` not fully visible.
+
+**Null/Dead Targets:** `Patrol` and `LeadAimRange` check `target != null`. `Fear` checks. **Guarded.**
+
+**Infinite Loops:** None in behavior cascade — each returns `true`/`false`, cascade evaluates once per tick.
+
+**Verdict:** **Lead aim across toroidal wrap unverified (depends on `BotController._lead_angle`). RNG consumption order coupled to ship array order — deterministic but fragile to bot add/remove. `aggr` unclamped in `Fear`. `Logistics` and `HazardDodge` depend on unseen helpers.**
+
+---
+
+### 4. Dedicated Server, Moderation & Persistence
+
+**Critical Findings:**
+
+| Location | Issue | Severity |
+|----------|-------|----------|
+| `dedicated_main.gd:180` `_persist_bans` | **`FileAccess.open(banfile, FileAccess.WRITE)`** — **no atomic write**. If process crashes mid-write, **banfile corrupted/truncated**. No temp-file + rename. |
+| `dedicated_main.gd:160` `_seed_bans` | **`FileAccess.open(banfile, FileAccess.READ)`** — if file missing, logs error but continues. **OK.** |
+| `dedicated_main.gd:200` `_console_loop` | **`OS.read_string_from_stdin(1024)`** — blocks indefinitely. Thread never exits cleanly on server shutdown (no `Thread.wait_to_finish` in `close`). **Thread leak on exit.** |
+| `dedicated_main.gd:230` `_run_command` | **`parts = line.split(" ", false, 1)`** — `maxsplit=1` but `split` signature is `split(delimiter, allow_empty, maxsplit)`. **Third arg is `maxsplit`** — correct. But `parts[1]` accessed without bounds check if `parts.size() == 1` — **guard exists** (`if parts.size() > 1 else ""`). **OK.** |
+| `dedicated_main.gd:245` `kick`/`ban` | **`host.kick_name(arg, true)`** → calls `_persist_bans()` → writes banfile. **No locking** between console thread and main thread if banfile written concurrently with read (only at boot). **Low risk.** |
+| `dedicated_main.gd:100` `_tick` | **`OS.delay_msec(4)`** — busy loop with 4ms sleep. At 60Hz fixed step (16.6ms), **accumulator runs ~4 steps per frame**. **Correct.** But `wall` clamped to 0.25s — if hitch > 250ms, time lost. **Acceptable.** |
+| `dedicated_main.gd:130` `_maybe_start_recording` | **`session.recorder = Replay.begin(session)`** — `Replay` not in provided files. **Unknown if recorder leaks on restart.** |
+| `net_host.gd:330` `aim` | **`AimAnalyzer` tracks per-ship `Track` objects** — `_tracks` dict never cleared except `reset()` (on match rebuild) and `forget(sid)` (on disconnect). **If `forget` not called, leak.** `_drop_peer` calls `aim.forget(sid)`. **OK.** |
+
+**Command Injection:** Console parses `kick <name>`, `ban <name>` — name passed to `host.kick_name` → `NetProtocol.filter_name` → sanitized. **No shell injection.**
+
+**Concurrent Banfile Writes:** Only console thread writes. Main thread reads only at boot. **No concurrent R/W.**
+
+**Memory Leaks:** `_tracks` in `AimAnalyzer` cleared on `reset()` (match rebuild) and `forget()` (disconnect). **OK.** `_last_hello_tick` in `NetHost` **never cleared** — unbounded growth.
+
+**Verdict:** **Banfile write not atomic (corruption risk on crash). Console thread not joined on exit. `_last_hello_tick` unbounded memory leak. Recorder lifecycle unverified.**
+
+---
+
+### 5. Dead Code, Missing Guards & Fragile Constructs
+
+**Critical Findings:**
+
+| Location | Issue |
+|----------|-------|
+| `sim_world.gd:147` `step_ship_kinematics` | **Duplicate of `SpawnSystem.step_ship` logic** (turn, thrust, gravity, wrap). **Divergence risk** — if `SpawnSystem.step_ship` changes, prediction desyncs. |
+| `collision_system.gd:112` `bounce` | **`overlap := (a.radius + b.radius) - TorusMath.distance(...)`** — if `distance` returns `NaN` (impossible here), `overlap` NaN. **But**: `TorusMath.distance` uses `sqrt(distance_squared)` — `distance_squared` always ≥ 0. **OK.** |
+| `spawn_system.gd:135` `fire_torpedo` | **`t.pos = s.pos + fwd * (s.radius + t.radius + 2.0)`** — spawns torpedo **outside ship radius**. If ship inside asteroid, torpedo spawns inside asteroid → immediate collision? `CollisionSystem` checks `t_prev` to `t.pos` — `t_prev = t.pos - t.vel * dt`. At `dt=1/60`, `t.vel` large → `t_prev` far back. **May miss collision with body ship is touching.** |
+| `net_protocol.gd:218` `apply_snapshot` | **`world.torpedoes.clear()` then rebuilds from snapshot** — **torpedo `life` reset to `config.torpedo_life`** (line 230), not snapshot value. Snapshot doesn't include `life`. **Desync if `torpedo_life > 0`** — client torpedoes live longer/shorter than host. |
+| `net_host.gd:165` `_broadcast_snapshot` | **`_event_accum = _event_accum.slice(maxi(0, _event_accum.size() - 64))`** — bounds backlog. But `_ev_tick` logic: `if int(ev.get("tk", -1)) < _ev_tick: continue`. Events have `tk = world.tick` **before** `world.tick++` in `step()`. `_ev_tick` set to `world.tick` **after** loop. **Events from current tick have `tk == _ev_tick` (old value) → forwarded. Next tick: `tk == _ev_tick` (now equal) → skipped.** **Correct.** But if multiple steps per `update()` (fast replay), `_ev_tick` only updated once → **events from intermediate steps all have same `tk` → all forwarded or all skipped depending on timing.** |
+| `sim_world.gd:68` `step` | **`events` accumulate across steps** (comment: "Events ACCUMULATE... when driver runs several steps per consumer pass"). Cap at 512 → slice to 256. **But**: `NetHost._broadcast_snapshot` reads `session.world.events` and filters by `tk`. If 3 steps between snapshots, events from all 3 have different `tk` → all forwarded. **OK.** |
+| `net_protocol.gd:55` `filter_name` | **Allows space, dash, underscore**. `sanitize_name` returns `"PILOT"` if empty. **But**: `welcome_of` sends `String(session.ship_names.get(sid, ""))` — if name `"PILOT"` (default), sent as `"PILOT"`. **OK.** |
+| `dedicated_main.gd:55` `start_skirmish` | **`session.start_skirmish(ships, mode, diff)`** — not in provided code. **Unknown if it validates `ships` 2-16.** Clamped at arg parse. **OK.** |
+| `collision_system.gd:55` `resolve` | **`broken_rocks` array** — `if not broken_rocks.has(b): broken_rocks.append(b)`. **O(N²)** for many asteroids hit by same torpedo. Max asteroids ~12 (config). **Acceptable.** |
+| `sim_world.gd:38` `primary_body` | **O(N) scan every call**. Called in `GravitySystem.accel` (per entity), `SpawnSystem.place_in_orbit`, `BotBehaviors`. **Cache in `SimWorld`** — invalidated on body add/remove. **Performance, not correctness.** |
+
+**Fragile Constructs:**
+- **RNG consumption order** tied to `ships` array iteration order (spawn, step, AI). Adding/removing ships mid-match changes RNG stream for all subsequent entities. **Deterministic but fragile.**
+- **`SimWorld.step` order is determinism-critical** — comment warns not to reorder. **No test enforces this.**
+- **`NetProtocol.VERSION = 8`** — strict equality. **Any schema change breaks compat.** No migration path.
+
+---
+
+## Summary Verdict
+
+| Category | Status | Blockers for Release |
+|----------|--------|----------------------|
+| **Sim Determinism** | ✅ Clean | None |
+| **Netcode Security** | ⚠️ **Defects** | Sequence wrap-after-10h breaks input; `removed_body_ids` unbounded; `_last_hello_tick` leak; `reclaim_names` bot leak |
+| **Bot AI** | ⚠️ **Unverified** | Lead aim across wrap depends on unseen `BotController._lead_angle`; RNG order fragile |
+| **Dedicated Server** | ⚠️ **Defects** | Banfile non-atomic write; console thread leak; `_last_hello_tick` leak |
+| **Fragile Constructs** | ⚠️ **Multiple** | Duplicate kinematics code; torpedo `life` not snapshotted; RNG order coupling |
+
+**Recommendation:** **Do not ship v5.0.0 without fixes for:**
+1. Input sequence wrap handling (use 64-bit or modulo arithmetic)
+2. Atomic banfile write (temp + rename)
+3. Torpedo `life` in snapshot
+4. `_last_hello_tick` cleanup (periodic sweep)
+5. Console thread join on shutdown
+6. Verify `BotController._lead_angle` uses toroidal delta
