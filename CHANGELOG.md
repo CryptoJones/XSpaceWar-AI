@@ -2,6 +2,12 @@
 
 All notable changes to **XSpaceWar-AI**.
 
+## [5.0.2] — 2026-10-01
+
+### Changed
+- Rebuilt and re-signed with the new Apple Developer ID (G2 Sub-CA) certificate;
+  no gameplay changes.
+
 ## [5.0.0] — 2026-08-02
 
 ### Changed
